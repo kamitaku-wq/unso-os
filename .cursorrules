@@ -1,0 +1,53 @@
+# Cursor Rules — unso-os
+
+## プロジェクト概要
+運送業向け業務システム（Next.js + Supabase + TypeScript + shadcn/ui）。
+旧 GAS プロジェクトの後継。マルチテナント SaaS 構成。
+
+## 旧プロジェクト参照先
+- スキーマ定義: C:/Users/kamit/FUNCTION_cursor/Schema.js
+- 設計引き継ぎ書: C:/Users/kamit/FUNCTION_cursor/docs/next_architecture.md
+- 業種設定: C:/Users/kamit/FUNCTION_cursor/Config.js
+
+## 技術スタック
+- Next.js 14+ App Router / TypeScript strict
+- Tailwind CSS + shadcn/ui（UI は shadcn/ui を優先）
+- Supabase（PostgreSQL + Auth + RLS）
+- Vercel（ホスティング）
+
+## コーディングルール
+- 言語は TypeScript。`any` 型は使わない
+- コンポーネントはデフォルト React Server Components。クライアント操作が必要な場合のみ `'use client'` を付ける
+- スタイルは Tailwind クラスで記述。インラインスタイルは使わない
+- shadcn/ui のコンポーネントが使えるときは積極的に使う
+- DB アクセスは Supabase JS クライアント経由（`lib/supabase/`）
+- API は `app/api/*/route.ts` の Route Handler で実装
+- エラーは try-catch で必ず捕まえ、ユーザーにわかる日本語メッセージを返す
+- 関数の先頭コメントは日本語で「何をする関数か」を1行で書く
+
+## ロール
+- DRIVER: 自分のデータのみ操作可
+- ADMIN: 承認・マスタ管理・レポート閲覧可
+- OWNER: 全権限 + ダッシュボード
+
+## マルチテナント
+- 全テーブルに company_id を持つ
+- Row Level Security (RLS) で company_id ごとにデータを分離
+- ユーザーの company_id は employees テーブルの google_email から引く
+
+## Cursor が担当する作業
+- React コンポーネント（.tsx）の実装・修正
+- shadcn/ui を使った UI 組み立て
+- Tailwind スタイリング
+- 単一ファイルへの機能追加
+
+## Cursor が担当しない作業（Claude Code へ）
+- DB スキーマ・マイグレーション SQL の新規作成
+- RLS ポリシー設計
+- 複数ファイルをまたぐ大きな設計変更
+- 認証・権限設計
+
+## 回答スタイル
+- 専門用語は（）で平易に説明する
+- 「何をしたか」「何が変わったか」「次に何をすべきか」の3点を伝える
+- 長い解説は不要。動作に影響する部分だけ簡潔に
