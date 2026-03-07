@@ -80,6 +80,17 @@ export function SetupForm() {
           <p className="text-sm text-muted-foreground">
             最初の会社情報と、最初の OWNER（経営者）情報を登録します。
           </p>
+          <div className="grid gap-2 rounded-xl border bg-muted/20 p-4 text-sm sm:grid-cols-3">
+            <div className="rounded-lg bg-background px-3 py-2">
+              <span className="font-semibold">1.</span> 会社名
+            </div>
+            <div className="rounded-lg bg-background px-3 py-2">
+              <span className="font-semibold">2.</span> あなたの名前
+            </div>
+            <div className="rounded-lg bg-background px-3 py-2">
+              <span className="font-semibold">3.</span> 完了
+            </div>
+          </div>
         </div>
 
         <Card>

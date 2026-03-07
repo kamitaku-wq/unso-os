@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation"
+import { Clock } from "lucide-react"
 
+import { LogoutButton } from "@/components/logout-button"
 import {
   Card,
   CardContent,
@@ -60,10 +62,17 @@ export default async function PendingPage() {
   return (
     <main className="min-h-[calc(100vh-80px)] px-4 py-8 md:px-6">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-        <div className="space-y-2">
+        <div className="flex justify-end">
+          <LogoutButton variant="ghost" className="text-muted-foreground" />
+        </div>
+
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="flex size-20 items-center justify-center rounded-full bg-primary/10">
+            <Clock className="size-10 text-primary" />
+          </div>
           <h1 className="text-3xl font-semibold tracking-tight">承認待ち</h1>
-          <p className="text-sm text-muted-foreground">
-            社員申請は送信済みです。管理者の確認が完了するまでお待ちください。
+          <p className="max-w-xl text-sm text-muted-foreground">
+            管理者が承認するまでしばらくお待ちください。承認が完了すると、ログイン後に業務画面へ進めるようになります。
           </p>
         </div>
 

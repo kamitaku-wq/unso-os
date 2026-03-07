@@ -38,6 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { formatCurrency } from "@/lib/format"
 
 type ApiError = {
   error?: string
@@ -128,14 +129,6 @@ async function requestJson<T>(
   }
 
   return data as T
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("ja-JP", {
-    style: "currency",
-    currency: "JPY",
-    maximumFractionDigits: 0,
-  }).format(value)
 }
 
 function formatDateLabel(value: string) {

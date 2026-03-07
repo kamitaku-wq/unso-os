@@ -1,6 +1,8 @@
 'use client'
 
 // ログインページ：Google アカウントでサインインする
+import { Truck } from "lucide-react"
+
 import { createClient } from '@/lib/supabase/browser'
 
 export default function LoginPage() {
@@ -16,13 +18,23 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white rounded-2xl shadow-md p-10 flex flex-col items-center gap-6 w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-gray-800">運送OS</h1>
-        <p className="text-sm text-gray-500">Google アカウントでログインしてください</p>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-muted/40 via-background to-muted/20 px-4">
+      <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-3xl border bg-background/95 p-10 text-center shadow-2xl">
+        <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10">
+          <Truck className="size-8 text-primary" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">運送OS</h1>
+          <p className="text-base font-medium text-foreground">
+            現場の記録を、経営の力に。
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Google アカウントでログインしてください
+          </p>
+        </div>
         <button
           onClick={handleGoogleLogin}
-          className="flex items-center gap-3 w-full justify-center border border-gray-300 rounded-lg px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+          className="flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium text-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:bg-accent"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>

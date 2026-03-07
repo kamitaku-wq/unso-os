@@ -41,6 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { formatCurrency } from "@/lib/format"
 
 type ApiError = {
   error?: string
@@ -151,17 +152,6 @@ function formatDateTime(value: string | null) {
   if (Number.isNaN(parsed.getTime())) return value
 
   return parsed.toLocaleString("ja-JP")
-}
-
-// 金額を画面表示向けに整える
-function formatCurrency(value: number | null) {
-  if (value == null) return "-"
-
-  return new Intl.NumberFormat("ja-JP", {
-    style: "currency",
-    currency: "JPY",
-    maximumFractionDigits: 0,
-  }).format(value)
 }
 
 // 経費ステータスを日本語表示に変換する

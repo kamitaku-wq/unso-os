@@ -73,6 +73,8 @@ export function AppShell({
   const navigationItems = useMemo(() => getNavigationItems(role), [role])
   const showNavigation =
     !pathname.startsWith("/auth") && pathname !== "/login"
+  const showHeaderSignOut = pathname !== "/pending"
+  const showRegisterLink = !role && pathname !== "/register" && pathname !== "/pending"
 
   async function handleSignOut() {
     setIsSigningOut(true)
@@ -103,7 +105,7 @@ export function AppShell({
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 {employeeName ? <span>{employeeName}</span> : null}
                 {role ? <Badge variant="secondary">{ROLE_LABELS[role]}</Badge> : null}
-                {!role && pathname !== "/register" ? (
+                {showRegisterLink ? (
                   <Link href="/register" className="text-primary underline-offset-4 hover:underline">
                     社員申請へ
                   </Link>
@@ -111,7 +113,7 @@ export function AppShell({
               </div>
             </div>
 
-            {userEmail ? (
+            {userEmail && showHeaderSignOut ? (
               <Button
                 type="button"
                 variant="outline"

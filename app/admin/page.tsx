@@ -52,6 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { formatCurrency } from "@/lib/format"
 
 type Customer = {
   cust_id: string
@@ -253,17 +254,6 @@ function formatDateTime(value: string | null) {
 function formatNumber(value: number | null, options?: Intl.NumberFormatOptions) {
   if (value == null) return "-"
   return new Intl.NumberFormat("ja-JP", options).format(value)
-}
-
-// 金額を画面表示用に整える
-function formatCurrency(value: number | null) {
-  if (value == null) return "-"
-
-  return new Intl.NumberFormat("ja-JP", {
-    style: "currency",
-    currency: "JPY",
-    maximumFractionDigits: 0,
-  }).format(value)
 }
 
 // 実績ステータスを日本語表示に変換する

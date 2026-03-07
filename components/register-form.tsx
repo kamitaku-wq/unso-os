@@ -91,13 +91,16 @@ export function RegisterForm() {
           <p className="text-sm text-muted-foreground">
             ログイン後にまだ社員登録がない場合は、ここから所属申請を送信します。
           </p>
+          <div className="rounded-lg border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+            会社名または `company_id` は、管理者から共有された情報を入力してください。分からない場合は、先に管理者へ確認してください。
+          </div>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>申請内容</CardTitle>
             <CardDescription>
-              参加先の company_id、氏名、希望ロールを入力して送信してください。
+              参加先の `company_id`、氏名、希望ロールを入力して送信してください。
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -111,6 +114,9 @@ export function RegisterForm() {
                   disabled={isSubmitting}
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  例: 管理者から案内された会社コードまたは会社ID
+                </p>
               </div>
 
               <div className="space-y-2">

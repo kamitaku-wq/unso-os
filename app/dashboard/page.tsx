@@ -24,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { formatCurrency } from "@/lib/format"
 
 type PendingCounts = {
   billables: number
@@ -73,14 +74,6 @@ function getErrorMessage(data: unknown, fallback: string) {
   }
 
   return fallback
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("ja-JP", {
-    style: "currency",
-    currency: "JPY",
-    maximumFractionDigits: 0,
-  }).format(value)
 }
 
 function formatMonthLabel(ym: string) {

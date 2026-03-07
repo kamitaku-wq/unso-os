@@ -32,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { formatCurrency } from "@/lib/format"
 
 type Customer = {
   cust_id: string
@@ -147,17 +148,6 @@ function formatDate(value: string | null) {
   if (Number.isNaN(parsed.getTime())) return value
 
   return parsed.toLocaleDateString("ja-JP")
-}
-
-// 金額を画面表示用に整える
-function formatCurrency(value: number | null) {
-  if (value == null) return "-"
-
-  return new Intl.NumberFormat("ja-JP", {
-    style: "currency",
-    currency: "JPY",
-    maximumFractionDigits: 0,
-  }).format(value)
 }
 
 // 実績ステータスを日本語表示に変換する
