@@ -1,9 +1,9 @@
-// 認証セッションをリフレッシュするミドルウェア
+// 認証セッションをリフレッシュする Proxy
 // 全ルートで Supabase のセッションが最新状態に保たれる
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -26,7 +26,9 @@ export async function middleware(request: NextRequest) {
   )
 
   // セッションリフレッシュ（必須）
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   // 未ログインユーザーを /login にリダイレクト（/login と /auth は除外）
   if (
