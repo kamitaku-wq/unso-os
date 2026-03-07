@@ -87,6 +87,51 @@ export async function deleteRoute(id: string) {
   if (error) throw new Error(error.message)
 }
 
+// --- 経費区分 ---
+
+export async function getExpenseCategories() {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('expense_categories')
+    .select('id, category_id, name, is_active, note')
+    .eq('is_active', true)
+    .order('category_id')
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+export async function createExpenseCategory(input: { category_id: string; name: string; note?: string }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未認証')
+
+  const { data: employee } = await supabase
+    .from('employees')
+    .select('company_id')
+    .eq('google_email', user.email!)
+    .single()
+  if (!employee) throw new Error('社員情報が見つかりません')
+
+  const { error } = await supabase.from('expense_categories').insert({
+    company_id: employee.company_id,
+    is_active: true,
+    ...input,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function updateExpenseCategory(id: string, input: { category_id?: string; name?: string; is_active?: boolean; note?: string }) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('expense_categories').update(input).eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteExpenseCategory(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('expense_categories').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 // --- 車両 ---
 
 export async function getVehicles() {
