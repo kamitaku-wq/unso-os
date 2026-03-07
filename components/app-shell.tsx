@@ -29,12 +29,18 @@ function getNavigationItems(role: Role | null): NavigationItem[] {
   ]
 
   if (role === "ADMIN") {
-    return [...commonItems, { href: "/admin", label: "管理" }, { href: "/master", label: "マスタ" }]
+    return [
+      ...commonItems,
+      { href: "/invoice", label: "請求書" },
+      { href: "/admin", label: "管理" },
+      { href: "/master", label: "マスタ" },
+    ]
   }
 
   if (role === "OWNER") {
     return [
       ...commonItems,
+      { href: "/invoice", label: "請求書" },
       { href: "/admin", label: "管理" },
       { href: "/master", label: "マスタ" },
       { href: "/dashboard", label: "ダッシュボード" },

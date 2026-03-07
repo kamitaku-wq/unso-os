@@ -11,6 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Table,
   TableBody,
@@ -70,6 +72,16 @@ function formatDate(value: string | null) {
   return parsed.toLocaleDateString("ja-JP")
 }
 
+function formatMonthInputValue(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, "0")
+  return `${year}-${month}`
+}
+
+function toYmValue(value: string) {
+  return value.replace("-", "")
+}
+
 function formatDateTime(value: string | null) {
   if (!value) return "-"
 
@@ -106,6 +118,7 @@ export default function AdminAttendancesPage() {
   const [actionMessage, setActionMessage] = useState("")
   const [hasNoPermission, setHasNoPermission] = useState(false)
   const [processingKey, setProcessingKey] = useState("")
+  const [exportMonth, setExportMonth] = useState(() => formatMonthInputValue(new Date()))
 
   const loadAttendances = useCallback(async (filter: AttendanceStatus) => {
     setIsLoading(true)
@@ -235,6 +248,14 @@ export default function AdminAttendancesPage() {
     [loadAttendances, statusFilter]
   )
 
+  const handleCsvDownload = useCallback(() => {
+    const params = new URLSearchParams()
+
+    if (exportMonth) params.set("ym", toYmValue(exportMonth))
+
+    window.location.href = `/api/export/attendances?${params.toString()}`
+  }, [exportMonth])
+
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-8 md:px-6">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
@@ -274,18 +295,40 @@ export default function AdminAttendancesPage() {
                   初期表示は承認待ちです。必要に応じて表示対象を切り替えてください。
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-wrap gap-2">
-                {STATUS_OPTIONS.map((option) => (
+              <CardContent className="flex flex-col gap-4">
+                <div className="flex flex-wrap gap-2">
+                  {STATUS_OPTIONS.map((option) => (
+                    <Button
+                      key={option.value}
+                      type="button"
+                      variant={statusFilter === option.value ? "default" : "outline"}
+                      onClick={() => setStatusFilter(option.value)}
+                      disabled={isLoading}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                  <div className="w-full max-w-xs space-y-2">
+                    <Label htmlFor="attendance-export-month">年月</Label>
+                    <Input
+                      id="attendance-export-month"
+                      type="month"
+                      value={exportMonth}
+                      onChange={(event) => setExportMonth(event.target.value)}
+                    />
+                  </div>
+
                   <Button
-                    key={option.value}
-                    type="button"
-                    variant={statusFilter === option.value ? "default" : "outline"}
-                    onClick={() => setStatusFilter(option.value)}
-                    disabled={isLoading}
+                    variant="secondary"
+                    onClick={handleCsvDownload}
+                    disabled={!exportMonth}
                   >
-                    {option.label}
+                    CSV ダウンロード
                   </Button>
-                ))}
+                </div>
               </CardContent>
             </Card>
 

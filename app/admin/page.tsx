@@ -154,6 +154,26 @@ function formatDate(value: string | null) {
   return parsed.toLocaleDateString("ja-JP")
 }
 
+// date input 用に日付文字列を YYYY-MM-DD 形式へ整える
+function formatDateInputValue(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, "0")
+  const day = String(value.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+// month input 用に日付文字列を YYYY-MM 形式へ整える
+function formatMonthInputValue(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, "0")
+  return `${year}-${month}`
+}
+
+// month input の値を API 用の YYYYMM に変換する
+function toYmValue(value: string) {
+  return value.replace("-", "")
+}
+
 // 日時を画面表示用に整える
 function formatDateTime(value: string | null) {
   if (!value) return "-"
@@ -225,6 +245,7 @@ function getReasonActionLabel(action: ExpenseReasonAction | null) {
 }
 
 export default function AdminApprovalPage() {
+  const today = useMemo(() => new Date(), [])
   const [activeTab, setActiveTab] = useState<AdminTab>("billables")
   const [masters, setMasters] = useState<MasterResponse>({
     customers: [],
@@ -253,6 +274,13 @@ export default function AdminApprovalPage() {
   const [expenseReason, setExpenseReason] = useState("")
   const [expenseDialogError, setExpenseDialogError] = useState("")
   const [isExpenseReasonDialogOpen, setIsExpenseReasonDialogOpen] = useState(false)
+  const [billableExportFrom, setBillableExportFrom] = useState(() =>
+    formatDateInputValue(new Date(today.getFullYear(), today.getMonth(), 1))
+  )
+  const [billableExportTo, setBillableExportTo] = useState(() => formatDateInputValue(today))
+  const [expenseExportMonth, setExpenseExportMonth] = useState(() =>
+    formatMonthInputValue(today)
+  )
 
   const customerNameMap = useMemo(() => {
     return new Map(masters.customers.map((customer) => [customer.cust_id, customer.name]))
@@ -606,6 +634,25 @@ export default function AdminApprovalPage() {
     await runExpenseAction(selectedExpense, expenseReasonAction, { reason })
   }, [expenseReason, expenseReasonAction, runExpenseAction, selectedExpense])
 
+  // 運行実績 CSV を指定期間でダウンロードする
+  const handleBillableCsvDownload = useCallback(() => {
+    const params = new URLSearchParams()
+
+    if (billableExportFrom) params.set("from", billableExportFrom)
+    if (billableExportTo) params.set("to", billableExportTo)
+
+    window.location.href = `/api/export/billables?${params.toString()}`
+  }, [billableExportFrom, billableExportTo])
+
+  // 経費 CSV を指定年月でダウンロードする
+  const handleExpenseCsvDownload = useCallback(() => {
+    const params = new URLSearchParams()
+
+    if (expenseExportMonth) params.set("ym", toYmValue(expenseExportMonth))
+
+    window.location.href = `/api/export/expenses?${params.toString()}`
+  }, [expenseExportMonth])
+
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-8 md:px-6">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
@@ -712,12 +759,40 @@ export default function AdminApprovalPage() {
                         </Select>
                       </div>
 
+                      <div className="w-full max-w-xs space-y-2">
+                        <Label htmlFor="billable-export-from">期間 From</Label>
+                        <Input
+                          id="billable-export-from"
+                          type="date"
+                          value={billableExportFrom}
+                          onChange={(event) => setBillableExportFrom(event.target.value)}
+                        />
+                      </div>
+
+                      <div className="w-full max-w-xs space-y-2">
+                        <Label htmlFor="billable-export-to">期間 To</Label>
+                        <Input
+                          id="billable-export-to"
+                          type="date"
+                          value={billableExportTo}
+                          onChange={(event) => setBillableExportTo(event.target.value)}
+                        />
+                      </div>
+
                       <Button
                         variant="outline"
                         onClick={() => void loadBillables(billableStatusFilter)}
                         disabled={isBillableBusy}
                       >
                         再読み込み
+                      </Button>
+
+                      <Button
+                        variant="secondary"
+                        onClick={handleBillableCsvDownload}
+                        disabled={!billableExportFrom || !billableExportTo}
+                      >
+                        CSV ダウンロード
                       </Button>
                     </div>
                   </CardContent>
@@ -864,12 +939,30 @@ export default function AdminApprovalPage() {
                         </Select>
                       </div>
 
+                      <div className="w-full max-w-xs space-y-2">
+                        <Label htmlFor="expense-export-month">年月</Label>
+                        <Input
+                          id="expense-export-month"
+                          type="month"
+                          value={expenseExportMonth}
+                          onChange={(event) => setExpenseExportMonth(event.target.value)}
+                        />
+                      </div>
+
                       <Button
                         variant="outline"
                         onClick={() => void loadExpenses(expenseStatusFilter)}
                         disabled={isExpenseBusy}
                       >
                         再読み込み
+                      </Button>
+
+                      <Button
+                        variant="secondary"
+                        onClick={handleExpenseCsvDownload}
+                        disabled={!expenseExportMonth}
+                      >
+                        CSV ダウンロード
                       </Button>
                     </div>
                   </CardContent>
