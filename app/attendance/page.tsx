@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Clock } from "lucide-react"
 import { toast } from "sonner"
 
@@ -72,6 +72,13 @@ function createInitialAttendanceForm(): AttendanceForm {
   }
 }
 
+function syncDatePart(date: string, value: string) {
+  if (!date) return value
+
+  const timePart = value.includes("T") ? value.split("T")[1] : "00:00"
+  return `${date}T${timePart}`
+}
+
 function getErrorMessage(data: unknown, fallback: string) {
   if (
     typeof data === "object" &&
@@ -108,6 +115,14 @@ function formatMinutes(value: number | null) {
   return `${value} 分`
 }
 
+function formatWorkPreview(value: number | null) {
+  if (value == null) return "-"
+
+  const hours = Math.floor(value / 60)
+  const minutes = value % 60
+  return `${hours}時間 ${minutes}分`
+}
+
 function getStatusLabel(status: string) {
   if (status === "APPROVED") return "承認済み"
   if (status === "REJECTED") return "却下"
@@ -141,6 +156,27 @@ export default function AttendancePage() {
   const [busyKey, setBusyKey] = useState<string | null>(null)
 
   const isMutating = busyKey !== null
+
+  const previewWorkMinutes = useMemo(() => {
+    if (!form.clock_in || !form.clock_out) return null
+
+    const clockIn = new Date(form.clock_in)
+    const clockOut = new Date(form.clock_out)
+    const breakMinutes = Number(form.break_min || "0")
+
+    if (
+      Number.isNaN(clockIn.getTime()) ||
+      Number.isNaN(clockOut.getTime()) ||
+      Number.isNaN(breakMinutes)
+    ) {
+      return null
+    }
+
+    const totalMinutes = Math.floor((clockOut.getTime() - clockIn.getTime()) / 60000)
+    if (totalMinutes < 0) return null
+
+    return Math.max(0, totalMinutes - Math.max(0, breakMinutes))
+  }, [form.break_min, form.clock_in, form.clock_out])
 
   useEffect(() => {
     if (pageError) {
@@ -181,6 +217,15 @@ export default function AttendancePage() {
 
     void initialize()
   }, [loadAttendances])
+
+  const handleWorkDateChange = useCallback((value: string) => {
+    setForm((current) => ({
+      ...current,
+      work_date: value,
+      clock_in: syncDatePart(value, current.clock_in),
+      clock_out: syncDatePart(value, current.clock_out),
+    }))
+  }, [])
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -267,12 +312,7 @@ export default function AttendancePage() {
                     id="attendance-work-date"
                     type="date"
                     value={form.work_date}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        work_date: event.target.value,
-                      }))
-                    }
+                    onChange={(event) => handleWorkDateChange(event.target.value)}
                     disabled={isLoading || isMutating}
                     required
                   />
@@ -330,6 +370,19 @@ export default function AttendancePage() {
                     disabled={isLoading || isMutating}
                     required
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>勤務時間（計算値）</Label>
+                  <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
+                    {previewWorkMinutes != null ? (
+                      formatWorkPreview(previewWorkMinutes)
+                    ) : (
+                      <span className="text-muted-foreground">
+                        出勤・退勤・休憩を入力すると表示されます。日をまたぐ場合は退勤時刻の日付を手動で翌日にしてください。
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">

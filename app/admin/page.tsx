@@ -322,6 +322,9 @@ export default function AdminApprovalPage() {
   const [closingSummary, setClosingSummary] = useState<ClosingSummary | null>(null)
   const [billableStatusFilter, setBillableStatusFilter] =
     useState<BillableStatusFilter>(INITIAL_BILLABLE_FILTER)
+  const [billableEmpIdFilter, setBillableEmpIdFilter] = useState("")
+  const [billableRunDateFrom, setBillableRunDateFrom] = useState("")
+  const [billableRunDateTo, setBillableRunDateTo] = useState("")
   const [expenseStatusFilter, setExpenseStatusFilter] =
     useState<ExpenseStatusFilter>(INITIAL_EXPENSE_FILTER)
   const [isMasterLoading, setIsMasterLoading] = useState(true)
@@ -369,6 +372,22 @@ export default function AdminApprovalPage() {
       })
     )
   }, [customerNameMap, masters.routes])
+
+  const filteredBillables = useMemo(() => {
+    return billables.filter((billable) => {
+      const matchesEmpId = billableEmpIdFilter.trim()
+        ? (billable.emp_id ?? "")
+            .toLowerCase()
+            .includes(billableEmpIdFilter.trim().toLowerCase())
+        : true
+
+      const runDate = billable.run_date ?? ""
+      const matchesFrom = billableRunDateFrom ? runDate >= billableRunDateFrom : true
+      const matchesTo = billableRunDateTo ? runDate <= billableRunDateTo : true
+
+      return matchesEmpId && matchesFrom && matchesTo
+    })
+  }, [billableEmpIdFilter, billableRunDateFrom, billableRunDateTo, billables])
 
   const isBillableBusy = isMasterLoading || isBillableListLoading
   const isExpenseBusy = isExpenseListLoading
@@ -830,6 +849,14 @@ export default function AdminApprovalPage() {
     window.location.href = `/api/export/billables?${params.toString()}`
   }, [billableExportFrom, billableExportTo])
 
+  // 運行実績フィルタを初期値へ戻す
+  const resetBillableFilters = useCallback(() => {
+    setBillableStatusFilter(INITIAL_BILLABLE_FILTER)
+    setBillableEmpIdFilter("")
+    setBillableRunDateFrom("")
+    setBillableRunDateTo("")
+  }, [])
+
   // 経費 CSV を指定年月でダウンロードする
   const handleExpenseCsvDownload = useCallback(() => {
     const params = new URLSearchParams()
@@ -1096,6 +1123,39 @@ export default function AdminApprovalPage() {
                       </div>
 
                       <div className="w-full max-w-xs space-y-2">
+                        <Label htmlFor="billable-emp-id-filter">社員 ID</Label>
+                        <Input
+                          id="billable-emp-id-filter"
+                          value={billableEmpIdFilter}
+                          onChange={(event) => setBillableEmpIdFilter(event.target.value)}
+                          placeholder="部分一致で検索"
+                          disabled={isBillableBusy}
+                        />
+                      </div>
+
+                      <div className="w-full max-w-xs space-y-2">
+                        <Label htmlFor="billable-run-date-from">運行日 From</Label>
+                        <Input
+                          id="billable-run-date-from"
+                          type="date"
+                          value={billableRunDateFrom}
+                          onChange={(event) => setBillableRunDateFrom(event.target.value)}
+                          disabled={isBillableBusy}
+                        />
+                      </div>
+
+                      <div className="w-full max-w-xs space-y-2">
+                        <Label htmlFor="billable-run-date-to">運行日 To</Label>
+                        <Input
+                          id="billable-run-date-to"
+                          type="date"
+                          value={billableRunDateTo}
+                          onChange={(event) => setBillableRunDateTo(event.target.value)}
+                          disabled={isBillableBusy}
+                        />
+                      </div>
+
+                      <div className="w-full max-w-xs space-y-2">
                         <Label htmlFor="billable-export-from">期間 From</Label>
                         <Input
                           id="billable-export-from"
@@ -1124,6 +1184,14 @@ export default function AdminApprovalPage() {
                       </Button>
 
                       <Button
+                        variant="ghost"
+                        onClick={resetBillableFilters}
+                        disabled={isBillableBusy}
+                      >
+                        リセット
+                      </Button>
+
+                      <Button
                         variant="secondary"
                         onClick={handleBillableCsvDownload}
                         disabled={!billableExportFrom || !billableExportTo}
@@ -1142,10 +1210,14 @@ export default function AdminApprovalPage() {
                   <CardContent>
                     {isBillableBusy ? (
                       <TableSkeleton columns={10} rows={4} />
-                    ) : billables.length === 0 ? (
+                    ) : filteredBillables.length === 0 ? (
                       <EmptyState
                         icon={Truck}
-                        description="上のフォームから最初の運行実績を登録してください"
+                        description={
+                          billables.length === 0
+                            ? "上のフォームから最初の運行実績を登録してください"
+                            : "条件に合う運行実績がありません。フィルタを見直してください"
+                        }
                       />
                     ) : (
                       <div className="overflow-x-auto">
@@ -1165,7 +1237,7 @@ export default function AdminApprovalPage() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {billables.map((billable) => {
+                            {filteredBillables.map((billable) => {
                               const isReviewRequired =
                                 billable.status === "REVIEW_REQUIRED"
                               const isProcessing =

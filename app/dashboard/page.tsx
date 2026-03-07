@@ -178,23 +178,6 @@ function MonthlyAmountChart({
                 })}
               </svg>
             </div>
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>月</TableHead>
-                  <TableHead className="text-right">金額</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.ym}>
-                    <TableCell>{formatMonthLabel(row.ym)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(row.amount)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
           </div>
         )}
       </CardContent>
@@ -273,13 +256,28 @@ export default function DashboardPage() {
     return dashboard.monthlyExpenses.slice(-periodMonths)
   }, [dashboard.monthlyExpenses, periodMonths])
 
+  const monthlyComparisonRows = useMemo(() => {
+    return filteredMonthlySales.map((salesRow, index) => {
+      const expenseRow = filteredMonthlyExpenses[index]
+      const salesAmount = salesRow.amount
+      const expenseAmount = expenseRow?.amount ?? 0
+
+      return {
+        ym: salesRow.ym,
+        salesAmount,
+        expenseAmount,
+        estimatedProfit: salesAmount - expenseAmount,
+      }
+    })
+  }, [filteredMonthlyExpenses, filteredMonthlySales])
+
   const pendingCards = [
     {
       key: "billables",
       title: "運行実績",
       description: "承認管理へ移動",
       count: dashboard.pendingCounts.billables,
-      href: "/admin",
+      href: "/admin?tab=billables",
     },
     {
       key: "expenses",
@@ -365,30 +363,43 @@ export default function DashboardPage() {
 
             <section className="grid gap-4 md:grid-cols-3">
               {pendingCards.map((card) => (
-                <Card key={card.key}>
-                  <CardHeader className="gap-3">
-                    <div className="flex items-start justify-between gap-3">
+                <Link key={card.key} href={card.href} className="block">
+                  <Card
+                    className={[
+                      "h-full cursor-pointer transition-colors hover:border-primary/50",
+                      card.count > 0
+                        ? "border-orange-300 bg-orange-50 hover:bg-orange-100"
+                        : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/40",
+                    ].join(" ")}
+                  >
+                    <CardHeader className="gap-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <CardTitle>{card.title}</CardTitle>
+                          <CardDescription>{card.description}</CardDescription>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={
+                            card.count > 0
+                              ? "border-orange-400 bg-white text-orange-700"
+                              : "border-muted-foreground/30 bg-muted text-muted-foreground"
+                          }
+                        >
+                          {isLoading ? "..." : `${card.count} 件`}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex items-end justify-between gap-4">
                       <div>
-                        <CardTitle>{card.title}</CardTitle>
-                        <CardDescription>{card.description}</CardDescription>
+                        <div className="text-3xl font-semibold tracking-tight">
+                          {isLoading ? "--" : card.count}
+                        </div>
+                        <p className="text-sm text-muted-foreground">クリックして確認</p>
                       </div>
-                      <Badge variant={card.count > 0 ? "destructive" : "secondary"}>
-                        {isLoading ? "..." : `${card.count} 件`}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex items-end justify-between gap-4">
-                    <div>
-                      <div className="text-3xl font-semibold tracking-tight">
-                        {isLoading ? "--" : card.count}
-                      </div>
-                      <p className="text-sm text-muted-foreground">承認待ち</p>
-                    </div>
-                    <Button asChild variant="outline">
-                      <Link href={card.href}>確認する</Link>
-                    </Button>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
               ))}
             </section>
 
@@ -410,6 +421,50 @@ export default function DashboardPage() {
                 emptyDescription="上のフォームから最初の経費申請を登録してください"
               />
             </section>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>月別比較</CardTitle>
+                <CardDescription>
+                  売上、経費、利益概算（売上 - 経費）を同じ表で確認できます。
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {monthlyComparisonRows.length === 0 ? (
+                  <EmptyState
+                    icon={Receipt}
+                    description="上のフォームから最初の売上または経費データを登録してください"
+                  />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>月</TableHead>
+                        <TableHead className="text-right">売上</TableHead>
+                        <TableHead className="text-right">経費</TableHead>
+                        <TableHead className="text-right">利益概算</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {monthlyComparisonRows.map((row) => (
+                        <TableRow key={row.ym}>
+                          <TableCell>{formatMonthLabel(row.ym)}</TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(row.salesAmount)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(row.expenseAmount)}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(row.estimatedProfit)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>

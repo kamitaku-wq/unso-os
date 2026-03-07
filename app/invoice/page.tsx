@@ -62,6 +62,12 @@ type InvoiceSummary = {
 type InvoicePreviewResponse = {
   count: number
   total_amount: number
+  items: Array<{
+    billable_id: string
+    run_date: string | null
+    route_id: string | null
+    amount: number | null
+  }>
 }
 
 type InvoiceIssueResponse = {
@@ -173,6 +179,13 @@ export default function InvoicePage() {
   const selectedCustomer = useMemo(() => {
     return customers.find((customer) => customer.cust_id === selectedCustomerCode) ?? null
   }, [customers, selectedCustomerCode])
+
+  const isIssueDisabled =
+    isLoading ||
+    isPreviewLoading ||
+    isIssuing ||
+    customers.length === 0 ||
+    previewResult?.count === 0
 
   useEffect(() => {
     if (pageError) {
@@ -447,7 +460,7 @@ export default function InvoicePage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isLoading || isPreviewLoading || isIssuing || customers.length === 0}
+                  disabled={isIssueDisabled}
                 >
                   {isIssuing ? "発行中..." : "発行"}
                 </Button>
@@ -472,6 +485,35 @@ export default function InvoicePage() {
                       <div className="text-sm">{formatCurrency(previewResult.total_amount)}</div>
                     </div>
                   </div>
+
+                  {previewResult.count === 0 ? (
+                    <div className="mt-4 rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+                      対象の実績がありません
+                    </div>
+                  ) : (
+                    <div className="mt-4 overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>運行日</TableHead>
+                            <TableHead>ルート</TableHead>
+                            <TableHead className="text-right">金額</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {previewResult.items.map((item) => (
+                            <TableRow key={item.billable_id}>
+                              <TableCell>{formatDateLabel(item.run_date ?? "")}</TableCell>
+                              <TableCell>{item.route_id || "-"}</TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrency(Number(item.amount ?? 0))}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </form>

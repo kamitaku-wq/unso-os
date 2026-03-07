@@ -86,6 +86,8 @@ type FormState = {
   note: string
 }
 
+type BillableStatusFilter = "ALL" | "REVIEW_REQUIRED" | "APPROVED"
+
 const NO_ROUTE_VALUE = "__NO_ROUTE__"
 
 function getStartOfDayValue(runDate: string) {
@@ -173,6 +175,7 @@ export default function HomePageClient() {
   })
   const [billables, setBillables] = useState<Billable[]>([])
   const [form, setForm] = useState<FormState>(() => createInitialFormState())
+  const [statusFilter, setStatusFilter] = useState<BillableStatusFilter>("ALL")
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -199,6 +202,14 @@ export default function HomePageClient() {
 
     return masters.routes.filter((route) => route.cust_id === form.cust_id)
   }, [form.cust_id, masters.routes])
+
+  const filteredBillables = useMemo(() => {
+    if (statusFilter === "ALL") {
+      return billables
+    }
+
+    return billables.filter((billable) => billable.status === statusFilter)
+  }, [billables, statusFilter])
 
   // 自分の実績一覧を取得する
   const loadBillables = useCallback(async () => {
@@ -578,17 +589,53 @@ export default function HomePageClient() {
         <Card>
           <CardHeader>
             <CardTitle>自分の運行実績一覧</CardTitle>
-            <CardDescription>最新 50 件を表示しています。</CardDescription>
+            <CardDescription>
+              最新 50 件を表示しています。ステータスで絞り込めます。
+            </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant={statusFilter === "ALL" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("ALL")}
+                disabled={isLoading}
+              >
+                すべて
+              </Button>
+              <Button
+                type="button"
+                variant={statusFilter === "REVIEW_REQUIRED" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("REVIEW_REQUIRED")}
+                disabled={isLoading}
+              >
+                確認待ち
+              </Button>
+              <Button
+                type="button"
+                variant={statusFilter === "APPROVED" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("APPROVED")}
+                disabled={isLoading}
+              >
+                承認済み
+              </Button>
+            </div>
+
             {isLoading ? (
               <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
                 <TableSkeleton columns={10} rows={4} />
               </div>
-            ) : billables.length === 0 ? (
+            ) : filteredBillables.length === 0 ? (
               <EmptyState
                 icon={Truck}
-                description="上のフォームから最初の運行実績を登録してください"
+                description={
+                  billables.length === 0
+                    ? "上のフォームから最初の運行実績を登録してください"
+                    : "条件に合う運行実績がありません。フィルタを切り替えて確認してください"
+                }
               />
             ) : (
               <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
@@ -608,7 +655,7 @@ export default function HomePageClient() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {billables.map((billable) => (
+                    {filteredBillables.map((billable) => (
                       <TableRow key={billable.billable_id}>
                         <TableCell>{formatDate(billable.run_date)}</TableCell>
                         <TableCell>
