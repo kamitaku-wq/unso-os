@@ -12,6 +12,6 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code)
   }
 
-  // ログイン成功後はトップページへ
-  return NextResponse.redirect(`${origin}/`)
+  // ログイン成功後は状態判定ルートへ送る
+  return NextResponse.redirect(`${origin}/auth/post-login`)
 }

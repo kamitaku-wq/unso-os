@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 
+import { EmpRequestPanel } from "@/components/admin/emp-request-panel"
+import { EmployeeManagementPanel } from "@/components/admin/employee-management-panel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -54,7 +56,7 @@ type MasterResponse = {
   routes: Route[]
 }
 
-type AdminTab = "billables" | "expenses"
+type AdminTab = "billables" | "expenses" | "employees" | "empRequests"
 
 type BillableStatus = "REVIEW_REQUIRED" | "APPROVED" | "VOID"
 type BillableStatusFilter = "ALL" | BillableStatus
@@ -106,7 +108,10 @@ const INITIAL_EXPENSE_FILTER: ExpenseStatusFilter = "SUBMITTED"
 
 // クエリ文字列から初期タブを安全に決める
 function getAdminTabFromQuery(value: string | null): AdminTab {
-  return value === "expenses" ? "expenses" : "billables"
+  if (value === "expenses") return "expenses"
+  if (value === "employees") return "employees"
+  if (value === "empRequests") return "empRequests"
+  return "billables"
 }
 
 const BILLABLE_STATUS_OPTIONS: { value: BillableStatusFilter; label: string }[] = [
@@ -265,6 +270,8 @@ export default function AdminApprovalPage() {
 
   const isBillableBusy = isMasterLoading || isBillableListLoading
   const isExpenseBusy = isExpenseListLoading
+  const showCurrentTabPermissionError =
+    hasNoPermission && (activeTab === "billables" || activeTab === "expenses")
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -609,7 +616,7 @@ export default function AdminApprovalPage() {
           </p>
         </div>
 
-        {hasNoPermission ? (
+        {showCurrentTabPermissionError ? (
           <Card>
             <CardContent className="pt-6">
               <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -653,6 +660,20 @@ export default function AdminApprovalPage() {
                     onClick={() => setActiveTab("expenses")}
                   >
                     経費
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={activeTab === "employees" ? "default" : "outline"}
+                    onClick={() => setActiveTab("employees")}
+                  >
+                    社員一覧
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={activeTab === "empRequests" ? "default" : "outline"}
+                    onClick={() => setActiveTab("empRequests")}
+                  >
+                    社員申請
                   </Button>
                 </div>
               </CardHeader>
@@ -1008,6 +1029,10 @@ export default function AdminApprovalPage() {
                 </Card>
               </>
             ) : null}
+
+            {activeTab === "employees" ? <EmployeeManagementPanel /> : null}
+
+            {activeTab === "empRequests" ? <EmpRequestPanel /> : null}
           </>
         )}
       </div>

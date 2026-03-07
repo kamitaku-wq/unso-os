@@ -37,7 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-type MasterTab = "customers" | "routes" | "vehicles"
+type MasterTab = "customers" | "routes" | "expenseCategories" | "vehicles"
 
 type ApiError = {
   error?: string
@@ -56,6 +56,14 @@ type RouteMaster = {
   cust_id: string
   pickup_default: string | null
   drop_default: string | null
+}
+
+type ExpenseCategory = {
+  id: string
+  category_id: string
+  name: string
+  is_active: boolean
+  note: string | null
 }
 
 type Vehicle = {
@@ -82,6 +90,12 @@ type RouteForm = {
   drop_default: string
 }
 
+type ExpenseCategoryForm = {
+  category_id: string
+  name: string
+  note: string
+}
+
 type VehicleForm = {
   vehicle_id: string
   name: string
@@ -105,6 +119,12 @@ const initialRouteForm: RouteForm = {
   cust_id: "",
   pickup_default: "",
   drop_default: "",
+}
+
+const initialExpenseCategoryForm: ExpenseCategoryForm = {
+  category_id: "",
+  name: "",
+  note: "",
 }
 
 const initialVehicleForm: VehicleForm = {
@@ -169,17 +189,24 @@ export default function MasterPage() {
   const [activeTab, setActiveTab] = useState<MasterTab>("customers")
   const [customers, setCustomers] = useState<Customer[]>([])
   const [routes, setRoutes] = useState<RouteMaster[]>([])
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [customerForm, setCustomerForm] = useState<CustomerForm>(initialCustomerForm)
   const [routeForm, setRouteForm] = useState<RouteForm>(initialRouteForm)
+  const [expenseCategoryForm, setExpenseCategoryForm] = useState<ExpenseCategoryForm>(
+    initialExpenseCategoryForm
+  )
   const [vehicleForm, setVehicleForm] = useState<VehicleForm>(initialVehicleForm)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [editingRoute, setEditingRoute] = useState<RouteMaster | null>(null)
+  const [editingExpenseCategory, setEditingExpenseCategory] =
+    useState<ExpenseCategory | null>(null)
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null)
   const [pageError, setPageError] = useState("")
   const [submitMessage, setSubmitMessage] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [busyKey, setBusyKey] = useState<string | null>(null)
+  const [hasNoPermission, setHasNoPermission] = useState(false)
 
   const isMutating = busyKey !== null
 
@@ -193,7 +220,7 @@ export default function MasterPage() {
     setPageError("")
 
     try {
-      const [customerData, routeData, vehicleData] = await Promise.all([
+      const [customerData, routeData, expenseCategoryData, vehicleData] = await Promise.all([
         requestJson<Customer[]>(
           "/api/master/customers",
           undefined,
@@ -204,6 +231,11 @@ export default function MasterPage() {
           undefined,
           "ルート一覧の取得に失敗しました"
         ),
+        requestJson<ExpenseCategory[]>(
+          "/api/master/expense-categories",
+          undefined,
+          "経費区分一覧の取得に失敗しました"
+        ),
         requestJson<Vehicle[]>(
           "/api/master/vehicles",
           undefined,
@@ -213,11 +245,18 @@ export default function MasterPage() {
 
       setCustomers(customerData)
       setRoutes(routeData)
+      setExpenseCategories(expenseCategoryData)
       setVehicles(vehicleData)
+      setHasNoPermission(false)
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "マスタ一覧の取得に失敗しました"
-      setPageError(message)
+      if (message === "権限がありません") {
+        setHasNoPermission(true)
+        setPageError("")
+      } else {
+        setPageError(message)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -311,6 +350,44 @@ export default function MasterPage() {
       }
     },
     [refreshAfterMutation, routeForm]
+  )
+
+  // 経費区分新規登録を行う
+  const handleCreateExpenseCategory = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      setBusyKey("create-expense-category")
+      setPageError("")
+      setSubmitMessage("")
+
+      try {
+        await requestJson<{ ok: true }>(
+          "/api/master/expense-categories",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              category_id: expenseCategoryForm.category_id.trim(),
+              name: expenseCategoryForm.name.trim(),
+              note: normalizeOptionalValue(expenseCategoryForm.note),
+            }),
+          },
+          "経費区分の登録に失敗しました"
+        )
+
+        setExpenseCategoryForm(initialExpenseCategoryForm)
+        await refreshAfterMutation("経費区分を登録しました。")
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "経費区分の登録に失敗しました"
+        setPageError(message)
+      } finally {
+        setBusyKey(null)
+      }
+    },
+    [expenseCategoryForm, refreshAfterMutation]
   )
 
   // 車両新規登録を行う
@@ -437,6 +514,46 @@ export default function MasterPage() {
     [editingRoute, refreshAfterMutation]
   )
 
+  // 経費区分更新を行う
+  const handleUpdateExpenseCategory = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      if (!editingExpenseCategory) return
+
+      setBusyKey(`update-expense-category-${editingExpenseCategory.id}`)
+      setPageError("")
+      setSubmitMessage("")
+
+      try {
+        await requestJson<{ ok: true }>(
+          `/api/master/expense-categories/${editingExpenseCategory.id}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              category_id: editingExpenseCategory.category_id.trim(),
+              name: editingExpenseCategory.name.trim(),
+              note: normalizeOptionalValue(editingExpenseCategory.note ?? ""),
+            }),
+          },
+          "経費区分の更新に失敗しました"
+        )
+
+        setEditingExpenseCategory(null)
+        await refreshAfterMutation("経費区分を更新しました。")
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "経費区分の更新に失敗しました"
+        setPageError(message)
+      } finally {
+        setBusyKey(null)
+      }
+    },
+    [editingExpenseCategory, refreshAfterMutation]
+  )
+
   // 車両更新を行う
   const handleUpdateVehicle = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -552,13 +669,36 @@ export default function MasterPage() {
     [refreshAfterMutation]
   )
 
+  if (hasNoPermission) {
+    return (
+      <main className="min-h-screen bg-muted/30 px-4 py-8 md:px-6">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-semibold tracking-tight">マスタ管理</h1>
+            <p className="text-sm text-muted-foreground">
+              荷主・ルート・経費区分・車両をタブで切り替えて登録、編集、削除できます。
+            </p>
+          </div>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                権限がありません
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-8 md:px-6">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">マスタ管理</h1>
           <p className="text-sm text-muted-foreground">
-            荷主・ルート・車両をタブで切り替えて登録、編集、削除できます。
+            荷主・ルート・経費区分・車両をタブで切り替えて登録、編集、削除できます。
           </p>
         </div>
 
@@ -596,6 +736,13 @@ export default function MasterPage() {
                 onClick={() => setActiveTab("routes")}
               >
                 ルート
+              </Button>
+              <Button
+                type="button"
+                variant={activeTab === "expenseCategories" ? "default" : "outline"}
+                onClick={() => setActiveTab("expenseCategories")}
+              >
+                経費区分
               </Button>
               <Button
                 type="button"
@@ -921,6 +1068,157 @@ export default function MasterPage() {
                                 }
                               >
                                 {busyKey === `delete-route-${route.id}`
+                                  ? "削除中..."
+                                  : "削除"}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
+
+        {activeTab === "expenseCategories" ? (
+          <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+            <Card>
+              <CardHeader>
+                <CardTitle>経費区分の新規登録</CardTitle>
+                <CardDescription>
+                  区分コードと名称は必須です。備考は任意で登録できます。
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form className="space-y-4" onSubmit={handleCreateExpenseCategory}>
+                  <div className="space-y-2">
+                    <Label htmlFor="expense-category-id">区分コード</Label>
+                    <Input
+                      id="expense-category-id"
+                      value={expenseCategoryForm.category_id}
+                      onChange={(event) =>
+                        setExpenseCategoryForm((current) => ({
+                          ...current,
+                          category_id: event.target.value,
+                        }))
+                      }
+                      disabled={isLoading || isMutating}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="expense-category-name">名称</Label>
+                    <Input
+                      id="expense-category-name"
+                      value={expenseCategoryForm.name}
+                      onChange={(event) =>
+                        setExpenseCategoryForm((current) => ({
+                          ...current,
+                          name: event.target.value,
+                        }))
+                      }
+                      disabled={isLoading || isMutating}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="expense-category-note">備考</Label>
+                    <textarea
+                      id="expense-category-note"
+                      className={TEXTAREA_CLASS}
+                      value={expenseCategoryForm.note}
+                      onChange={(event) =>
+                        setExpenseCategoryForm((current) => ({
+                          ...current,
+                          note: event.target.value,
+                        }))
+                      }
+                      disabled={isLoading || isMutating}
+                      placeholder="任意"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isLoading || isMutating}
+                  >
+                    {busyKey === "create-expense-category"
+                      ? "登録中..."
+                      : "経費区分を登録"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>経費区分一覧</CardTitle>
+                <CardDescription>
+                  {isLoading
+                    ? "読み込み中です..."
+                    : `${expenseCategories.length}件を表示しています。`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="py-8 text-sm text-muted-foreground">
+                    経費区分データを読み込み中です...
+                  </div>
+                ) : expenseCategories.length === 0 ? (
+                  <div className="py-8 text-sm text-muted-foreground">
+                    まだ経費区分は登録されていません。
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>区分コード</TableHead>
+                        <TableHead>名称</TableHead>
+                        <TableHead>備考</TableHead>
+                        <TableHead className="text-right">操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {expenseCategories.map((expenseCategory) => (
+                        <TableRow key={expenseCategory.id}>
+                          <TableCell>{expenseCategory.category_id}</TableCell>
+                          <TableCell>{expenseCategory.name}</TableCell>
+                          <TableCell className="max-w-80 whitespace-normal">
+                            {expenseCategory.note || "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={isMutating}
+                                onClick={() => setEditingExpenseCategory(expenseCategory)}
+                              >
+                                編集
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                disabled={isMutating}
+                                onClick={() =>
+                                  void handleDelete(
+                                    `/api/master/expense-categories/${expenseCategory.id}`,
+                                    `経費区分「${expenseCategory.name}」`,
+                                    `delete-expense-category-${expenseCategory.id}`,
+                                    "経費区分を削除しました。"
+                                  )
+                                }
+                              >
+                                {busyKey ===
+                                `delete-expense-category-${expenseCategory.id}`
                                   ? "削除中..."
                                   : "削除"}
                               </Button>
@@ -1373,6 +1671,104 @@ export default function MasterPage() {
                 </Button>
                 <Button type="submit" disabled={isMutating}>
                   {busyKey?.startsWith("update-route-") ? "更新中..." : "更新する"}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editingExpenseCategory !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingExpenseCategory(null)
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>経費区分を編集</DialogTitle>
+            <DialogDescription>
+              区分コード、名称、備考を更新できます。
+            </DialogDescription>
+          </DialogHeader>
+          {editingExpenseCategory ? (
+            <form className="space-y-4" onSubmit={handleUpdateExpenseCategory}>
+              <div className="space-y-2">
+                <Label htmlFor="edit-expense-category-id">区分コード</Label>
+                <Input
+                  id="edit-expense-category-id"
+                  value={editingExpenseCategory.category_id}
+                  onChange={(event) =>
+                    setEditingExpenseCategory((current) =>
+                      current
+                        ? {
+                            ...current,
+                            category_id: event.target.value,
+                          }
+                        : current
+                    )
+                  }
+                  disabled={isMutating}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-expense-category-name">名称</Label>
+                <Input
+                  id="edit-expense-category-name"
+                  value={editingExpenseCategory.name}
+                  onChange={(event) =>
+                    setEditingExpenseCategory((current) =>
+                      current
+                        ? {
+                            ...current,
+                            name: event.target.value,
+                          }
+                        : current
+                    )
+                  }
+                  disabled={isMutating}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-expense-category-note">備考</Label>
+                <textarea
+                  id="edit-expense-category-note"
+                  className={TEXTAREA_CLASS}
+                  value={editingExpenseCategory.note ?? ""}
+                  onChange={(event) =>
+                    setEditingExpenseCategory((current) =>
+                      current
+                        ? {
+                            ...current,
+                            note: event.target.value,
+                          }
+                        : current
+                    )
+                  }
+                  disabled={isMutating}
+                  placeholder="任意"
+                />
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingExpenseCategory(null)}
+                  disabled={isMutating}
+                >
+                  キャンセル
+                </Button>
+                <Button type="submit" disabled={isMutating}>
+                  {busyKey?.startsWith("update-expense-category-")
+                    ? "更新中..."
+                    : "更新する"}
                 </Button>
               </DialogFooter>
             </form>
