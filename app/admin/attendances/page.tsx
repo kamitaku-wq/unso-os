@@ -1,0 +1,392 @@
+"use client"
+
+import { useCallback, useEffect, useState } from "react"
+
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
+type AttendanceStatus = "ALL" | "SUBMITTED" | "APPROVED" | "REJECTED"
+
+type Attendance = {
+  id: string
+  attendance_id: string
+  emp_id: string
+  work_date: string | null
+  clock_in: string | null
+  clock_out: string | null
+  break_min: number | null
+  work_min: number | null
+  drive_min: number | null
+  overtime_min: number | null
+  status: string
+  note: string | null
+  approved_at: string | null
+  approved_by: string | null
+  reject_reason: string | null
+  created_at: string | null
+}
+
+const STATUS_OPTIONS: { value: AttendanceStatus; label: string }[] = [
+  { value: "SUBMITTED", label: "承認待ち" },
+  { value: "APPROVED", label: "承認済み" },
+  { value: "REJECTED", label: "却下" },
+  { value: "ALL", label: "全件" },
+]
+
+function getErrorMessage(data: unknown, fallback: string) {
+  if (
+    typeof data === "object" &&
+    data !== null &&
+    "error" in data &&
+    typeof data.error === "string"
+  ) {
+    return data.error
+  }
+
+  return fallback
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "-"
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+
+  return parsed.toLocaleDateString("ja-JP")
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return "-"
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+
+  return parsed.toLocaleString("ja-JP")
+}
+
+function formatMinutes(value: number | null) {
+  if (value == null) return "-"
+  return `${value} 分`
+}
+
+function getStatusLabel(status: string) {
+  if (status === "APPROVED") return "承認済み"
+  if (status === "REJECTED") return "却下"
+  return "承認待ち"
+}
+
+function getStatusVariant(
+  status: string
+): "default" | "secondary" | "destructive" | "outline" {
+  if (status === "APPROVED") return "default"
+  if (status === "REJECTED") return "destructive"
+  return "secondary"
+}
+
+export default function AdminAttendancesPage() {
+  const [attendances, setAttendances] = useState<Attendance[]>([])
+  const [statusFilter, setStatusFilter] = useState<AttendanceStatus>("SUBMITTED")
+  const [isLoading, setIsLoading] = useState(true)
+  const [pageError, setPageError] = useState("")
+  const [actionMessage, setActionMessage] = useState("")
+  const [hasNoPermission, setHasNoPermission] = useState(false)
+  const [processingKey, setProcessingKey] = useState("")
+
+  const loadAttendances = useCallback(async (filter: AttendanceStatus) => {
+    setIsLoading(true)
+    setPageError("")
+
+    const search = filter === "ALL" ? "" : `?status=${encodeURIComponent(filter)}`
+
+    try {
+      const response = await fetch(`/api/admin/attendances${search}`, { cache: "no-store" })
+      const data = (await response.json()) as Attendance[] | { error?: string }
+
+      if (response.status === 403) {
+        setHasNoPermission(true)
+        setAttendances([])
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error(getErrorMessage(data, "勤怠一覧の取得に失敗しました"))
+      }
+
+      setHasNoPermission(false)
+      setAttendances(Array.isArray(data) ? data : [])
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "勤怠一覧の取得に失敗しました"
+      setPageError(message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadAttendances(statusFilter)
+  }, [loadAttendances, statusFilter])
+
+  const handleApprove = useCallback(
+    async (attendance: Attendance) => {
+      const confirmed = window.confirm(
+        `勤怠 ${attendance.attendance_id} を承認します。よろしいですか？`
+      )
+      if (!confirmed) return
+
+      setProcessingKey(attendance.id)
+      setPageError("")
+      setActionMessage("")
+
+      try {
+        const response = await fetch(`/api/attendance/${attendance.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ action: "approve" }),
+        })
+        const data = (await response.json()) as { error?: string }
+
+        if (response.status === 403) {
+          setHasNoPermission(true)
+          return
+        }
+
+        if (!response.ok) {
+          throw new Error(getErrorMessage(data, "勤怠の承認に失敗しました"))
+        }
+
+        setActionMessage(`勤怠 ${attendance.attendance_id} を承認しました。`)
+        await loadAttendances(statusFilter)
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "勤怠の承認に失敗しました"
+        setPageError(message)
+      } finally {
+        setProcessingKey("")
+      }
+    },
+    [loadAttendances, statusFilter]
+  )
+
+  const handleReject = useCallback(
+    async (attendance: Attendance) => {
+      const reason = window.prompt("却下理由を入力してください")
+      if (reason == null) return
+
+      const trimmedReason = reason.trim()
+      if (!trimmedReason) {
+        setPageError("却下理由を入力してください")
+        return
+      }
+
+      setProcessingKey(attendance.id)
+      setPageError("")
+      setActionMessage("")
+
+      try {
+        const response = await fetch(`/api/attendance/${attendance.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "reject",
+            reason: trimmedReason,
+          }),
+        })
+        const data = (await response.json()) as { error?: string }
+
+        if (response.status === 403) {
+          setHasNoPermission(true)
+          return
+        }
+
+        if (!response.ok) {
+          throw new Error(getErrorMessage(data, "勤怠の却下に失敗しました"))
+        }
+
+        setActionMessage(`勤怠 ${attendance.attendance_id} を却下しました。`)
+        await loadAttendances(statusFilter)
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "勤怠の却下に失敗しました"
+        setPageError(message)
+      } finally {
+        setProcessingKey("")
+      }
+    },
+    [loadAttendances, statusFilter]
+  )
+
+  return (
+    <main className="min-h-screen bg-muted/30 px-4 py-8 md:px-6">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight">勤怠承認</h1>
+          <p className="text-sm text-muted-foreground">
+            管理者が勤怠申請を確認し、承認または却下する画面です。
+          </p>
+        </div>
+
+        {hasNoPermission ? (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                権限がありません
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {pageError ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {pageError}
+              </div>
+            ) : null}
+
+            {actionMessage ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {actionMessage}
+              </div>
+            ) : null}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>絞り込み</CardTitle>
+                <CardDescription>
+                  初期表示は承認待ちです。必要に応じて表示対象を切り替えてください。
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-2">
+                {STATUS_OPTIONS.map((option) => (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={statusFilter === option.value ? "default" : "outline"}
+                    onClick={() => setStatusFilter(option.value)}
+                    disabled={isLoading}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>勤怠一覧</CardTitle>
+                <CardDescription>最新 200 件を表示します。</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="py-8 text-sm text-muted-foreground">読み込み中です...</div>
+                ) : attendances.length === 0 ? (
+                  <div className="py-8 text-sm text-muted-foreground">
+                    条件に一致する勤怠申請はありません。
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>勤務日</TableHead>
+                        <TableHead>申請ID</TableHead>
+                        <TableHead>社員ID</TableHead>
+                        <TableHead>勤務時間</TableHead>
+                        <TableHead>休憩</TableHead>
+                        <TableHead>運転</TableHead>
+                        <TableHead>残業</TableHead>
+                        <TableHead>ステータス</TableHead>
+                        <TableHead>詳細</TableHead>
+                        <TableHead>操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {attendances.map((attendance) => {
+                        const isSubmitted = attendance.status === "SUBMITTED"
+                        const isProcessing = processingKey === attendance.id
+
+                        return (
+                          <TableRow key={attendance.id}>
+                            <TableCell>{formatDate(attendance.work_date)}</TableCell>
+                            <TableCell>{attendance.attendance_id}</TableCell>
+                            <TableCell>{attendance.emp_id}</TableCell>
+                            <TableCell>
+                              {attendance.clock_in && attendance.clock_out
+                                ? `${formatDateTime(attendance.clock_in)} - ${formatDateTime(attendance.clock_out)}`
+                                : "-"}
+                            </TableCell>
+                            <TableCell>{formatMinutes(attendance.break_min)}</TableCell>
+                            <TableCell>{formatMinutes(attendance.drive_min)}</TableCell>
+                            <TableCell>{formatMinutes(attendance.overtime_min)}</TableCell>
+                            <TableCell>
+                              <Badge variant={getStatusVariant(attendance.status)}>
+                                {getStatusLabel(attendance.status)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="max-w-80 whitespace-normal text-sm text-muted-foreground">
+                              <div>作成: {formatDateTime(attendance.created_at)}</div>
+                              {attendance.approved_at ? (
+                                <div>
+                                  承認: {formatDateTime(attendance.approved_at)}
+                                  {attendance.approved_by ? ` / ${attendance.approved_by}` : ""}
+                                </div>
+                              ) : null}
+                              {attendance.reject_reason ? (
+                                <div>却下理由: {attendance.reject_reason}</div>
+                              ) : null}
+                              {attendance.note ? <div>備考: {attendance.note}</div> : null}
+                            </TableCell>
+                            <TableCell>
+                              {isSubmitted ? (
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => void handleApprove(attendance)}
+                                    disabled={isProcessing}
+                                  >
+                                    承認
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => void handleReject(attendance)}
+                                    disabled={isProcessing}
+                                  >
+                                    却下
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+    </main>
+  )
+}
