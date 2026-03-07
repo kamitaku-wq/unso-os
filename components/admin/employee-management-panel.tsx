@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -68,6 +69,24 @@ export function EmployeeManagementPanel() {
   const [actionMessage, setActionMessage] = useState("")
   const [hasNoPermission, setHasNoPermission] = useState(false)
   const [processingKey, setProcessingKey] = useState("")
+
+  useEffect(() => {
+    if (pageError) {
+      toast.error(pageError)
+    }
+  }, [pageError])
+
+  useEffect(() => {
+    if (actionMessage) {
+      toast.success(actionMessage)
+    }
+  }, [actionMessage])
+
+  useEffect(() => {
+    if (hasNoPermission) {
+      toast.error("権限がありません")
+    }
+  }, [hasNoPermission])
 
   const loadEmployees = useCallback(async () => {
     setIsLoading(true)
@@ -189,9 +208,9 @@ export function EmployeeManagementPanel() {
     return (
       <Card>
         <CardContent className="pt-6">
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            権限がありません
-          </div>
+          <p className="text-sm text-muted-foreground">
+            この画面を表示する権限がありません。
+          </p>
         </CardContent>
       </Card>
     )
@@ -199,18 +218,6 @@ export function EmployeeManagementPanel() {
 
   return (
     <div className="flex flex-col gap-6">
-      {pageError ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {pageError}
-        </div>
-      ) : null}
-
-      {actionMessage ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {actionMessage}
-        </div>
-      ) : null}
-
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>

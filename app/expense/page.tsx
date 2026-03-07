@@ -1,7 +1,9 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 
+import { StatusBadge } from "@/components/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -168,17 +170,6 @@ function getExpenseStatusLabel(status: string) {
   return "申請中"
 }
 
-// 経費ステータスに応じてバッジ表示を切り替える
-function getExpenseStatusVariant(
-  status: string
-): "default" | "secondary" | "destructive" | "outline" {
-  if (status === "APPROVED") return "default"
-  if (status === "REJECTED") return "destructive"
-  if (status === "REWORK_REQUIRED") return "outline"
-  if (status === "PAID") return "secondary"
-  return "secondary"
-}
-
 // 共通の JSON API 呼び出しを行う
 async function requestJson<T>(
   input: string,
@@ -215,6 +206,18 @@ export default function ExpensePage() {
   }, [categories, form.category_id])
 
   const isMutating = busyKey !== null
+
+  useEffect(() => {
+    if (pageError) {
+      toast.error(pageError)
+    }
+  }, [pageError])
+
+  useEffect(() => {
+    if (submitMessage) {
+      toast.success(submitMessage)
+    }
+  }, [submitMessage])
 
   // 経費区分一覧を取得する
   const loadCategories = useCallback(async () => {
@@ -386,18 +389,6 @@ export default function ExpensePage() {
             経費を申請し、自分の申請状況を確認する画面です。
           </p>
         </div>
-
-        {pageError ? (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {pageError}
-          </div>
-        ) : null}
-
-        {submitMessage ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {submitMessage}
-          </div>
-        ) : null}
 
         <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
           <Card>
@@ -603,9 +594,9 @@ export default function ExpensePage() {
                             {expense.description || "-"}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={getExpenseStatusVariant(expense.status)}>
+                            <StatusBadge status={expense.status}>
                               {getExpenseStatusLabel(expense.status)}
-                            </Badge>
+                            </StatusBadge>
                           </TableCell>
                           <TableCell>
                             <Badge

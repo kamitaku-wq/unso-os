@@ -1,8 +1,9 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { toast } from "sonner"
 
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -110,14 +111,6 @@ function getStatusLabel(status: string) {
   return "申請中"
 }
 
-function getStatusVariant(
-  status: string
-): "default" | "secondary" | "destructive" | "outline" {
-  if (status === "APPROVED") return "default"
-  if (status === "REJECTED") return "destructive"
-  return "secondary"
-}
-
 async function requestJson<T>(
   input: string,
   init: RequestInit | undefined,
@@ -145,6 +138,18 @@ export default function AttendancePage() {
   const [busyKey, setBusyKey] = useState<string | null>(null)
 
   const isMutating = busyKey !== null
+
+  useEffect(() => {
+    if (pageError) {
+      toast.error(pageError)
+    }
+  }, [pageError])
+
+  useEffect(() => {
+    if (submitMessage) {
+      toast.success(submitMessage)
+    }
+  }, [submitMessage])
 
   const loadAttendances = useCallback(async () => {
     const data = await requestJson<Attendance[]>(
@@ -242,18 +247,6 @@ export default function AttendancePage() {
             勤務時間を申請し、自分の申請状況を確認する画面です。
           </p>
         </div>
-
-        {pageError ? (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {pageError}
-          </div>
-        ) : null}
-
-        {submitMessage ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {submitMessage}
-          </div>
-        ) : null}
 
         <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
           <Card>
@@ -436,9 +429,9 @@ export default function AttendancePage() {
                           <TableCell>{formatMinutes(attendance.drive_min)}</TableCell>
                           <TableCell>{formatMinutes(attendance.overtime_min)}</TableCell>
                           <TableCell>
-                            <Badge variant={getStatusVariant(attendance.status)}>
+                            <StatusBadge status={attendance.status}>
                               {getStatusLabel(attendance.status)}
-                            </Badge>
+                            </StatusBadge>
                           </TableCell>
                           <TableCell className="max-w-72 whitespace-normal text-sm text-muted-foreground">
                             <div>作成: {formatDateTime(attendance.created_at)}</div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
+import { Toaster } from "@/components/ui/sonner";
 import { createClient } from "@/lib/supabase/server";
 
 const geistSans = Geist({
@@ -53,6 +54,7 @@ export default async function RootLayout({
         <AppShell userEmail={user?.email ?? null} employeeName={employeeName} role={role}>
           {children}
         </AppShell>
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   );

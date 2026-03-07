@@ -1,10 +1,11 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 
 import { EmpRequestPanel } from "@/components/admin/emp-request-panel"
 import { EmployeeManagementPanel } from "@/components/admin/employee-management-panel"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -259,15 +260,6 @@ function getBillableStatusLabel(status: string) {
   return "承認待ち"
 }
 
-// 実績ステータスごとのバッジ表示を切り替える
-function getBillableStatusVariant(
-  status: string
-): "default" | "secondary" | "destructive" | "outline" {
-  if (status === "APPROVED") return "default"
-  if (status === "VOID") return "destructive"
-  return "secondary"
-}
-
 // 経費ステータスを日本語表示に変換する
 function getExpenseStatusLabel(status: string) {
   if (status === "APPROVED") return "承認済み"
@@ -275,17 +267,6 @@ function getExpenseStatusLabel(status: string) {
   if (status === "REWORK_REQUIRED") return "差し戻し"
   if (status === "PAID") return "支払済み"
   return "申請中"
-}
-
-// 経費ステータスごとのバッジ表示を切り替える
-function getExpenseStatusVariant(
-  status: string
-): "default" | "secondary" | "destructive" | "outline" {
-  if (status === "APPROVED") return "default"
-  if (status === "REJECTED") return "destructive"
-  if (status === "REWORK_REQUIRED") return "outline"
-  if (status === "PAID") return "secondary"
-  return "secondary"
 }
 
 // 理由入力アクション名を日本語表示に変換する
@@ -379,6 +360,36 @@ export default function AdminApprovalPage() {
   const showCurrentTabPermissionError =
     hasNoPermission &&
     (activeTab === "billables" || activeTab === "expenses" || activeTab === "closings")
+
+  useEffect(() => {
+    if (pageError) {
+      toast.error(pageError)
+    }
+  }, [pageError])
+
+  useEffect(() => {
+    if (actionMessage) {
+      toast.success(actionMessage)
+    }
+  }, [actionMessage])
+
+  useEffect(() => {
+    if (billableDialogError) {
+      toast.error(billableDialogError)
+    }
+  }, [billableDialogError])
+
+  useEffect(() => {
+    if (expenseDialogError) {
+      toast.error(expenseDialogError)
+    }
+  }, [expenseDialogError])
+
+  useEffect(() => {
+    if (showCurrentTabPermissionError) {
+      toast.error("権限がありません")
+    }
+  }, [showCurrentTabPermissionError])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -955,25 +966,13 @@ export default function AdminApprovalPage() {
         {showCurrentTabPermissionError ? (
           <Card>
             <CardContent className="pt-6">
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                権限がありません
-              </div>
+              <p className="text-sm text-muted-foreground">
+                この画面を表示する権限がありません。
+              </p>
             </CardContent>
           </Card>
         ) : (
           <>
-            {pageError ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {pageError}
-              </div>
-            ) : null}
-
-            {actionMessage ? (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                {actionMessage}
-              </div>
-            ) : null}
-
             <Card>
               <CardHeader className="gap-4">
                 <div>
@@ -1159,11 +1158,9 @@ export default function AdminApprovalPage() {
                                     {formatCurrency(billable.amount)}
                                   </TableCell>
                                   <TableCell>
-                                    <Badge
-                                      variant={getBillableStatusVariant(billable.status)}
-                                    >
+                                    <StatusBadge status={billable.status}>
                                       {getBillableStatusLabel(billable.status)}
-                                    </Badge>
+                                    </StatusBadge>
                                   </TableCell>
                                   <TableCell>
                                     {isReviewRequired ? (
@@ -1318,11 +1315,9 @@ export default function AdminApprovalPage() {
                                     {expense.description || "-"}
                                   </TableCell>
                                   <TableCell>
-                                    <Badge
-                                      variant={getExpenseStatusVariant(expense.status)}
-                                    >
+                                    <StatusBadge status={expense.status}>
                                       {getExpenseStatusLabel(expense.status)}
-                                    </Badge>
+                                    </StatusBadge>
                                   </TableCell>
                                   <TableCell className="max-w-72 whitespace-normal text-sm text-muted-foreground">
                                     <div>申請: {formatDateTime(expense.submitted_at)}</div>
@@ -1498,13 +1493,7 @@ export default function AdminApprovalPage() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div
-                        className={
-                          closingWarningMessages.length > 0
-                            ? "rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-                            : "rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
-                        }
-                      >
+                      <div className="rounded-lg border bg-muted/20 px-4 py-3 text-sm">
                         {closingWarningMessages.length > 0 ? (
                           <div className="space-y-1">
                             {closingWarningMessages.map((message) => (
@@ -1647,12 +1636,6 @@ export default function AdminApprovalPage() {
                 disabled={!!processingKey}
               />
             </div>
-
-            {billableDialogError ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {billableDialogError}
-              </div>
-            ) : null}
           </div>
 
           <DialogFooter>
@@ -1712,12 +1695,6 @@ export default function AdminApprovalPage() {
                 placeholder="理由を入力してください"
               />
             </div>
-
-            {expenseDialogError ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {expenseDialogError}
-              </div>
-            ) : null}
           </div>
 
           <DialogFooter>

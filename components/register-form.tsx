@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -39,21 +40,17 @@ export function RegisterForm() {
   const [name, setName] = useState("")
   const [companyId, setCompanyId] = useState("")
   const [roleRequested, setRoleRequested] = useState<RequestedRole>("DRIVER")
-  const [pageError, setPageError] = useState("")
-  const [successMessage, setSuccessMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     if (!name.trim() || !companyId.trim()) {
-      setPageError("氏名と company_id を入力してください")
+      toast.error("氏名と company_id を入力してください")
       return
     }
 
     setIsSubmitting(true)
-    setPageError("")
-    setSuccessMessage("")
 
     try {
       const response = await fetch("/api/register", {
@@ -73,14 +70,14 @@ export function RegisterForm() {
         throw new Error(getErrorMessage(data, "申請の送信に失敗しました"))
       }
 
-      setSuccessMessage("申請を受け付けました。管理者の承認をお待ちください")
+      toast.success("申請を受け付けました。管理者の承認をお待ちください")
       setName("")
       setCompanyId("")
       setRoleRequested("DRIVER")
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "申請の送信に失敗しました"
-      setPageError(message)
+      toast.error(message)
     } finally {
       setIsSubmitting(false)
     }
@@ -95,18 +92,6 @@ export function RegisterForm() {
             ログイン後にまだ社員登録がない場合は、ここから所属申請を送信します。
           </p>
         </div>
-
-        {pageError ? (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {pageError}
-          </div>
-        ) : null}
-
-        {successMessage ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {successMessage}
-          </div>
-        ) : null}
 
         <Card>
           <CardHeader>

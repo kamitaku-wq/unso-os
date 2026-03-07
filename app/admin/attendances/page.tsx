@@ -1,8 +1,9 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { toast } from "sonner"
 
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -102,14 +103,6 @@ function getStatusLabel(status: string) {
   return "承認待ち"
 }
 
-function getStatusVariant(
-  status: string
-): "default" | "secondary" | "destructive" | "outline" {
-  if (status === "APPROVED") return "default"
-  if (status === "REJECTED") return "destructive"
-  return "secondary"
-}
-
 export default function AdminAttendancesPage() {
   const [attendances, setAttendances] = useState<Attendance[]>([])
   const [statusFilter, setStatusFilter] = useState<AttendanceStatus>("SUBMITTED")
@@ -119,6 +112,24 @@ export default function AdminAttendancesPage() {
   const [hasNoPermission, setHasNoPermission] = useState(false)
   const [processingKey, setProcessingKey] = useState("")
   const [exportMonth, setExportMonth] = useState(() => formatMonthInputValue(new Date()))
+
+  useEffect(() => {
+    if (pageError) {
+      toast.error(pageError)
+    }
+  }, [pageError])
+
+  useEffect(() => {
+    if (actionMessage) {
+      toast.success(actionMessage)
+    }
+  }, [actionMessage])
+
+  useEffect(() => {
+    if (hasNoPermission) {
+      toast.error("権限がありません")
+    }
+  }, [hasNoPermission])
 
   const loadAttendances = useCallback(async (filter: AttendanceStatus) => {
     setIsLoading(true)
@@ -269,25 +280,13 @@ export default function AdminAttendancesPage() {
         {hasNoPermission ? (
           <Card>
             <CardContent className="pt-6">
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                権限がありません
-              </div>
+              <p className="text-sm text-muted-foreground">
+                この画面を表示する権限がありません。
+              </p>
             </CardContent>
           </Card>
         ) : (
           <>
-            {pageError ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {pageError}
-              </div>
-            ) : null}
-
-            {actionMessage ? (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                {actionMessage}
-              </div>
-            ) : null}
-
             <Card>
               <CardHeader>
                 <CardTitle>絞り込み</CardTitle>
@@ -379,9 +378,9 @@ export default function AdminAttendancesPage() {
                             <TableCell>{formatMinutes(attendance.drive_min)}</TableCell>
                             <TableCell>{formatMinutes(attendance.overtime_min)}</TableCell>
                             <TableCell>
-                              <Badge variant={getStatusVariant(attendance.status)}>
+                              <StatusBadge status={attendance.status}>
                                 {getStatusLabel(attendance.status)}
-                              </Badge>
+                              </StatusBadge>
                             </TableCell>
                             <TableCell className="max-w-80 whitespace-normal text-sm text-muted-foreground">
                               <div>作成: {formatDateTime(attendance.created_at)}</div>

@@ -94,16 +94,15 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-muted/20">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 md:px-6">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-3 md:px-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-1">
               <Link href="/" className="text-lg font-semibold tracking-tight">
                 運送OS
               </Link>
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                {role ? <Badge variant="secondary">{ROLE_LABELS[role]}</Badge> : null}
                 {employeeName ? <span>{employeeName}</span> : null}
-                {userEmail ? <span>{userEmail}</span> : null}
+                {role ? <Badge variant="secondary">{ROLE_LABELS[role]}</Badge> : null}
                 {!role && pathname !== "/register" ? (
                   <Link href="/register" className="text-primary underline-offset-4 hover:underline">
                     社員申請へ
@@ -116,6 +115,7 @@ export function AppShell({
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
                 onClick={() => void handleSignOut()}
                 disabled={isSigningOut}
               >
@@ -125,16 +125,20 @@ export function AppShell({
           </div>
 
           {role ? (
-            <nav className="flex flex-wrap gap-2">
+            <nav className="flex flex-wrap items-center gap-5 border-b border-border/60">
               {navigationItems.map((item) => (
-                <Button
+                <Link
                   key={item.href}
-                  asChild
-                  variant={isActivePath(pathname, item.href) ? "default" : "outline"}
-                  size="sm"
+                  href={item.href}
+                  className={[
+                    "border-b-2 pb-2 text-sm font-medium transition-colors",
+                    isActivePath(pathname, item.href)
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground",
+                  ].join(" ")}
                 >
-                  <Link href={item.href}>{item.label}</Link>
-                </Button>
+                  {item.label}
+                </Link>
               ))}
             </nav>
           ) : null}

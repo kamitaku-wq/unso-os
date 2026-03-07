@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { toast, Toaster } from "sonner"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -171,6 +171,24 @@ export default function InvoicePage() {
     return customers.find((customer) => customer.cust_id === selectedCustomerCode) ?? null
   }, [customers, selectedCustomerCode])
 
+  useEffect(() => {
+    if (pageError) {
+      toast.error(pageError)
+    }
+  }, [pageError])
+
+  useEffect(() => {
+    if (detailError) {
+      toast.error(detailError)
+    }
+  }, [detailError])
+
+  useEffect(() => {
+    if (hasNoPermission) {
+      toast.error("権限がありません")
+    }
+  }, [hasNoPermission])
+
   // 請求書の発行条件を確認して API 送信用データを組み立てる
   const buildRequestBody = useCallback(() => {
     if (!selectedCustomerCode || !periodFrom || !periodTo) {
@@ -336,9 +354,9 @@ export default function InvoicePage() {
 
           <Card>
             <CardContent className="pt-6">
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                権限がありません
-              </div>
+              <p className="text-sm text-muted-foreground">
+                この画面を表示する権限がありません。
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -348,8 +366,6 @@ export default function InvoicePage() {
 
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-8 md:px-6">
-      <Toaster position="top-right" richColors />
-
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">請求書管理</h1>
@@ -357,12 +373,6 @@ export default function InvoicePage() {
             荷主と請求期間を指定してプレビューし、そのまま請求書を発行できます。
           </p>
         </div>
-
-        {pageError ? (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {pageError}
-          </div>
-        ) : null}
 
         <Card>
           <CardHeader>
@@ -564,12 +574,6 @@ export default function InvoicePage() {
                 : "請求書に含まれる運行実績を表示します。"}
             </DialogDescription>
           </DialogHeader>
-
-          {detailError ? (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {detailError}
-            </div>
-          ) : null}
 
           {isDetailLoading ? (
             <div className="py-8 text-sm text-muted-foreground">明細を読み込み中です...</div>

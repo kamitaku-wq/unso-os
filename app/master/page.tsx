@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -213,6 +214,24 @@ export default function MasterPage() {
   const customerNameMap = useMemo(() => {
     return new Map(customers.map((customer) => [customer.cust_id, customer.name]))
   }, [customers])
+
+  useEffect(() => {
+    if (pageError) {
+      toast.error(pageError)
+    }
+  }, [pageError])
+
+  useEffect(() => {
+    if (submitMessage) {
+      toast.success(submitMessage)
+    }
+  }, [submitMessage])
+
+  useEffect(() => {
+    if (hasNoPermission) {
+      toast.error("権限がありません")
+    }
+  }, [hasNoPermission])
 
   // 画面表示に必要なマスタをまとめて再取得する
   const loadAllMasters = useCallback(async () => {
@@ -682,9 +701,9 @@ export default function MasterPage() {
 
           <Card>
             <CardContent className="pt-6">
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                権限がありません
-              </div>
+              <p className="text-sm text-muted-foreground">
+                この画面を表示する権限がありません。
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -701,18 +720,6 @@ export default function MasterPage() {
             荷主・ルート・経費区分・車両をタブで切り替えて登録、編集、削除できます。
           </p>
         </div>
-
-        {pageError ? (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {pageError}
-          </div>
-        ) : null}
-
-        {submitMessage ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {submitMessage}
-          </div>
-        ) : null}
 
         <Card>
           <CardHeader className="gap-4">

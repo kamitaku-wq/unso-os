@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -31,19 +32,17 @@ export function SetupForm() {
   const router = useRouter()
   const [companyName, setCompanyName] = useState("")
   const [ownerName, setOwnerName] = useState("")
-  const [pageError, setPageError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     if (!companyName.trim() || !ownerName.trim()) {
-      setPageError("会社名と氏名を入力してください")
+      toast.error("会社名と氏名を入力してください")
       return
     }
 
     setIsSubmitting(true)
-    setPageError("")
 
     try {
       const response = await fetch("/api/setup", {
@@ -67,7 +66,7 @@ export function SetupForm() {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "初回セットアップに失敗しました"
-      setPageError(message)
+      toast.error(message)
     } finally {
       setIsSubmitting(false)
     }
@@ -82,12 +81,6 @@ export function SetupForm() {
             最初の会社情報と、最初の OWNER（経営者）情報を登録します。
           </p>
         </div>
-
-        {pageError ? (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {pageError}
-          </div>
-        ) : null}
 
         <Card>
           <CardHeader>

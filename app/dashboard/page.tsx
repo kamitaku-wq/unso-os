@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -210,6 +211,18 @@ export default function DashboardPage() {
     })
   }, [dashboard.currentMonthByEmployee])
 
+  useEffect(() => {
+    if (pageError) {
+      toast.error(pageError)
+    }
+  }, [pageError])
+
+  useEffect(() => {
+    if (hasNoPermission) {
+      toast.error("権限がありません")
+    }
+  }, [hasNoPermission])
+
   const loadDashboard = useCallback(async () => {
     setIsLoading(true)
     setPageError("")
@@ -290,19 +303,13 @@ export default function DashboardPage() {
         {hasNoPermission ? (
           <Card>
             <CardContent className="pt-6">
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                権限がありません
-              </div>
+              <p className="text-sm text-muted-foreground">
+                この画面を表示する権限がありません。
+              </p>
             </CardContent>
           </Card>
         ) : (
           <>
-            {pageError ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {pageError}
-              </div>
-            ) : null}
-
             <Card>
               <CardHeader className="gap-4">
                 <div>

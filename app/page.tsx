@@ -1,7 +1,9 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 
+import { StatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -58,6 +60,7 @@ type Billable = {
   arrive_at: string | null
   vehicle_id: string | null
   distance_km: number | null
+  amount: number | null
   created_at?: string | null
 }
 
@@ -82,17 +85,23 @@ type FormState = {
 
 const NO_ROUTE_VALUE = "__NO_ROUTE__"
 
-const initialFormState: FormState = {
-  run_date: new Date().toISOString().slice(0, 10),
-  cust_id: "",
-  route_choice: "",
-  pickup_loc: "",
-  drop_loc: "",
-  depart_at: "",
-  arrive_at: "",
-  vehicle_id: "",
-  distance_km: "",
-  note: "",
+function getStartOfDayValue(runDate: string) {
+  return runDate ? `${runDate}T00:00` : ""
+}
+
+function createInitialFormState(runDate = new Date().toISOString().slice(0, 10)): FormState {
+  return {
+    run_date: runDate,
+    cust_id: "",
+    route_choice: "",
+    pickup_loc: "",
+    drop_loc: "",
+    depart_at: getStartOfDayValue(runDate),
+    arrive_at: "",
+    vehicle_id: "",
+    distance_km: "",
+    note: "",
+  }
 }
 
 // API エラー文言を安全に取り出す
@@ -135,6 +144,17 @@ function formatDate(value: string | null) {
   return parsed.toLocaleDateString("ja-JP")
 }
 
+// 金額を画面表示用に整える
+function formatCurrency(value: number | null) {
+  if (value == null) return "-"
+
+  return new Intl.NumberFormat("ja-JP", {
+    style: "currency",
+    currency: "JPY",
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
 // 実績ステータスを日本語表示に変換する
 function getStatusLabel(status: string) {
   if (status === "APPROVED") return "承認済み"
@@ -149,11 +169,9 @@ export default function Home() {
     vehicles: [],
   })
   const [billables, setBillables] = useState<Billable[]>([])
-  const [form, setForm] = useState<FormState>(initialFormState)
+  const [form, setForm] = useState<FormState>(() => createInitialFormState())
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [pageError, setPageError] = useState("")
-  const [submitMessage, setSubmitMessage] = useState("")
 
   const customerNameMap = useMemo(() => {
     return new Map(masters.customers.map((customer) => [customer.cust_id, customer.name]))
@@ -194,7 +212,6 @@ export default function Home() {
   // 初期表示に必要なデータをまとめて取得する
   const loadInitialData = useCallback(async () => {
     setIsLoading(true)
-    setPageError("")
 
     try {
       const [masterResponse, billableResponse] = await Promise.all([
@@ -218,7 +235,7 @@ export default function Home() {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "画面の読み込みに失敗しました"
-      setPageError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -297,13 +314,34 @@ export default function Home() {
     [masters.routes]
   )
 
+  // 運行日に合わせて出発時刻の既定値を更新する
+  const handleRunDateChange = useCallback((value: string) => {
+    setForm((current) => {
+      const currentDefault = getStartOfDayValue(current.run_date)
+      const nextDefault = getStartOfDayValue(value)
+
+      return {
+        ...current,
+        run_date: value,
+        depart_at:
+          !current.depart_at || current.depart_at === currentDefault
+            ? nextDefault
+            : current.depart_at,
+      }
+    })
+  }, [])
+
   // フォームを送信して一覧を更新する
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault()
+
+      if (!form.run_date) {
+        toast.error("運行日を入力してください")
+        return
+      }
+
       setIsSubmitting(true)
-      setSubmitMessage("")
-      setPageError("")
 
       try {
         const response = await fetch("/api/billable", {
@@ -335,11 +373,8 @@ export default function Home() {
         }
 
         await loadBillables()
-        setForm({
-          ...initialFormState,
-          run_date: form.run_date,
-        })
-        setSubmitMessage(
+        setForm(createInitialFormState(form.run_date))
+        toast.success(
           data.billable_id
             ? `実績を登録しました（ID: ${data.billable_id}）`
             : "実績を登録しました"
@@ -347,7 +382,7 @@ export default function Home() {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "実績の登録に失敗しました"
-        setPageError(message)
+        toast.error(message)
       } finally {
         setIsSubmitting(false)
       }
@@ -365,18 +400,6 @@ export default function Home() {
           </p>
         </div>
 
-        {pageError ? (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {pageError}
-          </div>
-        ) : null}
-
-        {submitMessage ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {submitMessage}
-          </div>
-        ) : null}
-
         <Card>
           <CardHeader>
             <CardTitle>実績登録フォーム</CardTitle>
@@ -393,7 +416,7 @@ export default function Home() {
                     id="run_date"
                     type="date"
                     value={form.run_date}
-                    onChange={(event) => updateForm("run_date", event.target.value)}
+                    onChange={(event) => handleRunDateChange(event.target.value)}
                     disabled={isLoading || isSubmitting}
                   />
                 </div>
@@ -572,6 +595,7 @@ export default function Home() {
                     <TableHead>出発 / 到着</TableHead>
                     <TableHead>車両</TableHead>
                     <TableHead className="text-right">距離 km</TableHead>
+                    <TableHead className="text-right">金額</TableHead>
                     <TableHead>状態</TableHead>
                     <TableHead>備考</TableHead>
                   </TableRow>
@@ -602,7 +626,16 @@ export default function Home() {
                       <TableCell className="text-right">
                         {billable.distance_km ?? "-"}
                       </TableCell>
-                      <TableCell>{getStatusLabel(billable.status)}</TableCell>
+                      <TableCell className="text-right">
+                        {billable.status === "APPROVED"
+                          ? formatCurrency(billable.amount)
+                          : "－"}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={billable.status}>
+                          {getStatusLabel(billable.status)}
+                        </StatusBadge>
+                      </TableCell>
                       <TableCell className="max-w-60 whitespace-normal">
                         {billable.note || "-"}
                       </TableCell>
