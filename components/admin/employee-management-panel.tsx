@@ -1,8 +1,10 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { Database } from "lucide-react"
 import { toast } from "sonner"
 
+import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { TableSkeleton } from "@/components/table-skeleton"
 
 type EmployeeRole = "DRIVER" | "ADMIN" | "OWNER"
 
@@ -232,11 +235,12 @@ export function EmployeeManagementPanel() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="py-8 text-sm text-muted-foreground">読み込み中です...</div>
+            <TableSkeleton columns={7} rows={4} />
           ) : employees.length === 0 ? (
-            <div className="py-8 text-sm text-muted-foreground">
-              表示できる社員データがありません。
-            </div>
+            <EmptyState
+              icon={Database}
+              description="上のフォームから最初の社員データを登録してください"
+            />
           ) : (
             <div className="overflow-x-auto">
               <Table>

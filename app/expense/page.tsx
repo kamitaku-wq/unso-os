@@ -1,9 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Receipt } from "lucide-react"
 import { toast } from "sonner"
 
+import { EmptyState } from "@/components/empty-state"
 import { StatusBadge } from "@/components/status-badge"
+import { TableSkeleton } from "@/components/table-skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -540,7 +543,7 @@ export default function ExpensePage() {
               <div>
                 <CardTitle>自分の申請一覧</CardTitle>
                 <CardDescription>
-                  {isLoading ? "読み込み中です..." : `最新 ${expenses.length} 件を表示しています。`}
+                  {isLoading ? "最新データを表示します。" : `最新 ${expenses.length} 件を表示しています。`}
                 </CardDescription>
               </div>
               <Button
@@ -554,15 +557,16 @@ export default function ExpensePage() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="py-8 text-sm text-muted-foreground">
-                  経費申請データを読み込み中です...
+                <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+                  <TableSkeleton columns={10} rows={4} />
                 </div>
               ) : expenses.length === 0 ? (
-                <div className="py-8 text-sm text-muted-foreground">
-                  まだ経費申請はありません。
-                </div>
+                <EmptyState
+                  icon={Receipt}
+                  description="上のフォームから最初の経費申請を登録してください"
+                />
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
                   <Table>
                     <TableHeader>
                       <TableRow>

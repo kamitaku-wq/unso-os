@@ -1,9 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { Clock, Receipt, Truck } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
+import { EmptyState } from "@/components/empty-state"
+import { TableSkeleton } from "@/components/table-skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -90,11 +93,15 @@ function MonthlyAmountChart({
   description,
   rows,
   barClassName,
+  emptyIcon: EmptyIcon,
+  emptyDescription,
 }: {
   title: string
   description: string
   rows: MonthlyAmount[]
   barClassName: string
+  emptyIcon: typeof Truck
+  emptyDescription: string
 }) {
   const maxAmount = rows.reduce((max, row) => Math.max(max, row.amount), 0)
   const chartHeight = 180
@@ -116,7 +123,7 @@ function MonthlyAmountChart({
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <div className="py-8 text-sm text-muted-foreground">表示データがありません。</div>
+          <EmptyState icon={EmptyIcon} description={emptyDescription} />
         ) : (
           <div className="space-y-4">
             <div className="rounded-xl border bg-muted/20 p-4">
@@ -391,12 +398,16 @@ export default function DashboardPage() {
                 description={`承認済み運行実績の直近 ${periodMonths} ヶ月集計です。`}
                 rows={filteredMonthlySales}
                 barClassName="fill-primary"
+                emptyIcon={Truck}
+                emptyDescription="上のフォームから最初の運行実績を登録してください"
               />
               <MonthlyAmountChart
                 title="月別経費"
                 description={`承認済み・支払済み経費の直近 ${periodMonths} ヶ月集計です。`}
                 rows={filteredMonthlyExpenses}
                 barClassName="fill-emerald-500"
+                emptyIcon={Receipt}
+                emptyDescription="上のフォームから最初の経費申請を登録してください"
               />
             </section>
 
@@ -409,11 +420,12 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="py-8 text-sm text-muted-foreground">読み込み中です...</div>
+                  <TableSkeleton columns={3} rows={4} />
                 ) : currentMonthByEmployee.length === 0 ? (
-                  <div className="py-8 text-sm text-muted-foreground">
-                    当月の実績データはありません。
-                  </div>
+                  <EmptyState
+                    icon={Truck}
+                    description="上のフォームから最初の運行実績を登録してください"
+                  />
                 ) : (
                   <Table>
                     <TableHeader>

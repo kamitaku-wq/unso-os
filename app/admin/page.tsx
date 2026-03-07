@@ -1,11 +1,24 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { Database, Receipt, Truck } from "lucide-react"
 import { toast } from "sonner"
 
 import { EmpRequestPanel } from "@/components/admin/emp-request-panel"
+import { EmptyState } from "@/components/empty-state"
 import { EmployeeManagementPanel } from "@/components/admin/employee-management-panel"
 import { StatusBadge } from "@/components/status-badge"
+import { TableSkeleton } from "@/components/table-skeleton"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -322,6 +335,7 @@ export default function AdminApprovalPage() {
   const [processingKey, setProcessingKey] = useState("")
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false)
   const [selectedBillable, setSelectedBillable] = useState<Billable | null>(null)
+  const [billableToVoid, setBillableToVoid] = useState<Billable | null>(null)
   const [approveAmount, setApproveAmount] = useState("")
   const [billableDialogError, setBillableDialogError] = useState("")
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
@@ -330,6 +344,7 @@ export default function AdminApprovalPage() {
   const [expenseReason, setExpenseReason] = useState("")
   const [expenseDialogError, setExpenseDialogError] = useState("")
   const [isExpenseReasonDialogOpen, setIsExpenseReasonDialogOpen] = useState(false)
+  const [isExpenseRejectDialogOpen, setIsExpenseRejectDialogOpen] = useState(false)
   const [billableExportFrom, setBillableExportFrom] = useState(() =>
     formatDateInputValue(new Date(today.getFullYear(), today.getMonth(), 1))
   )
@@ -339,6 +354,7 @@ export default function AdminApprovalPage() {
   )
   const [closingYm, setClosingYm] = useState(() => toYmValue(formatMonthInputValue(today)))
   const [closingNote, setClosingNote] = useState("")
+  const [isClosingConfirmOpen, setIsClosingConfirmOpen] = useState(false)
 
   const customerNameMap = useMemo(() => {
     return new Map(masters.customers.map((customer) => [customer.cust_id, customer.name]))
@@ -654,18 +670,15 @@ export default function AdminApprovalPage() {
 
   // 実績無効化 API を呼び出して一覧を最新化する
   const handleVoid = useCallback(
-    async (billable: Billable) => {
-      const confirmed = window.confirm(
-        `実績 ${billable.billable_id} を無効にします。よろしいですか？`
-      )
-      if (!confirmed) return
+    async () => {
+      if (!billableToVoid) return
 
-      setProcessingKey(`billable:${billable.id}`)
+      setProcessingKey(`billable:${billableToVoid.id}`)
       setPageError("")
       setActionMessage("")
 
       try {
-        const response = await fetch(`/api/billable/${billable.id}`, {
+        const response = await fetch(`/api/billable/${billableToVoid.id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -685,7 +698,8 @@ export default function AdminApprovalPage() {
           throw new Error(getErrorMessage(data, "無効化に失敗しました"))
         }
 
-        setActionMessage(`実績 ${billable.billable_id} を無効にしました。`)
+        setActionMessage(`実績 ${billableToVoid.billable_id} を無効にしました。`)
+        setBillableToVoid(null)
         await loadBillables(billableStatusFilter)
       } catch (error) {
         const message = error instanceof Error ? error.message : "無効化に失敗しました"
@@ -694,7 +708,7 @@ export default function AdminApprovalPage() {
         setProcessingKey("")
       }
     },
-    [billableStatusFilter, loadBillables]
+    [billableStatusFilter, billableToVoid, loadBillables]
   )
 
   // 理由入力が必要な経費アクション用モーダルを開く
@@ -704,6 +718,12 @@ export default function AdminApprovalPage() {
       setExpenseReasonAction(action)
       setExpenseReason("")
       setExpenseDialogError("")
+
+      if (action === "reject") {
+        setIsExpenseRejectDialogOpen(true)
+        return
+      }
+
       setIsExpenseReasonDialogOpen(true)
     },
     []
@@ -736,6 +756,7 @@ export default function AdminApprovalPage() {
         if (response.status === 403) {
           setHasNoPermission(true)
           setIsExpenseReasonDialogOpen(false)
+          setIsExpenseRejectDialogOpen(false)
           return
         }
 
@@ -756,6 +777,7 @@ export default function AdminApprovalPage() {
         setExpenseReasonAction(null)
         setExpenseReason("")
         setExpenseDialogError("")
+        setIsExpenseRejectDialogOpen(false)
         await loadExpenses(expenseStatusFilter)
       } catch (error) {
         const message = error instanceof Error ? error.message : "経費の更新に失敗しました"
@@ -784,6 +806,19 @@ export default function AdminApprovalPage() {
 
     await runExpenseAction(selectedExpense, expenseReasonAction, { reason })
   }, [expenseReason, expenseReasonAction, runExpenseAction, selectedExpense])
+
+  // 却下確認ダイアログから経費却下を実行する
+  const handleConfirmExpenseReject = useCallback(async () => {
+    if (!selectedExpense) return
+
+    const reason = expenseReason.trim()
+    if (!reason) {
+      setExpenseDialogError("却下理由を入力してください")
+      return
+    }
+
+    await runExpenseAction(selectedExpense, "reject", { reason })
+  }, [expenseReason, runExpenseAction, selectedExpense])
 
   // 運行実績 CSV を指定期間でダウンロードする
   const handleBillableCsvDownload = useCallback(() => {
@@ -856,17 +891,22 @@ export default function AdminApprovalPage() {
     }
   }, [closingNote, closingYm])
 
+  // 月次締め確認ダイアログを開く
+  const openExecuteClosingDialog = useCallback(() => {
+    if (!/^\d{6}$/.test(closingYm)) {
+      setPageError("年月は YYYYMM 形式で入力してください")
+      return
+    }
+
+    setIsClosingConfirmOpen(true)
+  }, [closingYm])
+
   // 月次締めを実行して一覧を更新する
   const handleExecuteClosing = useCallback(async () => {
     if (!/^\d{6}$/.test(closingYm)) {
       setPageError("年月は YYYYMM 形式で入力してください")
       return
     }
-
-    const confirmed = window.confirm(
-      `${formatYm(closingYm)} を締め実行します。よろしいですか？`
-    )
-    if (!confirmed) return
 
     setIsClosingActionLoading(true)
     setPageError("")
@@ -897,6 +937,7 @@ export default function AdminApprovalPage() {
       setHasNoPermission(false)
       setClosingSummary(data as ClosingSummary)
       setActionMessage(`${formatYm(closingYm)} の締めを実行しました。`)
+      setIsClosingConfirmOpen(false)
       await loadClosings()
     } catch (error) {
       const message = error instanceof Error ? error.message : "締め実行に失敗しました"
@@ -1100,13 +1141,12 @@ export default function AdminApprovalPage() {
                   </CardHeader>
                   <CardContent>
                     {isBillableBusy ? (
-                      <div className="py-8 text-sm text-muted-foreground">
-                        読み込み中です...
-                      </div>
+                      <TableSkeleton columns={10} rows={4} />
                     ) : billables.length === 0 ? (
-                      <div className="py-8 text-sm text-muted-foreground">
-                        条件に一致する運行実績はありません。
-                      </div>
+                      <EmptyState
+                        icon={Truck}
+                        description="上のフォームから最初の運行実績を登録してください"
+                      />
                     ) : (
                       <div className="overflow-x-auto">
                         <Table>
@@ -1175,7 +1215,7 @@ export default function AdminApprovalPage() {
                                         <Button
                                           size="sm"
                                           variant="destructive"
-                                          onClick={() => void handleVoid(billable)}
+                                          onClick={() => setBillableToVoid(billable)}
                                           disabled={isProcessing}
                                         >
                                           無効
@@ -1268,13 +1308,12 @@ export default function AdminApprovalPage() {
                   </CardHeader>
                   <CardContent>
                     {isExpenseBusy ? (
-                      <div className="py-8 text-sm text-muted-foreground">
-                        読み込み中です...
-                      </div>
+                      <TableSkeleton columns={10} rows={4} />
                     ) : expenses.length === 0 ? (
-                      <div className="py-8 text-sm text-muted-foreground">
-                        条件に一致する経費申請はありません。
-                      </div>
+                      <EmptyState
+                        icon={Receipt}
+                        description="上のフォームから最初の経費申請を登録してください"
+                      />
                     ) : (
                       <div className="overflow-x-auto">
                         <Table>
@@ -1467,7 +1506,7 @@ export default function AdminApprovalPage() {
                       </Button>
                       <Button
                         type="button"
-                        onClick={() => void handleExecuteClosing()}
+                        onClick={openExecuteClosingDialog}
                         disabled={isClosingBusy}
                       >
                         {isClosingActionLoading ? "締め処理中..." : "締め実行"}
@@ -1538,13 +1577,12 @@ export default function AdminApprovalPage() {
                   </CardHeader>
                   <CardContent>
                     {isClosingListLoading ? (
-                      <div className="py-8 text-sm text-muted-foreground">
-                        読み込み中です...
-                      </div>
+                      <TableSkeleton columns={5} rows={4} />
                     ) : closings.length === 0 ? (
-                      <div className="py-8 text-sm text-muted-foreground">
-                        まだ締め済みの月はありません。
-                      </div>
+                      <EmptyState
+                        icon={Database}
+                        description="上のフォームから最初の月次締めを登録してください"
+                      />
                     ) : (
                       <div className="overflow-x-auto">
                         <Table>
@@ -1717,6 +1755,116 @@ export default function AdminApprovalPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={billableToVoid !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBillableToVoid(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>実績を無効にしますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              {billableToVoid
+                ? `この実績を無効にしますか？元に戻せません。対象: ${billableToVoid.billable_id}`
+                : "この実績を無効にしますか？元に戻せません。"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!processingKey}>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!!processingKey}
+              onClick={(event) => {
+                event.preventDefault()
+                void handleVoid()
+              }}
+            >
+              {processingKey ? "無効化中..." : "無効にする"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={isExpenseRejectDialogOpen}
+        onOpenChange={(open) => {
+          if (processingKey) return
+
+          setIsExpenseRejectDialogOpen(open)
+          if (!open) {
+            setSelectedExpense(null)
+            setExpenseReasonAction(null)
+            setExpenseReason("")
+            setExpenseDialogError("")
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>経費を却下しますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedExpense
+                ? `経費 ${selectedExpense.expense_id} を却下します。理由を入力して確定してください。`
+                : "却下対象の経費を選択してください。"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="expense-reject-reason">却下理由</Label>
+            <textarea
+              id="expense-reject-reason"
+              className={TEXTAREA_CLASS}
+              value={expenseReason}
+              onChange={(event) => setExpenseReason(event.target.value)}
+              disabled={!!processingKey}
+              placeholder="理由を入力してください"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!processingKey}>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!!processingKey}
+              onClick={(event) => {
+                event.preventDefault()
+                void handleConfirmExpenseReject()
+              }}
+            >
+              {processingKey ? "却下中..." : "理由を保存して却下"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={isClosingConfirmOpen}
+        onOpenChange={(open) => {
+          if (processingKey) return
+          setIsClosingConfirmOpen(open)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{formatYm(closingYm)} を締めますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              {formatYm(closingYm)} を締めます。締め後は当月への入力がブロックされます。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isClosingBusy}>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isClosingBusy}
+              onClick={(event) => {
+                event.preventDefault()
+                void handleExecuteClosing()
+              }}
+            >
+              {isClosingActionLoading ? "締め処理中..." : "締め実行"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }

@@ -1,8 +1,11 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { Receipt } from "lucide-react"
 import { toast } from "sonner"
 
+import { EmptyState } from "@/components/empty-state"
+import { TableSkeleton } from "@/components/table-skeleton"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -480,7 +483,7 @@ export default function InvoicePage() {
             <div>
               <CardTitle>請求書一覧</CardTitle>
               <CardDescription>
-                {isLoading ? "読み込み中です..." : `${invoices.length}件の請求書を表示しています。`}
+                {isLoading ? "最新データを表示します。" : `${invoices.length}件の請求書を表示しています。`}
               </CardDescription>
             </div>
             <div className="flex justify-end">
@@ -491,13 +494,12 @@ export default function InvoicePage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="py-8 text-sm text-muted-foreground">
-                請求書データを読み込み中です...
-              </div>
+              <TableSkeleton columns={7} rows={4} />
             ) : invoices.length === 0 ? (
-              <div className="py-8 text-sm text-muted-foreground">
-                まだ請求書は発行されていません。
-              </div>
+              <EmptyState
+                icon={Receipt}
+                description="上のフォームから最初の請求書を登録してください"
+              />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -576,9 +578,12 @@ export default function InvoicePage() {
           </DialogHeader>
 
           {isDetailLoading ? (
-            <div className="py-8 text-sm text-muted-foreground">明細を読み込み中です...</div>
+            <TableSkeleton columns={10} rows={4} />
           ) : invoiceDetails.length === 0 ? (
-            <div className="py-8 text-sm text-muted-foreground">表示できる明細はありません。</div>
+            <EmptyState
+              icon={Receipt}
+              description="上のフォームから最初の請求書を登録してください"
+            />
           ) : (
             <div className="overflow-auto">
               <Table>

@@ -1,8 +1,21 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { Database } from "lucide-react"
 import { toast } from "sonner"
 
+import { EmptyState } from "@/components/empty-state"
+import { TableSkeleton } from "@/components/table-skeleton"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -104,6 +117,13 @@ type VehicleForm = {
   vehicle_type: string
   capacity_ton: string
   memo: string
+}
+
+type DeleteIntent = {
+  path: string
+  label: string
+  busyLabel: string
+  message: string
 }
 
 const TEXTAREA_CLASS =
@@ -208,6 +228,7 @@ export default function MasterPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [hasNoPermission, setHasNoPermission] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<DeleteIntent | null>(null)
 
   const isMutating = busyKey !== null
 
@@ -620,34 +641,33 @@ export default function MasterPage() {
 
   // 対象行の削除を行う
   const handleDelete = useCallback(
-    async (path: string, label: string, busyLabel: string, message: string) => {
-      if (!window.confirm(`${label}を削除します。よろしいですか？`)) {
-        return
-      }
+    async () => {
+      if (!pendingDelete) return
 
-      setBusyKey(busyLabel)
+      setBusyKey(pendingDelete.busyLabel)
       setPageError("")
       setSubmitMessage("")
 
       try {
         await requestJson<{ ok: true }>(
-          path,
+          pendingDelete.path,
           {
             method: "DELETE",
           },
-          `${label}の削除に失敗しました`
+          `${pendingDelete.label}の削除に失敗しました`
         )
 
-        await refreshAfterMutation(message)
+        setPendingDelete(null)
+        await refreshAfterMutation(pendingDelete.message)
       } catch (error) {
         const errorMessage =
-          error instanceof Error ? error.message : `${label}の削除に失敗しました`
+          error instanceof Error ? error.message : `${pendingDelete.label}の削除に失敗しました`
         setPageError(errorMessage)
       } finally {
         setBusyKey(null)
       }
     },
-    [refreshAfterMutation]
+    [pendingDelete, refreshAfterMutation]
   )
 
   // 車両の稼働状態を切り替える
@@ -837,18 +857,17 @@ export default function MasterPage() {
               <CardHeader>
                 <CardTitle>荷主一覧</CardTitle>
                 <CardDescription>
-                  {isLoading ? "読み込み中です..." : `${customers.length}件を表示しています。`}
+                  {isLoading ? "最新データを表示します。" : `${customers.length}件を表示しています。`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="py-8 text-sm text-muted-foreground">
-                    荷主データを読み込み中です...
-                  </div>
+                  <TableSkeleton columns={4} rows={4} />
                 ) : customers.length === 0 ? (
-                  <div className="py-8 text-sm text-muted-foreground">
-                    まだ荷主は登録されていません。
-                  </div>
+                  <EmptyState
+                    icon={Database}
+                    description="上のフォームから最初の荷主を登録してください"
+                  />
                 ) : (
                   <Table>
                     <TableHeader>
@@ -884,12 +903,12 @@ export default function MasterPage() {
                                 variant="destructive"
                                 disabled={isMutating}
                                 onClick={() =>
-                                  void handleDelete(
-                                    `/api/master/customers/${customer.id}`,
-                                    `荷主「${customer.name}」`,
-                                    `delete-customer-${customer.id}`,
-                                    "荷主を削除しました。"
-                                  )
+                                  setPendingDelete({
+                                    path: `/api/master/customers/${customer.id}`,
+                                    label: `荷主「${customer.name}」`,
+                                    busyLabel: `delete-customer-${customer.id}`,
+                                    message: "荷主を削除しました。",
+                                  })
                                 }
                               >
                                 {busyKey === `delete-customer-${customer.id}`
@@ -1015,18 +1034,17 @@ export default function MasterPage() {
               <CardHeader>
                 <CardTitle>ルート一覧</CardTitle>
                 <CardDescription>
-                  {isLoading ? "読み込み中です..." : `${routes.length}件を表示しています。`}
+                  {isLoading ? "最新データを表示します。" : `${routes.length}件を表示しています。`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="py-8 text-sm text-muted-foreground">
-                    ルートデータを読み込み中です...
-                  </div>
+                  <TableSkeleton columns={5} rows={4} />
                 ) : routes.length === 0 ? (
-                  <div className="py-8 text-sm text-muted-foreground">
-                    まだルートは登録されていません。
-                  </div>
+                  <EmptyState
+                    icon={Database}
+                    description="上のフォームから最初のルートを登録してください"
+                  />
                 ) : (
                   <Table>
                     <TableHeader>
@@ -1066,12 +1084,12 @@ export default function MasterPage() {
                                 variant="destructive"
                                 disabled={isMutating}
                                 onClick={() =>
-                                  void handleDelete(
-                                    `/api/master/routes/${route.id}`,
-                                    `ルート「${route.route_id}」`,
-                                    `delete-route-${route.id}`,
-                                    "ルートを削除しました。"
-                                  )
+                                  setPendingDelete({
+                                    path: `/api/master/routes/${route.id}`,
+                                    label: `ルート「${route.route_id}」`,
+                                    busyLabel: `delete-route-${route.id}`,
+                                    message: "ルートを削除しました。",
+                                  })
                                 }
                               >
                                 {busyKey === `delete-route-${route.id}`
@@ -1168,19 +1186,18 @@ export default function MasterPage() {
                 <CardTitle>経費区分一覧</CardTitle>
                 <CardDescription>
                   {isLoading
-                    ? "読み込み中です..."
+                    ? "最新データを表示します。"
                     : `${expenseCategories.length}件を表示しています。`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="py-8 text-sm text-muted-foreground">
-                    経費区分データを読み込み中です...
-                  </div>
+                  <TableSkeleton columns={4} rows={4} />
                 ) : expenseCategories.length === 0 ? (
-                  <div className="py-8 text-sm text-muted-foreground">
-                    まだ経費区分は登録されていません。
-                  </div>
+                  <EmptyState
+                    icon={Database}
+                    description="上のフォームから最初の経費区分を登録してください"
+                  />
                 ) : (
                   <Table>
                     <TableHeader>
@@ -1216,12 +1233,12 @@ export default function MasterPage() {
                                 variant="destructive"
                                 disabled={isMutating}
                                 onClick={() =>
-                                  void handleDelete(
-                                    `/api/master/expense-categories/${expenseCategory.id}`,
-                                    `経費区分「${expenseCategory.name}」`,
-                                    `delete-expense-category-${expenseCategory.id}`,
-                                    "経費区分を削除しました。"
-                                  )
+                                  setPendingDelete({
+                                    path: `/api/master/expense-categories/${expenseCategory.id}`,
+                                    label: `経費区分「${expenseCategory.name}」`,
+                                    busyLabel: `delete-expense-category-${expenseCategory.id}`,
+                                    message: "経費区分を削除しました。",
+                                  })
                                 }
                               >
                                 {busyKey ===
@@ -1368,18 +1385,17 @@ export default function MasterPage() {
               <CardHeader>
                 <CardTitle>車両一覧</CardTitle>
                 <CardDescription>
-                  {isLoading ? "読み込み中です..." : `${vehicles.length}件を表示しています。`}
+                  {isLoading ? "最新データを表示します。" : `${vehicles.length}件を表示しています。`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="py-8 text-sm text-muted-foreground">
-                    車両データを読み込み中です...
-                  </div>
+                  <TableSkeleton columns={8} rows={4} />
                 ) : vehicles.length === 0 ? (
-                  <div className="py-8 text-sm text-muted-foreground">
-                    まだ車両は登録されていません。
-                  </div>
+                  <EmptyState
+                    icon={Database}
+                    description="上のフォームから最初の車両を登録してください"
+                  />
                 ) : (
                   <Table>
                     <TableHeader>
@@ -1440,12 +1456,12 @@ export default function MasterPage() {
                                 variant="destructive"
                                 disabled={isMutating}
                                 onClick={() =>
-                                  void handleDelete(
-                                    `/api/master/vehicles/${vehicle.id}`,
-                                    `車両「${vehicle.name}」`,
-                                    `delete-vehicle-${vehicle.id}`,
-                                    "車両を削除しました。"
-                                  )
+                                  setPendingDelete({
+                                    path: `/api/master/vehicles/${vehicle.id}`,
+                                    label: `車両「${vehicle.name}」`,
+                                    busyLabel: `delete-vehicle-${vehicle.id}`,
+                                    message: "車両を削除しました。",
+                                  })
                                 }
                               >
                                 {busyKey === `delete-vehicle-${vehicle.id}`
@@ -1464,6 +1480,38 @@ export default function MasterPage() {
           </div>
         ) : null}
       </div>
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDelete(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>削除しますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete
+                ? `${pendingDelete.label} を削除すると元に戻せません。`
+                : "削除すると元に戻せません。"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMutating}>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isMutating}
+              onClick={(event) => {
+                event.preventDefault()
+                void handleDelete()
+              }}
+            >
+              {isMutating ? "削除中..." : "削除する"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog
         open={editingCustomer !== null}

@@ -1,9 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { Clock } from "lucide-react"
 import { toast } from "sonner"
 
+import { EmptyState } from "@/components/empty-state"
 import { StatusBadge } from "@/components/status-badge"
+import { TableSkeleton } from "@/components/table-skeleton"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -338,11 +341,12 @@ export default function AdminAttendancesPage() {
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="py-8 text-sm text-muted-foreground">読み込み中です...</div>
+                  <TableSkeleton columns={10} rows={4} />
                 ) : attendances.length === 0 ? (
-                  <div className="py-8 text-sm text-muted-foreground">
-                    条件に一致する勤怠申請はありません。
-                  </div>
+                  <EmptyState
+                    icon={Clock}
+                    description="上の条件を見直すか、最初の勤怠を登録してください"
+                  />
                 ) : (
                   <Table>
                     <TableHeader>

@@ -1,9 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { Clock } from "lucide-react"
 import { toast } from "sonner"
 
+import { EmptyState } from "@/components/empty-state"
 import { StatusBadge } from "@/components/status-badge"
+import { TableSkeleton } from "@/components/table-skeleton"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -378,7 +381,7 @@ export default function AttendancePage() {
               <div>
                 <CardTitle>自分の勤怠一覧</CardTitle>
                 <CardDescription>
-                  {isLoading ? "読み込み中です..." : `最新 ${attendances.length} 件を表示しています。`}
+                  {isLoading ? "最新データを表示します。" : `最新 ${attendances.length} 件を表示しています。`}
                 </CardDescription>
               </div>
               <Button
@@ -392,13 +395,12 @@ export default function AttendancePage() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="py-8 text-sm text-muted-foreground">
-                  勤怠データを読み込み中です...
-                </div>
+                <TableSkeleton columns={9} rows={4} />
               ) : attendances.length === 0 ? (
-                <div className="py-8 text-sm text-muted-foreground">
-                  まだ勤怠申請はありません。
-                </div>
+                <EmptyState
+                  icon={Clock}
+                  description="上のフォームから最初の勤怠を登録してください"
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <Table>

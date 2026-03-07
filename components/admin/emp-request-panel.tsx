@@ -1,8 +1,10 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { Database } from "lucide-react"
 import { toast } from "sonner"
 
+import { EmptyState } from "@/components/empty-state"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -28,6 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { TableSkeleton } from "@/components/table-skeleton"
 
 type EmpRequest = {
   id: string
@@ -263,11 +266,12 @@ export function EmpRequestPanel() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="py-8 text-sm text-muted-foreground">読み込み中です...</div>
+              <TableSkeleton columns={7} rows={4} />
             ) : requests.length === 0 ? (
-              <div className="py-8 text-sm text-muted-foreground">
-                承認待ちの社員申請はありません。
-              </div>
+              <EmptyState
+                icon={Database}
+                description="上のフォームから最初の社員申請を登録してください"
+              />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
