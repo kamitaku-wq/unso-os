@@ -18,3 +18,6 @@ alwaysApply: true
   - Claude Code defines schema, API, auth, and server contracts
   - Cursor implements screens and client interaction on top of those contracts
 - Do not let Cursor-side work silently decide backend policy.
+
+## Restricted Files (Do Not Touch)
+- `middleware.ts` — Next.js middleware. Must be named exactly `middleware.ts` with the exported function named `middleware`. Renaming to `proxy.ts` or any other name breaks authentication. Claude Code owns this file.
