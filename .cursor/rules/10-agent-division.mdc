@@ -20,4 +20,4 @@ alwaysApply: true
 - Do not let Cursor-side work silently decide backend policy.
 
 ## Restricted Files (Do Not Touch)
-- `middleware.ts` — Next.js middleware. Must be named exactly `middleware.ts` with the exported function named `middleware`. Renaming to `proxy.ts` or any other name breaks authentication. Claude Code owns this file.
+- `proxy.ts` — Next.js 16 のプロキシ（旧 middleware）。ファイル名は `proxy.ts`・関数名は `proxy` が正式仕様。`middleware.ts` に戻さないこと。Claude Code がオーナー。
