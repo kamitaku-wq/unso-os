@@ -63,7 +63,7 @@ export async function getMyBillables() {
 
   const { data, error } = await supabase
     .from('billables')
-    .select('billable_id, run_date, cust_id, route_id, pickup_loc, drop_loc, status, amount, note, depart_at, arrive_at, vehicle_id, distance_km, created_at')
+    .select('billable_id, run_date, cust_id, route_id, pickup_loc, drop_loc, status, amount, note, depart_at, arrive_at, vehicle_id, distance_km, timestamp')
     .eq('emp_id', employee.emp_id)
     .order('run_date', { ascending: false })
     .limit(50)
