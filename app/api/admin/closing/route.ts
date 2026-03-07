@@ -1,6 +1,6 @@
 // 月次締め API（一覧取得・締め実行・取り消し）
 import { NextResponse } from 'next/server'
-import { getClosings, closeMonth, reopenMonth } from '@/lib/server/closing'
+import { getClosings, closeMonth, reopenMonth, summarizeMonth } from '@/lib/server/closing'
 import { requireRole } from '@/lib/server/auth'
 import { apiError } from '@/lib/api-error'
 
@@ -23,6 +23,11 @@ export async function POST(request: Request) {
 
     if (!body.ym || !/^\d{6}$/.test(body.ym)) {
       return NextResponse.json({ error: 'ym は YYYYMM 形式で指定してください' }, { status: 400 })
+    }
+
+    if (body.preview === true) {
+      const preview = await summarizeMonth(body.ym)
+      return NextResponse.json(preview)
     }
 
     const result = await closeMonth(body.ym, employee.name, body.note ?? undefined)

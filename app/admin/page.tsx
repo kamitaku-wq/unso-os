@@ -56,7 +56,8 @@ type MasterResponse = {
   routes: Route[]
 }
 
-type AdminTab = "billables" | "expenses" | "employees" | "empRequests"
+type AdminTab = "billables" | "expenses" | "closings" | "employees" | "empRequests"
+type UserRole = "DRIVER" | "ADMIN" | "OWNER"
 
 type BillableStatus = "REVIEW_REQUIRED" | "APPROVED" | "VOID"
 type BillableStatusFilter = "ALL" | BillableStatus
@@ -100,6 +101,44 @@ type Expense = {
   paid_at: string | null
 }
 
+type ClosingWarnings = {
+  pendingBillables: number
+  pendingExpenses: number
+  pendingAttendances: number
+}
+
+type ClosingSummary = {
+  ym: string
+  approvedSales: number
+  approvedExpenses: number
+  attendanceSummary: Record<string, { work_min: number; overtime_min: number }>
+  warnings: ClosingWarnings
+}
+
+type ClosingRecord = {
+  id: string
+  ym: string
+  closed_at: string | null
+  closed_by: string | null
+  note: string | null
+}
+
+type MeResponse =
+  | {
+      registered: true
+      emp_id: string
+      name: string
+      role: UserRole
+      is_active: boolean
+    }
+  | {
+      registered: false
+      email: string | null
+    }
+  | {
+      error?: string
+    }
+
 const TEXTAREA_CLASS =
   "min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
 
@@ -109,6 +148,7 @@ const INITIAL_EXPENSE_FILTER: ExpenseStatusFilter = "SUBMITTED"
 // クエリ文字列から初期タブを安全に決める
 function getAdminTabFromQuery(value: string | null): AdminTab {
   if (value === "expenses") return "expenses"
+  if (value === "closings") return "closings"
   if (value === "employees") return "employees"
   if (value === "empRequests") return "empRequests"
   return "billables"
@@ -172,6 +212,17 @@ function formatMonthInputValue(value: Date) {
 // month input の値を API 用の YYYYMM に変換する
 function toYmValue(value: string) {
   return value.replace("-", "")
+}
+
+// 年月入力を YYYYMM に正規化する
+function normalizeYmInput(value: string) {
+  return value.replace(/\D/g, "").slice(0, 6)
+}
+
+// YYYYMM を画面表示用の YYYY/MM に整える
+function formatYm(value: string) {
+  if (!/^\d{6}$/.test(value)) return value
+  return `${value.slice(0, 4)}/${value.slice(4, 6)}`
 }
 
 // 日時を画面表示用に整える
@@ -244,15 +295,37 @@ function getReasonActionLabel(action: ExpenseReasonAction | null) {
   return ""
 }
 
+// 締め前警告を画面表示用の文言一覧に変換する
+function getClosingWarningMessages(warnings: ClosingWarnings) {
+  const messages: string[] = []
+
+  if (warnings.pendingBillables > 0) {
+    messages.push(`運行実績に未承認が ${warnings.pendingBillables} 件あります。`)
+  }
+
+  if (warnings.pendingExpenses > 0) {
+    messages.push(`経費申請に未承認が ${warnings.pendingExpenses} 件あります。`)
+  }
+
+  if (warnings.pendingAttendances > 0) {
+    messages.push(`勤怠申請に未承認が ${warnings.pendingAttendances} 件あります。`)
+  }
+
+  return messages
+}
+
 export default function AdminApprovalPage() {
   const today = useMemo(() => new Date(), [])
   const [activeTab, setActiveTab] = useState<AdminTab>("billables")
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null)
   const [masters, setMasters] = useState<MasterResponse>({
     customers: [],
     routes: [],
   })
   const [billables, setBillables] = useState<Billable[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
+  const [closings, setClosings] = useState<ClosingRecord[]>([])
+  const [closingSummary, setClosingSummary] = useState<ClosingSummary | null>(null)
   const [billableStatusFilter, setBillableStatusFilter] =
     useState<BillableStatusFilter>(INITIAL_BILLABLE_FILTER)
   const [expenseStatusFilter, setExpenseStatusFilter] =
@@ -260,6 +333,8 @@ export default function AdminApprovalPage() {
   const [isMasterLoading, setIsMasterLoading] = useState(true)
   const [isBillableListLoading, setIsBillableListLoading] = useState(true)
   const [isExpenseListLoading, setIsExpenseListLoading] = useState(false)
+  const [isClosingListLoading, setIsClosingListLoading] = useState(false)
+  const [isClosingActionLoading, setIsClosingActionLoading] = useState(false)
   const [pageError, setPageError] = useState("")
   const [actionMessage, setActionMessage] = useState("")
   const [hasNoPermission, setHasNoPermission] = useState(false)
@@ -281,6 +356,8 @@ export default function AdminApprovalPage() {
   const [expenseExportMonth, setExpenseExportMonth] = useState(() =>
     formatMonthInputValue(today)
   )
+  const [closingYm, setClosingYm] = useState(() => toYmValue(formatMonthInputValue(today)))
+  const [closingNote, setClosingNote] = useState("")
 
   const customerNameMap = useMemo(() => {
     return new Map(masters.customers.map((customer) => [customer.cust_id, customer.name]))
@@ -298,8 +375,10 @@ export default function AdminApprovalPage() {
 
   const isBillableBusy = isMasterLoading || isBillableListLoading
   const isExpenseBusy = isExpenseListLoading
+  const isClosingBusy = isClosingListLoading || isClosingActionLoading
   const showCurrentTabPermissionError =
-    hasNoPermission && (activeTab === "billables" || activeTab === "expenses")
+    hasNoPermission &&
+    (activeTab === "billables" || activeTab === "expenses" || activeTab === "closings")
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -328,6 +407,49 @@ export default function AdminApprovalPage() {
       })
     } finally {
       setIsMasterLoading(false)
+    }
+  }, [])
+
+  // 現在ログイン中の社員ロールを取得する
+  const loadCurrentUser = useCallback(async () => {
+    const response = await fetch("/api/me", { cache: "no-store" })
+    const data = (await response.json()) as MeResponse
+
+    if (!response.ok) {
+      throw new Error(getErrorMessage(data, "社員情報の取得に失敗しました"))
+    }
+
+    if ("registered" in data && data.registered) {
+      setCurrentUserRole(data.role)
+      return
+    }
+
+    setCurrentUserRole(null)
+  }, [])
+
+  // 締め済み一覧を取得する
+  const loadClosings = useCallback(async () => {
+    setIsClosingListLoading(true)
+    setPageError("")
+
+    try {
+      const response = await fetch("/api/admin/closing", { cache: "no-store" })
+      const data = (await response.json()) as ClosingRecord[] | { error?: string }
+
+      if (response.status === 403) {
+        setHasNoPermission(true)
+        setClosings([])
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error(getErrorMessage(data, "締め済み一覧の取得に失敗しました"))
+      }
+
+      setHasNoPermission(false)
+      setClosings(Array.isArray(data) ? data : [])
+    } finally {
+      setIsClosingListLoading(false)
     }
   }, [])
 
@@ -392,7 +514,7 @@ export default function AdminApprovalPage() {
       setActionMessage("")
 
       try {
-        await loadMasters()
+        await Promise.all([loadMasters(), loadCurrentUser()])
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "画面の読み込みに失敗しました"
@@ -401,7 +523,7 @@ export default function AdminApprovalPage() {
     }
 
     void initialize()
-  }, [loadMasters])
+  }, [loadCurrentUser, loadMasters])
 
   useEffect(() => {
     if (activeTab !== "billables") return
@@ -438,6 +560,24 @@ export default function AdminApprovalPage() {
 
     void reload()
   }, [activeTab, expenseStatusFilter, loadExpenses])
+
+  useEffect(() => {
+    if (activeTab !== "closings") return
+
+    async function reload() {
+      setActionMessage("")
+
+      try {
+        await loadClosings()
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "締め済み一覧の取得に失敗しました"
+        setPageError(message)
+      }
+    }
+
+    void reload()
+  }, [activeTab, loadClosings])
 
   // 実績承認モーダルを開いて金額初期値をセットする
   const openApproveDialog = useCallback((billable: Billable) => {
@@ -653,6 +793,155 @@ export default function AdminApprovalPage() {
     window.location.href = `/api/export/expenses?${params.toString()}`
   }, [expenseExportMonth])
 
+  // 締め前サマリを取得して警告内容を表示する
+  const handleClosingPreview = useCallback(async () => {
+    if (!/^\d{6}$/.test(closingYm)) {
+      setPageError("年月は YYYYMM 形式で入力してください")
+      return
+    }
+
+    setIsClosingActionLoading(true)
+    setPageError("")
+    setActionMessage("")
+
+    try {
+      const response = await fetch("/api/admin/closing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ym: closingYm,
+          note: closingNote.trim() || undefined,
+          preview: true,
+        }),
+      })
+      const data = (await response.json()) as ClosingSummary | { error?: string }
+
+      if (response.status === 403) {
+        setHasNoPermission(true)
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error(getErrorMessage(data, "締め前サマリの取得に失敗しました"))
+      }
+
+      setHasNoPermission(false)
+      setClosingSummary(data as ClosingSummary)
+
+      const warningMessages = getClosingWarningMessages((data as ClosingSummary).warnings)
+      setActionMessage(
+        warningMessages.length === 0
+          ? `${formatYm(closingYm)} の締め前サマリを取得しました。未承認はありません。`
+          : `${formatYm(closingYm)} の締め前サマリを取得しました。警告内容を確認してください。`
+      )
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "締め前サマリの取得に失敗しました"
+      setPageError(message)
+    } finally {
+      setIsClosingActionLoading(false)
+    }
+  }, [closingNote, closingYm])
+
+  // 月次締めを実行して一覧を更新する
+  const handleExecuteClosing = useCallback(async () => {
+    if (!/^\d{6}$/.test(closingYm)) {
+      setPageError("年月は YYYYMM 形式で入力してください")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `${formatYm(closingYm)} を締め実行します。よろしいですか？`
+    )
+    if (!confirmed) return
+
+    setIsClosingActionLoading(true)
+    setPageError("")
+    setActionMessage("")
+
+    try {
+      const response = await fetch("/api/admin/closing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ym: closingYm,
+          note: closingNote.trim() || undefined,
+        }),
+      })
+      const data = (await response.json()) as ClosingSummary | { error?: string }
+
+      if (response.status === 403) {
+        setHasNoPermission(true)
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error(getErrorMessage(data, "締め実行に失敗しました"))
+      }
+
+      setHasNoPermission(false)
+      setClosingSummary(data as ClosingSummary)
+      setActionMessage(`${formatYm(closingYm)} の締めを実行しました。`)
+      await loadClosings()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "締め実行に失敗しました"
+      setPageError(message)
+    } finally {
+      setIsClosingActionLoading(false)
+    }
+  }, [closingNote, closingYm, loadClosings])
+
+  // 締め済み月を取り消して一覧を更新する
+  const handleReopenClosing = useCallback(
+    async (ym: string) => {
+      const confirmed = window.confirm(
+        `${formatYm(ym)} の締めを取り消します。よろしいですか？`
+      )
+      if (!confirmed) return
+
+      setIsClosingActionLoading(true)
+      setPageError("")
+      setActionMessage("")
+
+      try {
+        const response = await fetch(`/api/admin/closing?ym=${encodeURIComponent(ym)}`, {
+          method: "DELETE",
+        })
+        const data = (await response.json()) as { error?: string; ok?: boolean }
+
+        if (response.status === 403) {
+          setHasNoPermission(true)
+          return
+        }
+
+        if (!response.ok) {
+          throw new Error(getErrorMessage(data, "締め取り消しに失敗しました"))
+        }
+
+        setHasNoPermission(false)
+        if (closingSummary?.ym === ym) {
+          setClosingSummary(null)
+        }
+        setActionMessage(`${formatYm(ym)} の締めを取り消しました。`)
+        await loadClosings()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "締め取り消しに失敗しました"
+        setPageError(message)
+      } finally {
+        setIsClosingActionLoading(false)
+      }
+    },
+    [closingSummary, loadClosings]
+  )
+
+  const closingWarningMessages = closingSummary
+    ? getClosingWarningMessages(closingSummary.warnings)
+    : []
+
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-8 md:px-6">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
@@ -707,6 +996,13 @@ export default function AdminApprovalPage() {
                     onClick={() => setActiveTab("expenses")}
                   >
                     経費
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={activeTab === "closings" ? "default" : "outline"}
+                    onClick={() => setActiveTab("closings")}
+                  >
+                    月次締め
                   </Button>
                   <Button
                     type="button"
@@ -1114,6 +1410,190 @@ export default function AdminApprovalPage() {
                                 </TableRow>
                               )
                             })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            ) : null}
+
+            {activeTab === "closings" ? (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>月次締め</CardTitle>
+                    <CardDescription>
+                      対象年月の締め前確認と締め実行を行います。
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
+                      <div className="space-y-2">
+                        <Label htmlFor="closing-ym">年月（YYYYMM）</Label>
+                        <Input
+                          id="closing-ym"
+                          inputMode="numeric"
+                          maxLength={6}
+                          placeholder="例: 202603"
+                          value={closingYm}
+                          onChange={(event) =>
+                            setClosingYm(normalizeYmInput(event.target.value))
+                          }
+                          disabled={isClosingBusy}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          6 桁の年月を入力してください。
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="closing-note">メモ（任意）</Label>
+                        <textarea
+                          id="closing-note"
+                          className={TEXTAREA_CLASS}
+                          value={closingNote}
+                          onChange={(event) => setClosingNote(event.target.value)}
+                          placeholder="締め時の補足メモがあれば入力してください"
+                          disabled={isClosingBusy}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void handleClosingPreview()}
+                        disabled={isClosingBusy}
+                      >
+                        {isClosingActionLoading ? "取得中..." : "締め前サマリ"}
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => void handleExecuteClosing()}
+                        disabled={isClosingBusy}
+                      >
+                        {isClosingActionLoading ? "締め処理中..." : "締め実行"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void loadClosings()}
+                        disabled={isClosingBusy}
+                      >
+                        一覧更新
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {closingSummary ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>締め前サマリ</CardTitle>
+                      <CardDescription>
+                        {formatYm(closingSummary.ym)} 時点の承認済み集計です。
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div
+                        className={
+                          closingWarningMessages.length > 0
+                            ? "rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                            : "rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+                        }
+                      >
+                        {closingWarningMessages.length > 0 ? (
+                          <div className="space-y-1">
+                            {closingWarningMessages.map((message) => (
+                              <p key={message}>{message}</p>
+                            ))}
+                          </div>
+                        ) : (
+                          <p>未承認データはありません。このまま締め実行できます。</p>
+                        )}
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <div className="rounded-lg border px-4 py-3">
+                          <p className="text-sm text-muted-foreground">承認済み売上</p>
+                          <p className="mt-1 text-2xl font-semibold">
+                            {formatCurrency(closingSummary.approvedSales)}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border px-4 py-3">
+                          <p className="text-sm text-muted-foreground">承認済み経費</p>
+                          <p className="mt-1 text-2xl font-semibold">
+                            {formatCurrency(closingSummary.approvedExpenses)}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border px-4 py-3">
+                          <p className="text-sm text-muted-foreground">承認済み勤怠社員数</p>
+                          <p className="mt-1 text-2xl font-semibold">
+                            {formatNumber(
+                              Object.keys(closingSummary.attendanceSummary).length
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>締め済み一覧</CardTitle>
+                    <CardDescription>登録済みの月次締めを新しい順に表示します。</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isClosingListLoading ? (
+                      <div className="py-8 text-sm text-muted-foreground">
+                        読み込み中です...
+                      </div>
+                    ) : closings.length === 0 ? (
+                      <div className="py-8 text-sm text-muted-foreground">
+                        まだ締め済みの月はありません。
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>年月</TableHead>
+                              <TableHead>締め日時</TableHead>
+                              <TableHead>締め実行者</TableHead>
+                              <TableHead>メモ</TableHead>
+                              <TableHead>操作</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {closings.map((closing) => (
+                              <TableRow key={closing.id}>
+                                <TableCell>{formatYm(closing.ym)}</TableCell>
+                                <TableCell>{formatDateTime(closing.closed_at)}</TableCell>
+                                <TableCell>{closing.closed_by ?? "-"}</TableCell>
+                                <TableCell className="max-w-72 whitespace-normal">
+                                  {closing.note || "-"}
+                                </TableCell>
+                                <TableCell>
+                                  {currentUserRole === "OWNER" ? (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => void handleReopenClosing(closing.ym)}
+                                      disabled={isClosingBusy}
+                                    >
+                                      取り消し
+                                    </Button>
+                                  ) : (
+                                    <span className="text-sm text-muted-foreground">-</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
                           </TableBody>
                         </Table>
                       </div>

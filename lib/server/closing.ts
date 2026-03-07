@@ -1,6 +1,18 @@
 // 月次締め処理のサーバー側ビジネスロジック
 import { createClient } from '@/lib/supabase/server'
 
+type ClosingSummary = {
+  ym: string
+  approvedSales: number
+  approvedExpenses: number
+  attendanceSummary: Record<string, { work_min: number; overtime_min: number }>
+  warnings: {
+    pendingBillables: number
+    pendingExpenses: number
+    pendingAttendances: number
+  }
+}
+
 // 指定 ym が締め済みか確認する（billable/expense/attendance の登録前チェックに使用）
 export async function isMonthClosed(ym: string): Promise<boolean> {
   const supabase = await createClient()
@@ -23,13 +35,9 @@ export async function getClosings() {
   return data ?? []
 }
 
-// 月次締めを実行する（サマリも返す）
-export async function closeMonth(ym: string, closedBy: string, note?: string) {
+// 指定月の締め前サマリを集計する
+export async function summarizeMonth(ym: string): Promise<ClosingSummary> {
   const supabase = await createClient()
-
-  // すでに締め済みならエラー
-  const already = await isMonthClosed(ym)
-  if (already) throw new Error(`${ym} はすでに締め済みです`)
 
   // サマリを集計（締め前の最終確認用）
   const [billablesRes, expensesRes, attendancesRes] = await Promise.all([
@@ -50,33 +58,55 @@ export async function closeMonth(ym: string, closedBy: string, note?: string) {
 
   // 承認済み売上合計
   const approvedSales = (billablesRes.data ?? [])
-    .filter(r => r.status === 'APPROVED')
+    .filter((r) => r.status === 'APPROVED')
     .reduce((sum, r) => sum + Number(r.amount ?? 0), 0)
 
   // 承認済み・支払済み経費合計
   const approvedExpenses = (expensesRes.data ?? [])
-    .filter(r => ['APPROVED', 'PAID'].includes(r.status))
+    .filter((r) => ['APPROVED', 'PAID'].includes(r.status))
     .reduce((sum, r) => sum + Number(r.amount ?? 0), 0)
 
   // 承認済み勤怠の社員別集計
   const attendanceSummary: Record<string, { work_min: number; overtime_min: number }> = {}
-  for (const r of (attendancesRes.data ?? []).filter(r => r.status === 'APPROVED')) {
-    if (!attendanceSummary[r.emp_id]) attendanceSummary[r.emp_id] = { work_min: 0, overtime_min: 0 }
+  for (const r of (attendancesRes.data ?? []).filter((row) => row.status === 'APPROVED')) {
+    if (!r.emp_id) continue
+    if (!attendanceSummary[r.emp_id]) {
+      attendanceSummary[r.emp_id] = { work_min: 0, overtime_min: 0 }
+    }
+
     attendanceSummary[r.emp_id].work_min += r.work_min ?? 0
     attendanceSummary[r.emp_id].overtime_min += r.overtime_min ?? 0
   }
 
   // 未承認件数（警告用）
-  const pendingBillables  = (billablesRes.data ?? []).filter(r => r.status === 'REVIEW_REQUIRED').length
-  const pendingExpenses   = (expensesRes.data ?? []).filter(r => r.status === 'SUBMITTED').length
-  const pendingAttendances = (attendancesRes.data ?? []).filter(r => r.status === 'SUBMITTED').length
+  const pendingBillables = (billablesRes.data ?? []).filter(
+    (r) => r.status === 'REVIEW_REQUIRED'
+  ).length
+  const pendingExpenses = (expensesRes.data ?? []).filter(
+    (r) => r.status === 'SUBMITTED'
+  ).length
+  const pendingAttendances = (attendancesRes.data ?? []).filter(
+    (r) => r.status === 'SUBMITTED'
+  ).length
 
-  // 締めを記録
-  const { data: me } = await supabase
-    .from('employees')
-    .select('company_id')
-    .eq('name', closedBy)
-    .maybeSingle()
+  return {
+    ym,
+    approvedSales,
+    approvedExpenses,
+    attendanceSummary,
+    warnings: { pendingBillables, pendingExpenses, pendingAttendances },
+  }
+}
+
+// 月次締めを実行する（サマリも返す）
+export async function closeMonth(ym: string, closedBy: string, note?: string) {
+  const supabase = await createClient()
+
+  // すでに締め済みならエラー
+  const already = await isMonthClosed(ym)
+  if (already) throw new Error(`${ym} はすでに締め済みです`)
+
+  const summary = await summarizeMonth(ym)
 
   // company_id は RLS で自動フィルタされるため、自社のものが取れる
   const { data: myInfo } = await supabase
@@ -95,13 +125,7 @@ export async function closeMonth(ym: string, closedBy: string, note?: string) {
   })
   if (error) throw new Error(error.message)
 
-  return {
-    ym,
-    approvedSales,
-    approvedExpenses,
-    attendanceSummary,
-    warnings: { pendingBillables, pendingExpenses, pendingAttendances },
-  }
+  return summary
 }
 
 // 月次締めを取り消す（OWNER のみ）
