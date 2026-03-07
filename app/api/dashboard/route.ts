@@ -1,11 +1,11 @@
-// 経営ダッシュボード API（OWNER/ADMIN 用）
+// 経営ダッシュボード API（OWNER 用）
 import { NextResponse } from 'next/server'
 import { getPendingCounts, getMonthlySales, getMonthlyExpenses, getCurrentMonthByEmployee } from '@/lib/server/dashboard'
 import { requireRole } from '@/lib/server/auth'
 
 export async function GET() {
   try {
-    await requireRole(['ADMIN', 'OWNER'])
+    await requireRole(['OWNER'])
 
     const [pendingCounts, monthlySales, monthlyExpenses, currentMonthByEmployee] = await Promise.all([
       getPendingCounts(),

@@ -20,12 +20,24 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient()
 
+    const { count: companyCount, error: companyCountError } = await admin
+      .from('companies')
+      .select('id', { count: 'exact', head: true })
+
+    if (companyCountError) {
+      throw new Error('会社情報の確認に失敗しました')
+    }
+
+    if ((companyCount ?? 0) > 0) {
+      return NextResponse.json({ error: '初回セットアップは完了済みです' }, { status: 409 })
+    }
+
     // すでに同じメールで社員登録済みならエラー
     const { data: existing } = await admin
       .from('employees')
       .select('id')
       .eq('google_email', user.email!)
-      .single()
+      .maybeSingle()
 
     if (existing) {
       return NextResponse.json({ error: 'すでに登録済みです' }, { status: 409 })
@@ -67,13 +79,13 @@ export async function GET() {
     if (!user) return NextResponse.json({ error: '未認証' }, { status: 401 })
 
     const admin = createAdminClient()
-    const { data: employee } = await admin
-      .from('employees')
-      .select('id, role')
-      .eq('google_email', user.email!)
-      .single()
+    const { count, error } = await admin
+      .from('companies')
+      .select('id', { count: 'exact', head: true })
 
-    return NextResponse.json({ setup_done: !!employee, role: employee?.role ?? null })
+    if (error) throw new Error('確認に失敗しました')
+
+    return NextResponse.json({ setup_done: (count ?? 0) > 0 })
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : '確認に失敗しました'
     return NextResponse.json({ error: message }, { status: 500 })

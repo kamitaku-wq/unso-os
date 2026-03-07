@@ -12,9 +12,9 @@ export async function GET() {
       .from('employees')
       .select('emp_id, name, role, is_active')
       .eq('google_email', user.email!)
-      .single()
+      .maybeSingle()
 
-    if (!employee) {
+    if (!employee || !employee.is_active) {
       // 社員未登録：登録申請ページへ誘導
       return NextResponse.json({ registered: false, email: user.email }, { status: 200 })
     }
