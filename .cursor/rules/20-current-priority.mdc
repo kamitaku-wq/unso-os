@@ -1,0 +1,16 @@
+---
+description: Current implementation priority and onboarding decisions
+alwaysApply: true
+---
+
+# Current Priority
+
+- Current highest priority is Phase 1 onboarding and post-login routing.
+- Follow these fixed decisions:
+  - Use `/auth/post-login` as the routing gate after OAuth.
+  - If no company exists, route to `/setup`.
+  - `company_code` is auto-generated during initial setup.
+  - Rejected employee requests stay as history; re-application creates a new request.
+  - Initial `ADMIN` creation is done through employee request approval.
+  - After initial setup, route the first `OWNER` to `/dashboard`.
+- When pages are still missing, keep routing intent correct even if the UI is temporary.

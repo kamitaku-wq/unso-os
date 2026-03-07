@@ -1,65 +1,619 @@
-import Image from "next/image";
+"use client"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
+type Customer = {
+  cust_id: string
+  name: string
+}
+
+type Route = {
+  route_id: string
+  cust_id: string
+  pickup_default: string | null
+  drop_default: string | null
+}
+
+type Vehicle = {
+  vehicle_id: string
+  name: string
+}
+
+type Billable = {
+  billable_id: string
+  run_date: string | null
+  cust_id: string | null
+  route_id: string | null
+  pickup_loc: string | null
+  drop_loc: string | null
+  status: string
+  note: string | null
+  depart_at: string | null
+  arrive_at: string | null
+  vehicle_id: string | null
+  distance_km: number | null
+  created_at?: string | null
+}
+
+type MasterResponse = {
+  customers: Customer[]
+  routes: Route[]
+  vehicles: Vehicle[]
+}
+
+type FormState = {
+  run_date: string
+  cust_id: string
+  route_choice: string
+  pickup_loc: string
+  drop_loc: string
+  depart_at: string
+  arrive_at: string
+  vehicle_id: string
+  distance_km: string
+  note: string
+}
+
+const NO_ROUTE_VALUE = "__NO_ROUTE__"
+
+const initialFormState: FormState = {
+  run_date: new Date().toISOString().slice(0, 10),
+  cust_id: "",
+  route_choice: "",
+  pickup_loc: "",
+  drop_loc: "",
+  depart_at: "",
+  arrive_at: "",
+  vehicle_id: "",
+  distance_km: "",
+  note: "",
+}
+
+// API エラー文言を安全に取り出す
+function getErrorMessage(data: unknown, fallback: string) {
+  if (
+    typeof data === "object" &&
+    data !== null &&
+    "error" in data &&
+    typeof data.error === "string"
+  ) {
+    return data.error
+  }
+
+  return fallback
+}
+
+// 日時を画面表示用に整える
+function formatDateTime(value: string | null) {
+  if (!value) return "-"
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+
+  return parsed.toLocaleString("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+// 日付を画面表示用に整える
+function formatDate(value: string | null) {
+  if (!value) return "-"
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+
+  return parsed.toLocaleDateString("ja-JP")
+}
+
+// 実績ステータスを日本語表示に変換する
+function getStatusLabel(status: string) {
+  if (status === "APPROVED") return "承認済み"
+  if (status === "VOID") return "無効"
+  return "確認待ち"
+}
 
 export default function Home() {
+  const [masters, setMasters] = useState<MasterResponse>({
+    customers: [],
+    routes: [],
+    vehicles: [],
+  })
+  const [billables, setBillables] = useState<Billable[]>([])
+  const [form, setForm] = useState<FormState>(initialFormState)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [pageError, setPageError] = useState("")
+  const [submitMessage, setSubmitMessage] = useState("")
+
+  const customerNameMap = useMemo(() => {
+    return new Map(masters.customers.map((customer) => [customer.cust_id, customer.name]))
+  }, [masters.customers])
+
+  const vehicleNameMap = useMemo(() => {
+    return new Map(masters.vehicles.map((vehicle) => [vehicle.vehicle_id, vehicle.name]))
+  }, [masters.vehicles])
+
+  const selectedRoute = useMemo(() => {
+    if (!form.route_choice || form.route_choice === NO_ROUTE_VALUE) {
+      return null
+    }
+
+    return masters.routes.find((route) => route.route_id === form.route_choice) ?? null
+  }, [form.route_choice, masters.routes])
+
+  const routeOptions = useMemo(() => {
+    if (!form.cust_id) {
+      return masters.routes
+    }
+
+    return masters.routes.filter((route) => route.cust_id === form.cust_id)
+  }, [form.cust_id, masters.routes])
+
+  // 自分の実績一覧を取得する
+  const loadBillables = useCallback(async () => {
+    const response = await fetch("/api/billable", { cache: "no-store" })
+    const data = (await response.json()) as Billable[] | { error?: string }
+
+    if (!response.ok) {
+      throw new Error(getErrorMessage(data, "実績一覧の取得に失敗しました"))
+    }
+
+    setBillables(Array.isArray(data) ? data : [])
+  }, [])
+
+  // 初期表示に必要なデータをまとめて取得する
+  const loadInitialData = useCallback(async () => {
+    setIsLoading(true)
+    setPageError("")
+
+    try {
+      const [masterResponse, billableResponse] = await Promise.all([
+        fetch("/api/master", { cache: "no-store" }),
+        fetch("/api/billable", { cache: "no-store" }),
+      ])
+
+      const masterData = (await masterResponse.json()) as MasterResponse | { error?: string }
+      const billableData = (await billableResponse.json()) as Billable[] | { error?: string }
+
+      if (!masterResponse.ok) {
+        throw new Error(getErrorMessage(masterData, "マスタ取得に失敗しました"))
+      }
+
+      if (!billableResponse.ok) {
+        throw new Error(getErrorMessage(billableData, "実績一覧の取得に失敗しました"))
+      }
+
+      setMasters(masterData as MasterResponse)
+      setBillables(Array.isArray(billableData) ? billableData : [])
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "画面の読み込みに失敗しました"
+      setPageError(message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadInitialData()
+  }, [loadInitialData])
+
+  // 入力項目を更新する
+  const updateForm = useCallback(
+    <K extends keyof FormState>(key: K, value: FormState[K]) => {
+      setForm((current) => ({
+        ...current,
+        [key]: value,
+      }))
+    },
+    []
+  )
+
+  // 荷主変更時にルートとの整合を保つ
+  const handleCustomerChange = useCallback(
+    (custId: string) => {
+      setForm((current) => {
+        const currentRoute =
+          current.route_choice && current.route_choice !== NO_ROUTE_VALUE
+            ? masters.routes.find((route) => route.route_id === current.route_choice) ?? null
+            : null
+
+        if (!currentRoute || currentRoute.cust_id === custId) {
+          return { ...current, cust_id: custId }
+        }
+
+        return {
+          ...current,
+          cust_id: custId,
+          route_choice: "",
+          pickup_loc: "",
+          drop_loc: "",
+        }
+      })
+    },
+    [masters.routes]
+  )
+
+  // ルート選択時に積み地・降ろし地を自動反映する
+  const handleRouteChange = useCallback(
+    (value: string) => {
+      if (value === NO_ROUTE_VALUE) {
+        setForm((current) => ({
+          ...current,
+          route_choice: value,
+          pickup_loc: "",
+          drop_loc: "",
+        }))
+        return
+      }
+
+      const route = masters.routes.find((item) => item.route_id === value)
+      if (!route) {
+        setForm((current) => ({
+          ...current,
+          route_choice: "",
+        }))
+        return
+      }
+
+      setForm((current) => ({
+        ...current,
+        cust_id: route.cust_id,
+        route_choice: value,
+        pickup_loc: route.pickup_default ?? "",
+        drop_loc: route.drop_default ?? "",
+      }))
+    },
+    [masters.routes]
+  )
+
+  // フォームを送信して一覧を更新する
+  const handleSubmit = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      setIsSubmitting(true)
+      setSubmitMessage("")
+      setPageError("")
+
+      try {
+        const response = await fetch("/api/billable", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            run_date: form.run_date || null,
+            cust_id: form.cust_id || null,
+            route_id:
+              form.route_choice && form.route_choice !== NO_ROUTE_VALUE
+                ? form.route_choice
+                : null,
+            pickup_loc: form.pickup_loc || null,
+            drop_loc: form.drop_loc || null,
+            depart_at: form.depart_at ? new Date(form.depart_at).toISOString() : null,
+            arrive_at: form.arrive_at ? new Date(form.arrive_at).toISOString() : null,
+            vehicle_id: form.vehicle_id || null,
+            distance_km: form.distance_km || null,
+            note: form.note || null,
+          }),
+        })
+
+        const data = (await response.json()) as { billable_id?: string; error?: string }
+
+        if (!response.ok) {
+          throw new Error(getErrorMessage(data, "実績の登録に失敗しました"))
+        }
+
+        await loadBillables()
+        setForm({
+          ...initialFormState,
+          run_date: form.run_date,
+        })
+        setSubmitMessage(
+          data.billable_id
+            ? `実績を登録しました（ID: ${data.billable_id}）`
+            : "実績を登録しました"
+        )
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "実績の登録に失敗しました"
+        setPageError(message)
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [form, loadBillables]
+  )
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="min-h-screen bg-muted/30 px-4 py-8 md:px-6">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight">運行実績入力</h1>
+          <p className="text-sm text-muted-foreground">
+            運行実績を登録すると、下の一覧に自分の履歴が反映されます。
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+
+        {pageError ? (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {pageError}
+          </div>
+        ) : null}
+
+        {submitMessage ? (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {submitMessage}
+          </div>
+        ) : null}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>実績登録フォーム</CardTitle>
+            <CardDescription>
+              ルートを選ぶと、積み地・降ろし地の初期値が自動入力されます。
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="run_date">運行日</Label>
+                  <Input
+                    id="run_date"
+                    type="date"
+                    value={form.run_date}
+                    onChange={(event) => updateForm("run_date", event.target.value)}
+                    disabled={isLoading || isSubmitting}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>荷主</Label>
+                  <Select
+                    value={form.cust_id || undefined}
+                    onValueChange={handleCustomerChange}
+                    disabled={isLoading || isSubmitting}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="荷主を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {masters.customers.map((customer) => (
+                        <SelectItem key={customer.cust_id} value={customer.cust_id}>
+                          {customer.name} ({customer.cust_id})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>ルート</Label>
+                  <Select
+                    value={form.route_choice || undefined}
+                    onValueChange={handleRouteChange}
+                    disabled={isLoading || isSubmitting}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="ルートを選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_ROUTE_VALUE}>ルートなし</SelectItem>
+                      {routeOptions.map((route) => (
+                        <SelectItem key={route.route_id} value={route.route_id}>
+                          {route.route_id}
+                          {customerNameMap.get(route.cust_id)
+                            ? ` / ${customerNameMap.get(route.cust_id)}`
+                            : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pickup_loc">積み地</Label>
+                  <Input
+                    id="pickup_loc"
+                    value={form.pickup_loc}
+                    placeholder={
+                      selectedRoute ? "ルート既定値から編集できます" : "自由入力"
+                    }
+                    onChange={(event) => updateForm("pickup_loc", event.target.value)}
+                    disabled={isLoading || isSubmitting}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="drop_loc">降ろし地</Label>
+                  <Input
+                    id="drop_loc"
+                    value={form.drop_loc}
+                    placeholder={
+                      selectedRoute ? "ルート既定値から編集できます" : "自由入力"
+                    }
+                    onChange={(event) => updateForm("drop_loc", event.target.value)}
+                    disabled={isLoading || isSubmitting}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="vehicle_id">車両</Label>
+                  <Select
+                    value={form.vehicle_id || undefined}
+                    onValueChange={(value) => updateForm("vehicle_id", value)}
+                    disabled={isLoading || isSubmitting}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="車両を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {masters.vehicles.map((vehicle) => (
+                        <SelectItem key={vehicle.vehicle_id} value={vehicle.vehicle_id}>
+                          {vehicle.name} ({vehicle.vehicle_id})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="depart_at">出発時刻</Label>
+                  <Input
+                    id="depart_at"
+                    type="datetime-local"
+                    value={form.depart_at}
+                    onChange={(event) => updateForm("depart_at", event.target.value)}
+                    disabled={isLoading || isSubmitting}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="arrive_at">到着時刻</Label>
+                  <Input
+                    id="arrive_at"
+                    type="datetime-local"
+                    value={form.arrive_at}
+                    onChange={(event) => updateForm("arrive_at", event.target.value)}
+                    disabled={isLoading || isSubmitting}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="distance_km">距離 km</Label>
+                  <Input
+                    id="distance_km"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.1"
+                    value={form.distance_km}
+                    onChange={(event) => updateForm("distance_km", event.target.value)}
+                    disabled={isLoading || isSubmitting}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="note">備考</Label>
+                <textarea
+                  id="note"
+                  className="min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+                  value={form.note}
+                  placeholder="補足があれば入力してください"
+                  onChange={(event) => updateForm("note", event.target.value)}
+                  disabled={isLoading || isSubmitting}
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  送信後に実績一覧を再取得して最新表示に更新します。
+                </p>
+                <Button type="submit" disabled={isLoading || isSubmitting}>
+                  {isSubmitting ? "登録中..." : "実績を登録"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>自分の運行実績一覧</CardTitle>
+            <CardDescription>最新 50 件を表示しています。</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="py-8 text-sm text-muted-foreground">読み込み中です...</div>
+            ) : billables.length === 0 ? (
+              <div className="py-8 text-sm text-muted-foreground">
+                まだ登録された運行実績はありません。
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>運行日</TableHead>
+                    <TableHead>荷主</TableHead>
+                    <TableHead>ルート</TableHead>
+                    <TableHead>積み地 → 降ろし地</TableHead>
+                    <TableHead>出発 / 到着</TableHead>
+                    <TableHead>車両</TableHead>
+                    <TableHead className="text-right">距離 km</TableHead>
+                    <TableHead>状態</TableHead>
+                    <TableHead>備考</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {billables.map((billable) => (
+                    <TableRow key={billable.billable_id}>
+                      <TableCell>{formatDate(billable.run_date)}</TableCell>
+                      <TableCell>
+                        {billable.cust_id
+                          ? customerNameMap.get(billable.cust_id) ?? billable.cust_id
+                          : "-"}
+                      </TableCell>
+                      <TableCell>{billable.route_id ?? "ルートなし"}</TableCell>
+                      <TableCell>
+                        {(billable.pickup_loc ?? "-") + " → " + (billable.drop_loc ?? "-")}
+                      </TableCell>
+                      <TableCell>
+                        {formatDateTime(billable.depart_at)}
+                        <br />
+                        {formatDateTime(billable.arrive_at)}
+                      </TableCell>
+                      <TableCell>
+                        {billable.vehicle_id
+                          ? vehicleNameMap.get(billable.vehicle_id) ?? billable.vehicle_id
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {billable.distance_km ?? "-"}
+                      </TableCell>
+                      <TableCell>{getStatusLabel(billable.status)}</TableCell>
+                      <TableCell className="max-w-60 whitespace-normal">
+                        {billable.note || "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </main>
+  )
 }

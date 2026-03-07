@@ -1,0 +1,20 @@
+---
+description: Cursor GPT-5.4 and Claude Code division of labor
+alwaysApply: true
+---
+
+# Agent Division
+
+- Development environment is `Cursor + Claude Code`, and Cursor-side implementation uses GPT-5.4.
+- Cursor GPT-5.4 should lead:
+  - React and Next.js UI in `app/**/*.tsx` and `components/**/*.tsx`
+  - shadcn/ui composition and Tailwind styling
+  - small single-file improvements and UI-focused docs updates
+- Claude Code should lead:
+  - DB schema and `supabase/migrations/**`
+  - RLS, auth, tenant isolation, and role design
+  - `app/api/**`, `lib/server/**`, and multi-file architecture changes
+- If a task crosses both areas, split it explicitly:
+  - Claude Code defines schema, API, auth, and server contracts
+  - Cursor implements screens and client interaction on top of those contracts
+- Do not let Cursor-side work silently decide backend policy.

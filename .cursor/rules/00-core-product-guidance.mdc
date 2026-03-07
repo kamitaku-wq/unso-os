@@ -1,0 +1,15 @@
+---
+description: Core product and decision guidance for unso-os
+alwaysApply: true
+---
+
+# unso-os Core Guidance
+
+- Read `docs/ai-implementation-brief.md` and follow its decision order when requirements conflict.
+- Read `docs/phase-1-auth-onboarding-spec.md` before touching login, onboarding, company setup, or employee request flows.
+- Treat Google login and business access as separate states.
+- Keep permission control aligned across UI, API, and RLS.
+- Do not guess auth, role, company bootstrap, or tenant isolation behavior.
+- Keep transport-specific wording configurable so future industries can reuse the product.
+- Prefer implementation order: onboarding, roles, master responsibility, then business features.
+- Never commit `.env.local` or edit applied migrations in place.
