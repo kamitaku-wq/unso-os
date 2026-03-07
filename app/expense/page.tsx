@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -50,6 +58,7 @@ type Expense = {
   amount: number
   vendor: string | null
   description: string | null
+  receipt_url: string | null
   status: string
   submitted_at: string | null
   approved_at: string | null
@@ -64,6 +73,21 @@ type ExpenseForm = {
   amount: string
   vendor: string
   description: string
+}
+
+type CreateExpenseResponse = {
+  id: string
+  expense_id: string
+}
+
+type ReceiptResponse = {
+  url: string | null
+}
+
+type ReceiptPreview = {
+  expenseId: string
+  expenseCode: string
+  url: string
 }
 
 const TEXTAREA_CLASS =
@@ -96,6 +120,12 @@ function getErrorMessage(data: unknown, fallback: string) {
 // 空欄入力を送信用に整える
 function normalizeOptionalValue(value: string) {
   return value.trim()
+}
+
+// レシートの拡張子から PDF かどうかを判定する
+function isPdfReceipt(receiptPath: string | null) {
+  if (!receiptPath) return false
+  return /\.pdf$/i.test(receiptPath)
 }
 
 // 日付を画面表示向けに整える
@@ -172,10 +202,13 @@ export default function ExpensePage() {
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [form, setForm] = useState<ExpenseForm>(createInitialExpenseForm)
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [pageError, setPageError] = useState("")
   const [submitMessage, setSubmitMessage] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [busyKey, setBusyKey] = useState<string | null>(null)
+  const [receiptPreview, setReceiptPreview] = useState<ReceiptPreview | null>(null)
+  const receiptInputRef = useRef<HTMLInputElement | null>(null)
 
   const selectedCategory = useMemo(() => {
     return categories.find((category) => category.category_id === form.category_id) ?? null
@@ -201,6 +234,21 @@ export default function ExpensePage() {
       "経費申請一覧の取得に失敗しました"
     )
     setExpenses(data)
+  }, [])
+
+  // レシートファイルをアップロードする
+  const uploadReceipt = useCallback(async (expenseId: string, file: File) => {
+    const formData = new FormData()
+    formData.append("file", file)
+
+    await requestJson(
+      `/api/expense/${expenseId}/receipt`,
+      {
+        method: "POST",
+        body: formData,
+      },
+      "レシートのアップロードに失敗しました"
+    )
   }, [])
 
   useEffect(() => {
@@ -248,7 +296,7 @@ export default function ExpensePage() {
       setSubmitMessage("")
 
       try {
-        const result = await requestJson<{ expense_id: string }>(
+        const result = await requestJson<CreateExpenseResponse>(
           "/api/expense",
           {
             method: "POST",
@@ -267,9 +315,21 @@ export default function ExpensePage() {
           "経費申請に失敗しました"
         )
 
+        if (receiptFile) {
+          await uploadReceipt(result.id, receiptFile)
+        }
+
         setForm(createInitialExpenseForm())
+        setReceiptFile(null)
+        if (receiptInputRef.current) {
+          receiptInputRef.current.value = ""
+        }
         await loadExpenses()
-        setSubmitMessage(`経費 ${result.expense_id} を申請しました。`)
+        setSubmitMessage(
+          receiptFile
+            ? `経費 ${result.expense_id} を申請し、レシートを添付しました。`
+            : `経費 ${result.expense_id} を申請しました。`
+        )
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "経費申請に失敗しました"
@@ -278,8 +338,44 @@ export default function ExpensePage() {
         setBusyKey(null)
       }
     },
-    [form, loadExpenses, selectedCategory]
+    [form, loadExpenses, receiptFile, selectedCategory, uploadReceipt]
   )
+
+  // レシートの署名付き URL を取得して新しいタブで開く
+  const handleOpenReceipt = useCallback(async (expense: Expense) => {
+    setBusyKey(`open-receipt:${expense.id}`)
+    setPageError("")
+
+    try {
+      const data = await requestJson<ReceiptResponse>(
+        `/api/expense/${expense.id}/receipt`,
+        undefined,
+        "レシートの取得に失敗しました"
+      )
+
+      if (!data.url) {
+        setPageError(`経費 ${expense.expense_id} にはレシートが添付されていません`)
+        return
+      }
+
+      if (isPdfReceipt(expense.receipt_url)) {
+        window.open(data.url, "_blank", "noopener,noreferrer")
+        return
+      }
+
+      setReceiptPreview({
+        expenseId: expense.id,
+        expenseCode: expense.expense_id,
+        url: data.url,
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "レシートの取得に失敗しました"
+      setPageError(message)
+    } finally {
+      setBusyKey(null)
+    }
+  }, [])
 
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-8 md:px-6">
@@ -308,7 +404,7 @@ export default function ExpensePage() {
             <CardHeader>
               <CardTitle>新規申請</CardTitle>
               <CardDescription>
-                経費日、区分、金額は必須です。支払先と内容は任意で入力できます。
+                経費日、区分、金額は必須です。支払先、内容、レシートは任意で入力できます。
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -415,6 +511,28 @@ export default function ExpensePage() {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="expense-receipt">レシート添付</Label>
+                  <Input
+                    id="expense-receipt"
+                    ref={receiptInputRef}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(event) =>
+                      setReceiptFile(event.target.files?.[0] ?? null)
+                    }
+                    disabled={isLoading || isMutating}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    画像または PDF を 1 件添付できます。経費登録後に自動でアップロードします。
+                  </p>
+                  {receiptFile ? (
+                    <p className="text-xs text-foreground">
+                      選択中: {receiptFile.name}
+                    </p>
+                  ) : null}
+                </div>
+
                 <Button
                   type="submit"
                   className="w-full"
@@ -464,6 +582,8 @@ export default function ExpensePage() {
                         <TableHead>支払先</TableHead>
                         <TableHead>内容</TableHead>
                         <TableHead>ステータス</TableHead>
+                        <TableHead>添付状況</TableHead>
+                        <TableHead>レシート</TableHead>
                         <TableHead>詳細</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -487,6 +607,28 @@ export default function ExpensePage() {
                               {getExpenseStatusLabel(expense.status)}
                             </Badge>
                           </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={expense.receipt_url ? "default" : "outline"}
+                            >
+                              {expense.receipt_url ? "添付済み" : "未添付"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void handleOpenReceipt(expense)}
+                              disabled={isMutating || !expense.receipt_url}
+                            >
+                              {busyKey === `open-receipt:${expense.id}`
+                                ? "取得中..."
+                                : expense.receipt_url
+                                  ? "レシート"
+                                  : "未添付"}
+                            </Button>
+                          </TableCell>
                           <TableCell className="max-w-72 whitespace-normal text-sm text-muted-foreground">
                             <div>申請: {formatDateTime(expense.submitted_at)}</div>
                             {expense.approved_at ? (
@@ -507,6 +649,53 @@ export default function ExpensePage() {
           </Card>
         </div>
       </div>
+
+      <Dialog
+        open={receiptPreview !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReceiptPreview(null)
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-5xl overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>レシート画像プレビュー</DialogTitle>
+            <DialogDescription>
+              {receiptPreview
+                ? `経費 ${receiptPreview.expenseCode} に添付された画像を表示しています。`
+                : "レシート画像を表示します。"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {receiptPreview ? (
+            <div className="overflow-auto rounded-md border bg-muted/20 p-2">
+              <img
+                src={receiptPreview.url}
+                alt={`経費 ${receiptPreview.expenseCode} のレシート`}
+                className="mx-auto max-h-[65vh] w-auto max-w-full rounded-md object-contain"
+              />
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            {receiptPreview ? (
+              <Button asChild variant="outline">
+                <a
+                  href={receiptPreview.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  新しいタブで開く
+                </a>
+              </Button>
+            ) : null}
+            <Button type="button" onClick={() => setReceiptPreview(null)}>
+              閉じる
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   )
 }

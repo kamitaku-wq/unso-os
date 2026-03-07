@@ -33,18 +33,22 @@ export async function createExpense(data: ExpenseInput) {
   // ym（年月）を生成（例: 202603）
   const ym = data.expense_date.slice(0, 7).replace('-', '')
 
-  const { error } = await supabase.from('expenses').insert({
-    company_id: employee.company_id,
-    expense_id,
-    emp_id: employee.emp_id,
-    status: 'SUBMITTED',
-    submitted_at: new Date().toISOString(),
-    ym,
-    ...data,
-  })
+  const { data: insertedExpense, error } = await supabase
+    .from('expenses')
+    .insert({
+      company_id: employee.company_id,
+      expense_id,
+      emp_id: employee.emp_id,
+      status: 'SUBMITTED',
+      submitted_at: new Date().toISOString(),
+      ym,
+      ...data,
+    })
+    .select('id, expense_id')
+    .single()
 
-  if (error) throw new Error(error.message)
-  return { expense_id }
+  if (error || !insertedExpense) throw new Error(error?.message ?? '経費申請の保存に失敗しました')
+  return insertedExpense
 }
 
 // ログインユーザー自身の経費一覧を取得する
@@ -64,7 +68,7 @@ export async function getMyExpenses() {
 
   const { data, error } = await supabase
     .from('expenses')
-    .select('id, expense_id, expense_date, category_id, category_name, amount, vendor, description, status, submitted_at, approved_at, rejected_at, reject_reason, rework_reason')
+    .select('id, expense_id, expense_date, category_id, category_name, amount, vendor, description, receipt_url, status, submitted_at, approved_at, rejected_at, reject_reason, rework_reason')
     .eq('emp_id', employee.emp_id)
     .order('expense_date', { ascending: false })
     .limit(100)
