@@ -1,5 +1,6 @@
 // 勤怠のサーバー側ビジネスロジック
 import { createClient } from '@/lib/supabase/server'
+import { isMonthClosed } from '@/lib/server/closing'
 
 type AttendanceInput = {
   work_date: string
@@ -42,6 +43,9 @@ export async function createAttendance(data: AttendanceInput) {
 
   // ym（年月）を生成（例: 202603）
   const ym = data.work_date.slice(0, 7).replace('-', '')
+
+  // 締め済みチェック
+  if (await isMonthClosed(ym)) throw new Error(`${ym} は月次締め済みのため申請できません`)
 
   const { workMin, overtimeMin } = calcWorkMinutes(data.clock_in, data.clock_out, data.break_min)
 
