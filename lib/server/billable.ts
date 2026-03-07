@@ -46,6 +46,51 @@ export async function createBillable(data: BillableInput) {
   return { billable_id }
 }
 
+// 会社全体の運行実績一覧を取得する（ADMIN/OWNER 用）
+export async function getAllBillables(status?: string) {
+  const supabase = await createClient()
+  let query = supabase
+    .from('billables')
+    .select('id, billable_id, run_date, emp_id, cust_id, route_id, pickup_loc, drop_loc, status, amount, note, depart_at, arrive_at, vehicle_id, distance_km, timestamp, approved_at, approved_by, void_at, void_by')
+    .order('run_date', { ascending: false })
+    .limit(200)
+
+  if (status) query = query.eq('status', status)
+
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+// 運行実績を承認する（金額も同時に設定）
+export async function approveBillable(id: string, amount: number, approvedBy: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('billables')
+    .update({
+      status: 'APPROVED',
+      amount,
+      approved_at: new Date().toISOString(),
+      approved_by: approvedBy,
+    })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+// 運行実績を無効化（VOID）する
+export async function voidBillable(id: string, voidBy: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('billables')
+    .update({
+      status: 'VOID',
+      void_at: new Date().toISOString(),
+      void_by: voidBy,
+    })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 // ログインユーザー自身の運行実績一覧を取得する
 export async function getMyBillables() {
   const supabase = await createClient()
