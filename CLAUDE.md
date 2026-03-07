@@ -153,9 +153,14 @@ unso-os/
 ---
 
 ## Git 運用ルール
-- ファイルを変更したら必ず `git add` → `git commit`
+- ファイルを変更したら、作業完了時に必ず `git status` を確認し、対象差分だけを `git add` → `git commit`
+- コミットは「壊れた途中状態」ではなく、最低限動作がそろった意味のある単位で行う
+- コミット前に既存の未コミット差分を確認し、自分の変更とユーザーの変更を混同しない
 - コミットメッセージ規約: `feat:` `fix:` `style:` `refactor:` `chore:` `docs:`
+- `.env.local`、認証情報、秘密鍵、適用済み migration の直接編集結果はコミットしない
 - `git push` はユーザーの指示があった場合のみ
+- remote 未設定や push 失敗を見つけたら、その場で原因と不足情報をユーザーに伝える
+- `git reset --hard`、`git checkout --`、強制 push などの破壊的操作は、ユーザー明示許可なしで行わない
 - Vercel は GitHub 連携で自動デプロイ（push → 自動反映）
 
 ---

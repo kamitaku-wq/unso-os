@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote:*)",
+      "Bash(git push:*)",
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(npx shadcn@latest:*)",
+      "Bash(npm install:*)",
+      "Bash(npx supabase:*)"
+    ]
+  }
+}
