@@ -1,17 +1,40 @@
 // 経営ダッシュボード API（OWNER 用）
 import { NextResponse } from 'next/server'
-import { getPendingCounts, getMonthlySales, getMonthlyExpenses, getCurrentMonthByEmployee } from '@/lib/server/dashboard'
+import {
+  getPendingCounts,
+  getMonthlySales,
+  getMonthlyExpenses,
+  getCurrentMonthByEmployee,
+  getMonthlyKpi,
+  getUnbilledAmount,
+  getExpenseCategoryBreakdown,
+  getAttendanceSummary,
+} from '@/lib/server/dashboard'
 import { requireRole } from '@/lib/server/auth'
+import { apiError } from '@/lib/api-error'
 
 export async function GET() {
   try {
     await requireRole(['OWNER'])
 
-    const [pendingCounts, monthlySales, monthlyExpenses, currentMonthByEmployee] = await Promise.all([
+    const [
+      pendingCounts,
+      monthlySales,
+      monthlyExpenses,
+      currentMonthByEmployee,
+      monthlyKpi,
+      unbilledAmount,
+      expenseCategoryBreakdown,
+      attendanceSummary,
+    ] = await Promise.all([
       getPendingCounts(),
       getMonthlySales(),
       getMonthlyExpenses(),
       getCurrentMonthByEmployee(),
+      getMonthlyKpi(),
+      getUnbilledAmount(),
+      getExpenseCategoryBreakdown(),
+      getAttendanceSummary(),
     ])
 
     return NextResponse.json({
@@ -19,10 +42,12 @@ export async function GET() {
       monthlySales,
       monthlyExpenses,
       currentMonthByEmployee,
+      monthlyKpi,
+      unbilledAmount,
+      expenseCategoryBreakdown,
+      attendanceSummary,
     })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '取得に失敗しました'
-    const status = message === '権限がありません' ? 403 : 500
-    return NextResponse.json({ error: message }, { status })
+  } catch (e) {
+    return apiError(e)
   }
 }

@@ -13,6 +13,23 @@ function getRecentYmList(monthCount: number): string[] {
   return list
 }
 
+// 当月・前月の ym を返す
+function getCurrentAndPrevYm() {
+  const now = new Date()
+  const thisYm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const prevYm = `${prevDate.getFullYear()}${String(prevDate.getMonth() + 1).padStart(2, '0')}`
+  return { thisYm, prevYm }
+}
+
+// ym から日付範囲を返す
+function ymToRange(ym: string) {
+  return {
+    start: `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`,
+    end: `${ym.slice(0, 4)}-${ym.slice(4, 6)}-31`,
+  }
+}
+
 // 承認待ち件数サマリを取得する
 export async function getPendingCounts() {
   const supabase = await createClient()
@@ -47,7 +64,6 @@ export async function getMonthlySales() {
 
   if (error) throw new Error(error.message)
 
-  // TypeScript 側で月別に集計
   const totals: Record<string, number> = Object.fromEntries(ymList.map(ym => [ym, 0]))
   for (const row of data ?? []) {
     const ym = row.run_date.slice(0, 7).replace('-', '')
@@ -78,24 +94,21 @@ export async function getMonthlyExpenses() {
   return ymList.map(ym => ({ ym, amount: totals[ym] }))
 }
 
-// 当月の社員別運行実績件数・金額を集計する
+// 当月の社員別運行実績件数・金額・名前を集計する
 export async function getCurrentMonthByEmployee() {
   const supabase = await createClient()
-  const now = new Date()
-  const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
-  const monthStart = `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`
-  const monthEnd = `${ym.slice(0, 4)}-${ym.slice(4, 6)}-31`
+  const { thisYm } = getCurrentAndPrevYm()
+  const { start, end } = ymToRange(thisYm)
 
   const { data, error } = await supabase
     .from('billables')
     .select('emp_id, amount, status')
-    .gte('run_date', monthStart)
-    .lte('run_date', monthEnd)
+    .gte('run_date', start)
+    .lte('run_date', end)
     .neq('status', 'VOID')
 
   if (error) throw new Error(error.message)
 
-  // 社員ごとに集計
   const byEmp: Record<string, { count: number; amount: number }> = {}
   for (const row of data ?? []) {
     if (!byEmp[row.emp_id]) byEmp[row.emp_id] = { count: 0, amount: 0 }
@@ -103,5 +116,126 @@ export async function getCurrentMonthByEmployee() {
     if (row.status === 'APPROVED') byEmp[row.emp_id].amount += Number(row.amount ?? 0)
   }
 
-  return Object.entries(byEmp).map(([emp_id, stats]) => ({ emp_id, ...stats }))
+  const empIds = Object.keys(byEmp)
+  if (empIds.length === 0) return []
+
+  const { data: employees } = await supabase
+    .from('employees')
+    .select('emp_id, name')
+    .in('emp_id', empIds)
+
+  const nameMap: Record<string, string> = {}
+  for (const emp of employees ?? []) {
+    nameMap[emp.emp_id] = emp.name
+  }
+
+  return Object.entries(byEmp).map(([emp_id, stats]) => ({
+    emp_id,
+    name: nameMap[emp_id] ?? emp_id,
+    ...stats,
+  }))
+}
+
+// 当月・前月の KPI を比較する（売上・経費・利益）
+export async function getMonthlyKpi() {
+  const supabase = await createClient()
+  const { thisYm, prevYm } = getCurrentAndPrevYm()
+  const thisRange = ymToRange(thisYm)
+  const prevRange = ymToRange(prevYm)
+
+  const [thisBillables, prevBillables, thisExpenses, prevExpenses] = await Promise.all([
+    supabase.from('billables').select('amount').eq('status', 'APPROVED')
+      .gte('run_date', thisRange.start).lte('run_date', thisRange.end),
+    supabase.from('billables').select('amount').eq('status', 'APPROVED')
+      .gte('run_date', prevRange.start).lte('run_date', prevRange.end),
+    supabase.from('expenses').select('amount').in('status', ['APPROVED', 'PAID']).eq('ym', thisYm),
+    supabase.from('expenses').select('amount').in('status', ['APPROVED', 'PAID']).eq('ym', prevYm),
+  ])
+
+  const thisSales = (thisBillables.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0)
+  const prevSales = (prevBillables.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0)
+  const thisExp = (thisExpenses.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0)
+  const prevExp = (prevExpenses.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0)
+
+  const thisProfit = thisSales - thisExp
+  const prevProfit = prevSales - prevExp
+  const profitRate = thisSales > 0 ? Math.round((thisProfit / thisSales) * 1000) / 10 : 0
+
+  const pctChange = (cur: number, prev: number) =>
+    prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null
+
+  return {
+    sales: { current: thisSales, prev: prevSales, change: pctChange(thisSales, prevSales) },
+    expenses: { current: thisExp, prev: prevExp, change: pctChange(thisExp, prevExp) },
+    profit: { current: thisProfit, prev: prevProfit, change: pctChange(thisProfit, Math.abs(prevProfit)), rate: profitRate },
+  }
+}
+
+// 承認済みで未請求の運行実績を集計する
+export async function getUnbilledAmount() {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('billables')
+    .select('amount')
+    .eq('status', 'APPROVED')
+    .is('invoice_id', null)
+    .not('amount', 'is', null)
+
+  if (error) throw new Error(error.message)
+
+  const amount = (data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0)
+  return { amount, count: data?.length ?? 0 }
+}
+
+// 当月の経費を区分別に集計する（上位5件）
+export async function getExpenseCategoryBreakdown() {
+  const supabase = await createClient()
+  const { thisYm } = getCurrentAndPrevYm()
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .select('category_name, amount')
+    .in('status', ['APPROVED', 'PAID'])
+    .eq('ym', thisYm)
+
+  if (error) throw new Error(error.message)
+
+  const byCategory: Record<string, number> = {}
+  for (const row of data ?? []) {
+    const name = row.category_name ?? '不明'
+    byCategory[name] = (byCategory[name] ?? 0) + Number(row.amount ?? 0)
+  }
+
+  return Object.entries(byCategory)
+    .map(([name, amount]) => ({ name, amount }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5)
+}
+
+// 当月の勤怠サマリーを集計する（承認済みのみ）
+export async function getAttendanceSummary() {
+  const supabase = await createClient()
+  const { thisYm } = getCurrentAndPrevYm()
+  const { start, end } = ymToRange(thisYm)
+
+  const { data, error } = await supabase
+    .from('attendances')
+    .select('work_min, overtime_min, emp_id')
+    .eq('status', 'APPROVED')
+    .gte('work_date', start)
+    .lte('work_date', end)
+
+  if (error) throw new Error(error.message)
+
+  const totalWorkMin = (data ?? []).reduce((s, r) => s + Number(r.work_min ?? 0), 0)
+  const totalOvertimeMin = (data ?? []).reduce((s, r) => s + Number(r.overtime_min ?? 0), 0)
+  const activeEmployees = new Set((data ?? []).map(r => r.emp_id)).size
+
+  return {
+    totalWorkHours: Math.round((totalWorkMin / 60) * 10) / 10,
+    totalOvertimeHours: Math.round((totalOvertimeMin / 60) * 10) / 10,
+    activeEmployees,
+    approvedCount: data?.length ?? 0,
+  }
 }

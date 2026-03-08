@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Clock, Receipt, Truck } from "lucide-react"
+import { Receipt, TrendingDown, TrendingUp, Truck } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/table"
 import { formatCurrency } from "@/lib/format"
 
+// ---- 型定義 ----
+
 type PendingCounts = {
   billables: number
   expenses: number
@@ -39,8 +41,32 @@ type MonthlyAmount = {
 
 type EmployeeSummary = {
   emp_id: string
+  name: string
   count: number
   amount: number
+}
+
+type MonthlyKpi = {
+  sales: { current: number; prev: number; change: number | null }
+  expenses: { current: number; prev: number; change: number | null }
+  profit: { current: number; prev: number; change: number | null; rate: number }
+}
+
+type UnbilledAmount = {
+  amount: number
+  count: number
+}
+
+type CategoryBreakdown = {
+  name: string
+  amount: number
+}
+
+type AttendanceSummary = {
+  totalWorkHours: number
+  totalOvertimeHours: number
+  activeEmployees: number
+  approvedCount: number
 }
 
 type DashboardResponse = {
@@ -48,31 +74,37 @@ type DashboardResponse = {
   monthlySales: MonthlyAmount[]
   monthlyExpenses: MonthlyAmount[]
   currentMonthByEmployee: EmployeeSummary[]
+  monthlyKpi: MonthlyKpi
+  unbilledAmount: UnbilledAmount
+  expenseCategoryBreakdown: CategoryBreakdown[]
+  attendanceSummary: AttendanceSummary
 }
 
 type PeriodMonths = 3 | 6
 
+// ---- 定数 ----
+
 const EMPTY_DASHBOARD: DashboardResponse = {
-  pendingCounts: {
-    billables: 0,
-    expenses: 0,
-    attendances: 0,
-  },
+  pendingCounts: { billables: 0, expenses: 0, attendances: 0 },
   monthlySales: [],
   monthlyExpenses: [],
   currentMonthByEmployee: [],
+  monthlyKpi: {
+    sales: { current: 0, prev: 0, change: null },
+    expenses: { current: 0, prev: 0, change: null },
+    profit: { current: 0, prev: 0, change: null, rate: 0 },
+  },
+  unbilledAmount: { amount: 0, count: 0 },
+  expenseCategoryBreakdown: [],
+  attendanceSummary: { totalWorkHours: 0, totalOvertimeHours: 0, activeEmployees: 0, approvedCount: 0 },
 }
 
+// ---- ユーティリティ ----
+
 function getErrorMessage(data: unknown, fallback: string) {
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "error" in data &&
-    typeof data.error === "string"
-  ) {
+  if (typeof data === "object" && data !== null && "error" in data && typeof data.error === "string") {
     return data.error
   }
-
   return fallback
 }
 
@@ -80,6 +112,71 @@ function formatMonthLabel(ym: string) {
   if (!/^\d{6}$/.test(ym)) return ym
   return `${ym.slice(0, 4)}/${ym.slice(4, 6)}`
 }
+
+// ---- サブコンポーネント: 前月比インジケーター ----
+
+function ChangeBadge({ change, inverse = false }: { change: number | null; inverse?: boolean }) {
+  if (change === null) return <span className="text-xs text-muted-foreground">前月比 -</span>
+
+  const isPositive = change > 0
+  const isGood = inverse ? !isPositive : isPositive
+  const Icon = isPositive ? TrendingUp : TrendingDown
+  const colorClass =
+    change === 0 ? "text-muted-foreground" : isGood ? "text-emerald-600" : "text-red-500"
+
+  return (
+    <span className={`flex items-center gap-1 text-xs font-medium ${colorClass}`}>
+      <Icon className="size-3" />
+      {change > 0 ? "+" : ""}{change}%
+    </span>
+  )
+}
+
+// ---- サブコンポーネント: KPI カード ----
+
+function KpiCard({
+  title,
+  value,
+  subValue,
+  change,
+  inverseChange = false,
+  colorScheme,
+  badge,
+}: {
+  title: string
+  value: string
+  subValue?: string
+  change: number | null
+  inverseChange?: boolean
+  colorScheme: "blue" | "orange" | "emerald" | "purple"
+  badge?: string
+}) {
+  const schemes = {
+    blue: { border: "border-l-4 border-l-blue-400", bg: "bg-blue-50/60", title: "text-blue-700", value: "text-blue-900" },
+    orange: { border: "border-l-4 border-l-orange-400", bg: "bg-orange-50/60", title: "text-orange-700", value: "text-orange-900" },
+    emerald: { border: "border-l-4 border-l-emerald-400", bg: "bg-emerald-50/60", title: "text-emerald-700", value: "text-emerald-900" },
+    purple: { border: "border-l-4 border-l-purple-400", bg: "bg-purple-50/60", title: "text-purple-700", value: "text-purple-900" },
+  }
+  const s = schemes[colorScheme]
+
+  return (
+    <Card className={`${s.border} ${s.bg} shadow-sm`}>
+      <CardContent className="px-5 pb-4 pt-5">
+        <p className={`text-xs font-semibold uppercase tracking-wider ${s.title}`}>{title}</p>
+        <div className="mt-2 flex items-end justify-between gap-2">
+          <p className={`text-2xl font-bold tracking-tight ${s.value}`}>{value}</p>
+          {badge ? <Badge variant="secondary" className="shrink-0 text-xs">{badge}</Badge> : null}
+        </div>
+        {subValue ? <p className="mt-0.5 text-xs text-muted-foreground">{subValue}</p> : null}
+        <div className="mt-3">
+          <ChangeBadge change={change} inverse={inverseChange} />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---- サブコンポーネント: 月別棒グラフ ----
 
 function MonthlyAmountChart({
   title,
@@ -118,65 +215,110 @@ function MonthlyAmountChart({
         {rows.length === 0 ? (
           <EmptyState icon={EmptyIcon} description={emptyDescription} />
         ) : (
-          <div className="space-y-4">
-            <div className="rounded-xl border bg-muted/20 p-4">
-              <svg
-                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                className="h-64 w-full"
-                role="img"
-                aria-label={`${title}の棒グラフ`}
-              >
-                {[0, 1, 2, 3].map((line) => {
-                  const y = topPadding + (innerHeight / 3) * line
-
-                  return (
-                    <line
-                      key={line}
-                      x1={leftPadding}
-                      y1={y}
-                      x2={chartWidth - rightPadding}
-                      y2={y}
-                      className="stroke-border"
-                      strokeDasharray="4 4"
-                    />
-                  )
-                })}
-
-                {rows.map((row, index) => {
-                  const ratio = maxAmount > 0 ? row.amount / maxAmount : 0
-                  const barHeight = Math.max(0, innerHeight * ratio)
-                  const x = leftPadding + step * index + (step - barWidth) / 2
-                  const y = chartHeight - bottomPadding - barHeight
-
-                  return (
-                    <g key={row.ym}>
-                      <rect
-                        x={x}
-                        y={y}
-                        width={barWidth}
-                        height={barHeight}
-                        rx="6"
-                        className={barClassName}
-                      />
-                      <text
-                        x={x + barWidth / 2}
-                        y={chartHeight - 8}
-                        textAnchor="middle"
-                        className="fill-muted-foreground text-[10px]"
-                      >
-                        {formatMonthLabel(row.ym)}
-                      </text>
-                    </g>
-                  )
-                })}
-              </svg>
-            </div>
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <svg
+              viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+              className="h-48 w-full"
+              role="img"
+              aria-label={`${title}の棒グラフ`}
+            >
+              {[0, 1, 2, 3].map((line) => {
+                const y = topPadding + (innerHeight / 3) * line
+                return (
+                  <line
+                    key={line}
+                    x1={leftPadding}
+                    y1={y}
+                    x2={chartWidth - rightPadding}
+                    y2={y}
+                    className="stroke-border"
+                    strokeDasharray="4 4"
+                  />
+                )
+              })}
+              {rows.map((row, index) => {
+                const ratio = maxAmount > 0 ? row.amount / maxAmount : 0
+                const barHeight = Math.max(0, innerHeight * ratio)
+                const x = leftPadding + step * index + (step - barWidth) / 2
+                const y = chartHeight - bottomPadding - barHeight
+                return (
+                  <g key={row.ym}>
+                    <rect x={x} y={y} width={barWidth} height={barHeight} rx="6" className={barClassName} />
+                    <text
+                      x={x + barWidth / 2}
+                      y={chartHeight - 8}
+                      textAnchor="middle"
+                      className="fill-muted-foreground text-[10px]"
+                    >
+                      {formatMonthLabel(row.ym)}
+                    </text>
+                  </g>
+                )
+              })}
+            </svg>
           </div>
         )}
       </CardContent>
     </Card>
   )
 }
+
+// ---- サブコンポーネント: 経費区分別横棒グラフ ----
+
+function ExpenseCategoryChart({ rows, isLoading }: { rows: CategoryBreakdown[]; isLoading: boolean }) {
+  const max = rows.reduce((m, r) => Math.max(m, r.amount), 0)
+  const total = rows.reduce((s, r) => s + r.amount, 0)
+  const colors = ["bg-orange-400", "bg-amber-400", "bg-yellow-400", "bg-orange-300", "bg-amber-300"]
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>当月 経費区分別内訳</CardTitle>
+        <CardDescription>承認済み・支払済み経費の区分別集計（上位5件）</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="space-y-1">
+                <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+                <div className="h-2.5 w-full animate-pulse rounded-full bg-muted" />
+              </div>
+            ))}
+          </div>
+        ) : rows.length === 0 ? (
+          <EmptyState icon={Receipt} description="当月の承認済み経費がありません" />
+        ) : (
+          <div className="space-y-3">
+            {rows.map((row, i) => {
+              const pct = max > 0 ? Math.round((row.amount / max) * 100) : 0
+              const totalPct = total > 0 ? Math.round((row.amount / total) * 100) : 0
+              return (
+                <div key={row.name} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{row.name}</span>
+                    <span className="text-muted-foreground">
+                      {formatCurrency(row.amount)}
+                      <span className="ml-1 text-xs">({totalPct}%)</span>
+                    </span>
+                  </div>
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${colors[i] ?? "bg-orange-400"}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---- メインページ ----
 
 export default function DashboardPageClient() {
   const [dashboard, setDashboard] = useState<DashboardResponse>(EMPTY_DASHBOARD)
@@ -195,15 +337,11 @@ export default function DashboardPageClient() {
   }, [dashboard.currentMonthByEmployee])
 
   useEffect(() => {
-    if (pageError) {
-      toast.error(pageError)
-    }
+    if (pageError) toast.error(pageError)
   }, [pageError])
 
   useEffect(() => {
-    if (hasNoPermission) {
-      toast.error("権限がありません")
-    }
+    if (hasNoPermission) toast.error("権限がありません")
   }, [hasNoPermission])
 
   const loadDashboard = useCallback(async () => {
@@ -229,8 +367,7 @@ export default function DashboardPageClient() {
       setDashboard(data as DashboardResponse)
       setLastUpdatedAt(new Date().toISOString())
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "ダッシュボードの取得に失敗しました"
+      const message = error instanceof Error ? error.message : "ダッシュボードの取得に失敗しました"
       setPageError(message)
     } finally {
       setIsLoading(false)
@@ -241,263 +378,272 @@ export default function DashboardPageClient() {
     void loadDashboard()
   }, [loadDashboard])
 
-  const filteredMonthlySales = useMemo(() => {
-    return dashboard.monthlySales.slice(-periodMonths)
-  }, [dashboard.monthlySales, periodMonths])
+  const filteredMonthlySales = useMemo(
+    () => dashboard.monthlySales.slice(-periodMonths),
+    [dashboard.monthlySales, periodMonths]
+  )
 
-  const filteredMonthlyExpenses = useMemo(() => {
-    return dashboard.monthlyExpenses.slice(-periodMonths)
-  }, [dashboard.monthlyExpenses, periodMonths])
+  const filteredMonthlyExpenses = useMemo(
+    () => dashboard.monthlyExpenses.slice(-periodMonths),
+    [dashboard.monthlyExpenses, periodMonths]
+  )
 
   const monthlyComparisonRows = useMemo(() => {
     return filteredMonthlySales.map((salesRow, index) => {
       const expenseRow = filteredMonthlyExpenses[index]
       const salesAmount = salesRow.amount
       const expenseAmount = expenseRow?.amount ?? 0
-
-      return {
-        ym: salesRow.ym,
-        salesAmount,
-        expenseAmount,
-        estimatedProfit: salesAmount - expenseAmount,
-      }
+      return { ym: salesRow.ym, salesAmount, expenseAmount, estimatedProfit: salesAmount - expenseAmount }
     })
   }, [filteredMonthlyExpenses, filteredMonthlySales])
 
   const pendingCards = [
-    {
-      key: "billables",
-      title: "運行実績",
-      description: "承認管理へ移動",
-      count: dashboard.pendingCounts.billables,
-      href: "/admin?tab=billables",
-    },
-    {
-      key: "expenses",
-      title: "経費",
-      description: "経費承認タブへ移動",
-      count: dashboard.pendingCounts.expenses,
-      href: "/admin?tab=expenses",
-    },
-    {
-      key: "attendances",
-      title: "勤怠",
-      description: "勤怠承認画面へ移動",
-      count: dashboard.pendingCounts.attendances,
-      href: "/admin/attendances",
-    },
+    { key: "billables", title: "運行実績", description: "承認管理へ移動", count: dashboard.pendingCounts.billables, href: "/admin?tab=billables" },
+    { key: "expenses", title: "経費", description: "経費承認タブへ移動", count: dashboard.pendingCounts.expenses, href: "/admin?tab=expenses" },
+    { key: "attendances", title: "勤怠", description: "勤怠承認画面へ移動", count: dashboard.pendingCounts.attendances, href: "/admin/attendances" },
   ] as const
+
+  const kpi = dashboard.monthlyKpi
 
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-8 md:px-6">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">経営ダッシュボード</h1>
-          <p className="text-sm text-muted-foreground">
-            承認待ちの状況と直近 6 ヶ月の推移、当月の社員別実績を確認できます。
-          </p>
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
+
+        {/* ページヘッダー */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight">経営ダッシュボード</h1>
+            <p className="text-sm text-muted-foreground">
+              当月の経営状況・承認状況・勤怠状況をリアルタイムで確認できます。
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-muted-foreground">
+              {lastUpdatedAt ? `更新: ${new Date(lastUpdatedAt).toLocaleString("ja-JP")}` : "更新: -"}
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={() => void loadDashboard()} disabled={isLoading}>
+              {isLoading ? "更新中..." : "再読み込み"}
+            </Button>
+          </div>
         </div>
 
         {hasNoPermission ? (
           <Card>
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">
-                この画面を表示する権限がありません。
-              </p>
+              <p className="text-sm text-muted-foreground">この画面を表示する権限がありません。</p>
             </CardContent>
           </Card>
         ) : (
           <>
-            <Card>
-              <CardHeader className="gap-4">
-                <div>
-                  <CardTitle>表示設定</CardTitle>
-                  <CardDescription>
-                    月別グラフの表示期間を切り替えたり、最新データを再取得したりできます。
-                  </CardDescription>
-                </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant={periodMonths === 3 ? "default" : "outline"}
-                      onClick={() => setPeriodMonths(3)}
-                      disabled={isLoading}
-                    >
-                      直近 3 ヶ月
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={periodMonths === 6 ? "default" : "outline"}
-                      onClick={() => setPeriodMonths(6)}
-                      disabled={isLoading}
-                    >
-                      直近 6 ヶ月
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <p className="text-xs text-muted-foreground">
-                      {lastUpdatedAt
-                        ? `最終更新: ${new Date(lastUpdatedAt).toLocaleString("ja-JP")}`
-                        : "最終更新: -"}
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => void loadDashboard()}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? "更新中..." : "再読み込み"}
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
+            {/* ① 当月 KPI カード */}
+            <section className="space-y-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">当月 KPI</h2>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <KpiCard
+                  title="売上（承認済み）"
+                  value={isLoading ? "---" : formatCurrency(kpi.sales.current)}
+                  subValue={isLoading ? undefined : `前月: ${formatCurrency(kpi.sales.prev)}`}
+                  change={isLoading ? null : kpi.sales.change}
+                  colorScheme="blue"
+                />
+                <KpiCard
+                  title="経費（承認済み）"
+                  value={isLoading ? "---" : formatCurrency(kpi.expenses.current)}
+                  subValue={isLoading ? undefined : `前月: ${formatCurrency(kpi.expenses.prev)}`}
+                  change={isLoading ? null : kpi.expenses.change}
+                  inverseChange
+                  colorScheme="orange"
+                />
+                <KpiCard
+                  title="利益概算"
+                  value={isLoading ? "---" : formatCurrency(kpi.profit.current)}
+                  subValue={isLoading ? undefined : `前月: ${formatCurrency(kpi.profit.prev)}`}
+                  change={isLoading ? null : kpi.profit.change}
+                  badge={isLoading ? undefined : `利益率 ${kpi.profit.rate}%`}
+                  colorScheme="emerald"
+                />
+                <KpiCard
+                  title="未請求残高"
+                  value={isLoading ? "---" : formatCurrency(dashboard.unbilledAmount.amount)}
+                  subValue={isLoading ? undefined : `${dashboard.unbilledAmount.count} 件の承認済み運行実績`}
+                  change={null}
+                  badge={!isLoading && dashboard.unbilledAmount.count > 0 ? "請求書未発行" : undefined}
+                  colorScheme="purple"
+                />
+              </div>
+            </section>
 
-            <section className="grid gap-4 md:grid-cols-3">
-              {pendingCards.map((card) => (
-                <Link key={card.key} href={card.href} className="block">
-                  <Card
-                    className={[
-                      "h-full cursor-pointer transition-colors hover:border-primary/50",
-                      card.count > 0
-                        ? "border-orange-300 bg-orange-50 hover:bg-orange-100"
-                        : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/40",
-                    ].join(" ")}
-                  >
-                    <CardHeader className="gap-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <CardTitle>{card.title}</CardTitle>
-                          <CardDescription>{card.description}</CardDescription>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={
-                            card.count > 0
-                              ? "border-orange-400 bg-white text-orange-700"
-                              : "border-muted-foreground/30 bg-muted text-muted-foreground"
-                          }
-                        >
-                          {isLoading ? "..." : `${card.count} 件`}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="flex items-end justify-between gap-4">
-                      <div>
-                        <div className="text-3xl font-semibold tracking-tight">
-                          {isLoading ? "--" : card.count}
-                        </div>
-                        <p className="text-sm text-muted-foreground">クリックして確認</p>
-                      </div>
+            {/* ② 勤怠サマリー */}
+            <section className="space-y-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">当月 勤怠サマリー</h2>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  { label: "承認済み勤怠", value: isLoading ? "---" : `${dashboard.attendanceSummary.approvedCount} 件`, sub: "当月の承認済み勤怠記録数" },
+                  { label: "稼働社員数", value: isLoading ? "---" : `${dashboard.attendanceSummary.activeEmployees} 名`, sub: "勤怠記録のある社員" },
+                  { label: "総勤務時間", value: isLoading ? "---" : `${dashboard.attendanceSummary.totalWorkHours} h`, sub: "承認済み分の合計" },
+                  { label: "総残業時間", value: isLoading ? "---" : `${dashboard.attendanceSummary.totalOvertimeHours} h`, sub: "8 時間超の合計" },
+                ].map((item) => (
+                  <Card key={item.label} className="border-l-4 border-l-slate-300 bg-slate-50/60 shadow-sm">
+                    <CardContent className="px-5 pb-4 pt-5">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">{item.label}</p>
+                      <p className="mt-2 text-2xl font-bold tracking-tight text-slate-800">{item.value}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{item.sub}</p>
                     </CardContent>
                   </Card>
-                </Link>
-              ))}
+                ))}
+              </div>
             </section>
 
+            {/* ③ 承認待ち */}
+            <section className="space-y-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">承認待ち</h2>
+              <div className="grid gap-4 md:grid-cols-3">
+                {pendingCards.map((card) => (
+                  <Link key={card.key} href={card.href} className="block">
+                    <Card
+                      className={[
+                        "h-full cursor-pointer transition-colors hover:border-primary/50",
+                        card.count > 0
+                          ? "border-orange-300 bg-orange-50 hover:bg-orange-100"
+                          : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/40",
+                      ].join(" ")}
+                    >
+                      <CardHeader className="gap-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <CardTitle>{card.title}</CardTitle>
+                            <CardDescription>{card.description}</CardDescription>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={card.count > 0 ? "border-orange-400 bg-white text-orange-700" : "border-muted-foreground/30 bg-muted text-muted-foreground"}
+                          >
+                            {isLoading ? "..." : `${card.count} 件`}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-semibold tracking-tight">{isLoading ? "--" : card.count}</div>
+                        <p className="text-sm text-muted-foreground">クリックして確認</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </section>
+
+            {/* ④ 月別グラフ */}
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">月別推移</h2>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant={periodMonths === 3 ? "default" : "outline"} onClick={() => setPeriodMonths(3)} disabled={isLoading}>3 ヶ月</Button>
+                  <Button type="button" size="sm" variant={periodMonths === 6 ? "default" : "outline"} onClick={() => setPeriodMonths(6)} disabled={isLoading}>6 ヶ月</Button>
+                </div>
+              </div>
+              <div className="grid gap-6 xl:grid-cols-2">
+                <MonthlyAmountChart
+                  title="月別売上"
+                  description={`承認済み運行実績の直近 ${periodMonths} ヶ月集計`}
+                  rows={filteredMonthlySales}
+                  barClassName="fill-blue-500"
+                  emptyIcon={Truck}
+                  emptyDescription="運行実績を登録してください"
+                />
+                <MonthlyAmountChart
+                  title="月別経費"
+                  description={`承認済み・支払済み経費の直近 ${periodMonths} ヶ月集計`}
+                  rows={filteredMonthlyExpenses}
+                  barClassName="fill-orange-400"
+                  emptyIcon={Receipt}
+                  emptyDescription="経費申請を登録してください"
+                />
+              </div>
+            </section>
+
+            {/* ⑤ 月別比較 + 経費区分内訳 */}
             <section className="grid gap-6 xl:grid-cols-2">
-              <MonthlyAmountChart
-                title="月別売上"
-                description={`承認済み運行実績の直近 ${periodMonths} ヶ月集計です。`}
-                rows={filteredMonthlySales}
-                barClassName="fill-primary"
-                emptyIcon={Truck}
-                emptyDescription="上のフォームから最初の運行実績を登録してください"
-              />
-              <MonthlyAmountChart
-                title="月別経費"
-                description={`承認済み・支払済み経費の直近 ${periodMonths} ヶ月集計です。`}
-                rows={filteredMonthlyExpenses}
-                barClassName="fill-emerald-500"
-                emptyIcon={Receipt}
-                emptyDescription="上のフォームから最初の経費申請を登録してください"
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>月別比較</CardTitle>
+                  <CardDescription>売上・経費・利益概算の推移</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {monthlyComparisonRows.length === 0 ? (
+                    <EmptyState icon={Receipt} description="売上または経費データを登録してください" />
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>月</TableHead>
+                          <TableHead className="text-right">売上</TableHead>
+                          <TableHead className="text-right">経費</TableHead>
+                          <TableHead className="text-right">利益概算</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {monthlyComparisonRows.map((row) => (
+                          <TableRow key={row.ym}>
+                            <TableCell>{formatMonthLabel(row.ym)}</TableCell>
+                            <TableCell className="text-right font-medium text-blue-700">
+                              {formatCurrency(row.salesAmount)}
+                            </TableCell>
+                            <TableCell className="text-right text-orange-700">
+                              {formatCurrency(row.expenseAmount)}
+                            </TableCell>
+                            <TableCell className={`text-right font-semibold ${row.estimatedProfit >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                              {formatCurrency(row.estimatedProfit)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              <ExpenseCategoryChart rows={dashboard.expenseCategoryBreakdown} isLoading={isLoading} />
             </section>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>月別比較</CardTitle>
-                <CardDescription>
-                  売上、経費、利益概算（売上 - 経費）を同じ表で確認できます。
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {monthlyComparisonRows.length === 0 ? (
-                  <EmptyState
-                    icon={Receipt}
-                    description="上のフォームから最初の売上または経費データを登録してください"
-                  />
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>月</TableHead>
-                        <TableHead className="text-right">売上</TableHead>
-                        <TableHead className="text-right">経費</TableHead>
-                        <TableHead className="text-right">利益概算</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {monthlyComparisonRows.map((row) => (
-                        <TableRow key={row.ym}>
-                          <TableCell>{formatMonthLabel(row.ym)}</TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(row.salesAmount)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(row.expenseAmount)}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {formatCurrency(row.estimatedProfit)}
-                          </TableCell>
+            {/* ⑥ 社員別実績 */}
+            <section>
+              <Card>
+                <CardHeader>
+                  <CardTitle>当月 社員別実績</CardTitle>
+                  <CardDescription>当月に登録された運行実績の件数と承認済み金額を社員別に表示します。</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <TableSkeleton columns={4} rows={4} />
+                  ) : currentMonthByEmployee.length === 0 ? (
+                    <EmptyState icon={Truck} description="当月の運行実績がありません" />
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>社員名</TableHead>
+                          <TableHead>社員ID</TableHead>
+                          <TableHead className="text-right">件数</TableHead>
+                          <TableHead className="text-right">承認済み金額</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>当月 社員別実績</CardTitle>
-                <CardDescription>
-                  当月に登録された運行実績の件数と、承認済み金額を社員別に表示します。
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <TableSkeleton columns={3} rows={4} />
-                ) : currentMonthByEmployee.length === 0 ? (
-                  <EmptyState
-                    icon={Truck}
-                    description="上のフォームから最初の運行実績を登録してください"
-                  />
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>社員ID</TableHead>
-                        <TableHead className="text-right">件数</TableHead>
-                        <TableHead className="text-right">承認済み金額</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {currentMonthByEmployee.map((row) => (
-                        <TableRow key={row.emp_id}>
-                          <TableCell>{row.emp_id}</TableCell>
-                          <TableCell className="text-right">{row.count}</TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(row.amount)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {currentMonthByEmployee.map((row) => (
+                          <TableRow key={row.emp_id}>
+                            <TableCell className="font-medium">{row.name}</TableCell>
+                            <TableCell className="text-muted-foreground">{row.emp_id}</TableCell>
+                            <TableCell className="text-right">{row.count}</TableCell>
+                            <TableCell className="text-right font-semibold text-blue-700">
+                              {formatCurrency(row.amount)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </section>
           </>
         )}
       </div>
