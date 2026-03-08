@@ -26,33 +26,45 @@ export type EmployeeForShift = {
   name: string
 }
 
-// シフト閲覧用の社員一覧を取得する（全ロール閲覧可）
+// シフト閲覧用の社員一覧を取得する
+// DRIVER: 自分だけ / ADMIN・OWNER: 全員
 export async function getEmployeesForShift(): Promise<EmployeeForShift[]> {
-  await getMyEmployee() // 認証確認のみ
+  const me = await getMyEmployee()
   const supabase = await createClient()
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('employees')
     .select('emp_id, name')
     .eq('is_active', true)
     .order('emp_id')
 
+  if (me.role === 'DRIVER') {
+    query = query.eq('emp_id', me.emp_id)
+  }
+
+  const { data, error } = await query
   if (error) throw new Error(error.message)
   return data ?? []
 }
 
-// 指定週のシフト一覧を取得する（全ロール閲覧可）
+// 指定週のシフト一覧を取得する
+// DRIVER: 自分のシフトのみ / ADMIN・OWNER: 全員分
 export async function getShifts(dateFrom: string, dateTo: string): Promise<ShiftRow[]> {
-  await getMyEmployee() // 認証確認のみ
+  const me = await getMyEmployee()
   const supabase = await createClient()
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('shifts')
     .select('id, emp_id, shift_date, is_day_off, location, work_type, note')
     .gte('shift_date', dateFrom)
     .lte('shift_date', dateTo)
     .order('shift_date')
 
+  if (me.role === 'DRIVER') {
+    query = query.eq('emp_id', me.emp_id)
+  }
+
+  const { data, error } = await query
   if (error) throw new Error(error.message)
   return data ?? []
 }
