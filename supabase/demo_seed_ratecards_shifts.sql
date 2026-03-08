@@ -35,10 +35,10 @@ ORDER BY r.route_id;
 
 DO $$
 DECLARE
-  rec         RECORD;
-  shift_date  DATE;
-  week_start  DATE;
-  day_of_week INT;
+  rec          RECORD;
+  v_shift_date DATE;  -- 列名 shift_date との曖昧さ回避のため変数名を変更
+  week_start   DATE;
+  day_of_week  INT;
 BEGIN
   -- 今週月曜日を算出
   week_start := DATE_TRUNC('week', CURRENT_DATE)::DATE;
@@ -49,8 +49,8 @@ BEGIN
     WHERE is_active = true
   LOOP
     FOR i IN 0..20 LOOP   -- 3週間（21日）分
-      shift_date  := week_start + i;
-      day_of_week := EXTRACT(DOW FROM shift_date);  -- 0=日, 6=土
+      v_shift_date := week_start + i;
+      day_of_week  := EXTRACT(DOW FROM v_shift_date);  -- 0=日, 6=土
 
       INSERT INTO shifts (
         company_id, emp_id, shift_date,
@@ -59,7 +59,7 @@ BEGIN
       VALUES (
         rec.company_id,
         rec.emp_id,
-        shift_date,
+        v_shift_date,
         CASE WHEN day_of_week IN (0, 6) THEN true ELSE false END,
         CASE WHEN day_of_week IN (0, 6) THEN NULL ELSE '本社' END,
         CASE WHEN day_of_week IN (0, 6) THEN NULL ELSE '配送' END,
