@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { formatDate, formatDateTime, getErrorMessage } from "@/lib/format"
 
 type ApiError = {
   error?: string
@@ -77,37 +78,6 @@ function syncDatePart(date: string, value: string) {
 
   const timePart = value.includes("T") ? value.split("T")[1] : "00:00"
   return `${date}T${timePart}`
-}
-
-function getErrorMessage(data: unknown, fallback: string) {
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "error" in data &&
-    typeof data.error === "string"
-  ) {
-    return data.error
-  }
-
-  return fallback
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "-"
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-
-  return parsed.toLocaleDateString("ja-JP")
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) return "-"
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-
-  return parsed.toLocaleString("ja-JP")
 }
 
 function formatMinutes(value: number | null) {

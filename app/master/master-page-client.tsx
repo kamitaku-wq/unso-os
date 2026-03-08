@@ -50,6 +50,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { getErrorMessage } from "@/lib/format"
 
 type MasterTab = "customers" | "routes" | "expenseCategories" | "vehicles"
 
@@ -155,20 +156,6 @@ const initialVehicleForm: VehicleForm = {
   vehicle_type: "",
   capacity_ton: "",
   memo: "",
-}
-
-// API 応答からユーザー向けエラー文言を取り出す
-function getErrorMessage(data: unknown, fallback: string) {
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "error" in data &&
-    typeof data.error === "string"
-  ) {
-    return data.error
-  }
-
-  return fallback
 }
 
 // 空欄を API 送信用の空文字に整える

@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, getErrorMessage } from "@/lib/format"
 
 // ---- 型定義 ----
 
@@ -100,13 +100,6 @@ const EMPTY_DASHBOARD: DashboardResponse = {
 }
 
 // ---- ユーティリティ ----
-
-function getErrorMessage(data: unknown, fallback: string) {
-  if (typeof data === "object" && data !== null && "error" in data && typeof data.error === "string") {
-    return data.error
-  }
-  return fallback
-}
 
 function formatMonthLabel(ym: string) {
   if (!/^\d{6}$/.test(ym)) return ym

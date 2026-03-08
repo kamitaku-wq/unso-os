@@ -14,19 +14,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-
-function getErrorMessage(data: unknown, fallback: string) {
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "error" in data &&
-    typeof data.error === "string"
-  ) {
-    return data.error
-  }
-
-  return fallback
-}
+import { getErrorMessage } from "@/lib/format"
 
 export function SetupForm() {
   const router = useRouter()

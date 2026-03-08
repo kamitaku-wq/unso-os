@@ -20,21 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { getErrorMessage } from "@/lib/format"
 
 type RequestedRole = "DRIVER" | "ADMIN"
-
-function getErrorMessage(data: unknown, fallback: string) {
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "error" in data &&
-    typeof data.error === "string"
-  ) {
-    return data.error
-  }
-
-  return fallback
-}
 
 export function RegisterForm() {
   const [name, setName] = useState("")

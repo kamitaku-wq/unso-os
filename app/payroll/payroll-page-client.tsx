@@ -40,7 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, getErrorMessage } from "@/lib/format"
 
 // ---- 型定義 ----
 
@@ -95,13 +95,6 @@ function getCurrentYm() {
 function formatYmLabel(ym: string) {
   if (!/^\d{6}$/.test(ym)) return ym
   return `${ym.slice(0, 4)} 年 ${ym.slice(4, 6)} 月`
-}
-
-function getErrorMessage(data: unknown, fallback: string) {
-  if (typeof data === "object" && data !== null && "error" in data && typeof data.error === "string") {
-    return data.error
-  }
-  return fallback
 }
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {

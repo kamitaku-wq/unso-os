@@ -40,7 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, formatDate, getErrorMessage } from "@/lib/format"
 
 type ApiError = {
   error?: string
@@ -108,20 +108,6 @@ function createInitialExpenseForm(): ExpenseForm {
   }
 }
 
-// API 応答からエラー文言を安全に取り出す
-function getErrorMessage(data: unknown, fallback: string) {
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "error" in data &&
-    typeof data.error === "string"
-  ) {
-    return data.error
-  }
-
-  return fallback
-}
-
 // 空欄入力を送信用に整える
 function normalizeOptionalValue(value: string) {
   return value.trim()
@@ -131,16 +117,6 @@ function normalizeOptionalValue(value: string) {
 function isPdfReceipt(receiptPath: string | null) {
   if (!receiptPath) return false
   return /\.pdf$/i.test(receiptPath)
-}
-
-// 日付を画面表示向けに整える
-function formatDate(value: string | null) {
-  if (!value) return "-"
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-
-  return parsed.toLocaleDateString("ja-JP")
 }
 
 // 経費ステータスを日本語表示に変換する

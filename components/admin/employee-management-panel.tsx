@@ -30,6 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { TableSkeleton } from "@/components/table-skeleton"
+import { formatDateTime, getErrorMessage } from "@/lib/format"
 
 type EmployeeRole = "DRIVER" | "ADMIN" | "OWNER"
 
@@ -41,28 +42,6 @@ type Employee = {
   role: EmployeeRole
   is_active: boolean
   created_at: string | null
-}
-
-function getErrorMessage(data: unknown, fallback: string) {
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "error" in data &&
-    typeof data.error === "string"
-  ) {
-    return data.error
-  }
-
-  return fallback
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) return "-"
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-
-  return parsed.toLocaleString("ja-JP")
 }
 
 export function EmployeeManagementPanel() {

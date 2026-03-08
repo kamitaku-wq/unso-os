@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { formatDate, formatDateTime, getErrorMessage } from "@/lib/format"
 
 type AttendanceStatus = "ALL" | "SUBMITTED" | "APPROVED" | "REJECTED"
 
@@ -54,28 +55,6 @@ const STATUS_OPTIONS: { value: AttendanceStatus; label: string }[] = [
   { value: "ALL", label: "全件" },
 ]
 
-function getErrorMessage(data: unknown, fallback: string) {
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "error" in data &&
-    typeof data.error === "string"
-  ) {
-    return data.error
-  }
-
-  return fallback
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "-"
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-
-  return parsed.toLocaleDateString("ja-JP")
-}
-
 function formatMonthInputValue(value: Date) {
   const year = value.getFullYear()
   const month = String(value.getMonth() + 1).padStart(2, "0")
@@ -84,15 +63,6 @@ function formatMonthInputValue(value: Date) {
 
 function toYmValue(value: string) {
   return value.replace("-", "")
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) return "-"
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-
-  return parsed.toLocaleString("ja-JP")
 }
 
 function formatMinutes(value: number | null) {

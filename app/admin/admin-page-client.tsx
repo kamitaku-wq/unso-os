@@ -52,7 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, formatDate, formatDateTime, getErrorMessage } from "@/lib/format"
 
 type Customer = {
   cust_id: string
@@ -185,30 +185,6 @@ const EXPENSE_STATUS_OPTIONS: { value: ExpenseStatusFilter; label: string }[] = 
   { value: "PAID", label: "支払済み" },
 ]
 
-// API エラー文言を安全に取り出す
-function getErrorMessage(data: unknown, fallback: string) {
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "error" in data &&
-    typeof data.error === "string"
-  ) {
-    return data.error
-  }
-
-  return fallback
-}
-
-// 日付を画面表示用に整える
-function formatDate(value: string | null) {
-  if (!value) return "-"
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-
-  return parsed.toLocaleDateString("ja-JP")
-}
-
 // date input 用に日付文字列を YYYY-MM-DD 形式へ整える
 function formatDateInputValue(value: Date) {
   const year = value.getFullYear()
@@ -238,16 +214,6 @@ function normalizeYmInput(value: string) {
 function formatYm(value: string) {
   if (!/^\d{6}$/.test(value)) return value
   return `${value.slice(0, 4)}/${value.slice(4, 6)}`
-}
-
-// 日時を画面表示用に整える
-function formatDateTime(value: string | null) {
-  if (!value) return "-"
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-
-  return parsed.toLocaleString("ja-JP")
 }
 
 // 数値を画面表示用に整える

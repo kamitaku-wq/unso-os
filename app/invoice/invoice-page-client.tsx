@@ -38,7 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, getErrorMessage } from "@/lib/format"
 
 type ApiError = {
   error?: string
@@ -98,19 +98,6 @@ class ApiRequestError extends Error {
     this.name = "ApiRequestError"
     this.status = status
   }
-}
-
-function getErrorMessage(data: unknown, fallback: string) {
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "error" in data &&
-    typeof data.error === "string"
-  ) {
-    return data.error
-  }
-
-  return fallback
 }
 
 async function requestJson<T>(

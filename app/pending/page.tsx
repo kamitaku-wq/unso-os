@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/server"
+import { formatDateTime } from "@/lib/format"
 
 function getHomePath(role: "DRIVER" | "ADMIN" | "OWNER") {
   if (role === "OWNER") return "/dashboard"
@@ -21,15 +22,6 @@ const ROLE_LABELS: Record<string, string> = {
   DRIVER: "ドライバー",
   ADMIN: "管理者",
   OWNER: "経営者",
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) return "-"
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-
-  return parsed.toLocaleString("ja-JP")
 }
 
 export default async function PendingPage() {

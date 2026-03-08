@@ -32,7 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, formatDate, formatDateTime, getErrorMessage } from "@/lib/format"
 
 type Customer = {
   cust_id: string
@@ -108,46 +108,6 @@ function createInitialFormState(runDate = new Date().toISOString().slice(0, 10))
     distance_km: "",
     note: "",
   }
-}
-
-// API エラー文言を安全に取り出す
-function getErrorMessage(data: unknown, fallback: string) {
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "error" in data &&
-    typeof data.error === "string"
-  ) {
-    return data.error
-  }
-
-  return fallback
-}
-
-// 日時を画面表示用に整える
-function formatDateTime(value: string | null) {
-  if (!value) return "-"
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-
-  return parsed.toLocaleString("ja-JP", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
-// 日付を画面表示用に整える
-function formatDate(value: string | null) {
-  if (!value) return "-"
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-
-  return parsed.toLocaleDateString("ja-JP")
 }
 
 // 実績ステータスを日本語表示に変換する

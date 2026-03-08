@@ -12,7 +12,28 @@
       "Bash(npx create-next-app@latest:*)",
       "Bash(npx shadcn@latest:*)",
       "Bash(npm install:*)",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Bash(npm run:*)",
+      "Bash(cp:*)",
+      "Bash(sed:*)",
+      "Bash(C:/Users/kamit/dev/unso-os/app/expense/page.tsx:*)",
+      "Bash(npx vercel:*)",
+      "WebFetch(domain:unso-os.vercel.app)",
+      "WebFetch(domain:unso-75jydbs8v-kamitaku-wqs-projects.vercel.app)",
+      "WebFetch(domain:unso-os-kamitaku-wqs-projects.vercel.app)",
+      "Read(//c/Users/kamit/.local/share/com.vercel.cli/**)",
+      "Read(//c/Users/kamit/AppData/Roaming/com.vercel.cli/**)",
+      "Read(//c/Users/kamit/**)",
+      "Bash(curl:*)",
+      "WebFetch(domain:unso-i20y5b2ur-kamitaku-wqs-projects.vercel.app)",
+      "Bash(node:*)",
+      "Bash(git:*)",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(/tmp/summary.txt:*)",
+      "Read(//tmp/**)"
     ]
   }
 }
