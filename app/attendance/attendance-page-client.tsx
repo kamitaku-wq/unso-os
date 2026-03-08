@@ -169,6 +169,28 @@ export default function AttendancePageClient() {
     setAttendances(data)
   }, [])
 
+  const handleCancel = useCallback(
+    async (attendance: Attendance) => {
+      if (!window.confirm(`勤怠 ${attendance.attendance_id} の申請を取り消しますか？`)) return
+      setBusyKey(`cancel:${attendance.id}`)
+      try {
+        await requestJson(
+          `/api/attendance/${attendance.id}`,
+          { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancel" }) },
+          "取り消しに失敗しました"
+        )
+        setSubmitMessage(`勤怠 ${attendance.attendance_id} の申請を取り消しました。`)
+        await loadAttendances()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "取り消しに失敗しました"
+        setPageError(message)
+      } finally {
+        setBusyKey(null)
+      }
+    },
+    [loadAttendances]
+  )
+
   useEffect(() => {
     async function initialize() {
       setIsLoading(true)
@@ -438,6 +460,7 @@ export default function AttendancePageClient() {
                         <TableHead>残業</TableHead>
                         <TableHead>ステータス</TableHead>
                         <TableHead>詳細</TableHead>
+                        <TableHead>操作</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -467,6 +490,21 @@ export default function AttendancePageClient() {
                               <div>却下理由: {attendance.reject_reason}</div>
                             ) : null}
                             {attendance.note ? <div>備考: {attendance.note}</div> : null}
+                          </TableCell>
+                          <TableCell>
+                            {attendance.status === "SUBMITTED" ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void handleCancel(attendance)}
+                                disabled={isMutating}
+                              >
+                                {busyKey === `cancel:${attendance.id}` ? "取り消し中..." : "取り消し"}
+                              </Button>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">-</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}

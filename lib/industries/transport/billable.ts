@@ -96,6 +96,22 @@ export async function voidBillable(id: string, voidBy: string) {
   if (error) throw new Error(error.message)
 }
 
+// 運行実績を削除する（VOID 済みのみ・ADMIN/OWNER 用）
+export async function deleteBillable(id: string) {
+  const supabase = await createClient()
+
+  const { data, error: fetchErr } = await supabase
+    .from('billables')
+    .select('status')
+    .eq('id', id)
+    .single()
+  if (fetchErr || !data) throw new Error('実績が見つかりません')
+  if (data.status !== 'VOID') throw new Error('無効化済みの実績のみ削除できます')
+
+  const { error } = await supabase.from('billables').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 // ログインユーザー自身の運行実績一覧を取得する
 export async function getMyBillables() {
   const supabase = await createClient()

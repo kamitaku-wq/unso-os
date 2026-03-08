@@ -139,6 +139,33 @@ export default function AdminAttendancesPage() {
     void loadAttendances(statusFilter)
   }, [loadAttendances, statusFilter])
 
+  const handleDelete = useCallback(
+    async (attendance: Attendance) => {
+      const confirmed = window.confirm(
+        `勤怠 ${attendance.attendance_id} を削除します。この操作は取り消せません。よろしいですか？`
+      )
+      if (!confirmed) return
+
+      setProcessingKey(attendance.id)
+      setPageError("")
+      setActionMessage("")
+
+      try {
+        const response = await fetch(`/api/attendance/${attendance.id}`, { method: "DELETE" })
+        const data = (await response.json()) as { error?: string }
+        if (!response.ok) throw new Error(getErrorMessage(data, "勤怠の削除に失敗しました"))
+        setActionMessage(`勤怠 ${attendance.attendance_id} を削除しました。`)
+        await loadAttendances(statusFilter)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "勤怠の削除に失敗しました"
+        setPageError(message)
+      } finally {
+        setProcessingKey("")
+      }
+    },
+    [loadAttendances, statusFilter]
+  )
+
   const handleApprove = useCallback(
     async (attendance: Attendance) => {
       const confirmed = window.confirm(
@@ -336,6 +363,7 @@ export default function AdminAttendancesPage() {
                     <TableBody>
                       {attendances.map((attendance) => {
                         const isSubmitted = attendance.status === "SUBMITTED"
+                        const isRejected = attendance.status === "REJECTED"
                         const isProcessing = processingKey === attendance.id
 
                         return (
@@ -388,6 +416,15 @@ export default function AdminAttendancesPage() {
                                     却下
                                   </Button>
                                 </div>
+                              ) : isRejected ? (
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => void handleDelete(attendance)}
+                                  disabled={isProcessing}
+                                >
+                                  {isProcessing ? "削除中..." : "削除"}
+                                </Button>
                               ) : (
                                 <span className="text-sm text-muted-foreground">-</span>
                               )}

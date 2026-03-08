@@ -688,6 +688,29 @@ export default function AdminPageClient() {
     [billableStatusFilter, billableToVoid, loadBillables]
   )
 
+  // VOID 済み実績を削除する
+  const handleDeleteBillable = useCallback(
+    async (billable: Billable) => {
+      if (!window.confirm(`実績 ${billable.billable_id} を削除します。よろしいですか？`)) return
+      setProcessingKey(`billable:${billable.id}`)
+      setPageError("")
+      setActionMessage("")
+      try {
+        const response = await fetch(`/api/billable/${billable.id}`, { method: "DELETE" })
+        const data = (await response.json()) as { error?: string }
+        if (!response.ok) throw new Error(getErrorMessage(data, "削除に失敗しました"))
+        setActionMessage(`実績 ${billable.billable_id} を削除しました。`)
+        await loadBillables(billableStatusFilter)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "削除に失敗しました"
+        setPageError(message)
+      } finally {
+        setProcessingKey("")
+      }
+    },
+    [billableStatusFilter, loadBillables]
+  )
+
   // 理由入力が必要な経費アクション用モーダルを開く
   const openExpenseReasonDialog = useCallback(
     (expense: Expense, action: ExpenseReasonAction) => {
@@ -764,6 +787,29 @@ export default function AdminPageClient() {
         } else {
           setPageError(message)
         }
+      } finally {
+        setProcessingKey("")
+      }
+    },
+    [expenseStatusFilter, loadExpenses]
+  )
+
+  // REJECTED 経費を削除する
+  const handleDeleteExpense = useCallback(
+    async (expense: Expense) => {
+      if (!window.confirm(`経費 ${expense.expense_id} を削除します。よろしいですか？`)) return
+      setProcessingKey(`expense:${expense.id}`)
+      setPageError("")
+      setActionMessage("")
+      try {
+        const response = await fetch(`/api/expense/${expense.id}`, { method: "DELETE" })
+        const data = (await response.json()) as { error?: string }
+        if (!response.ok) throw new Error(getErrorMessage(data, "削除に失敗しました"))
+        setActionMessage(`経費 ${expense.expense_id} を削除しました。`)
+        await loadExpenses(expenseStatusFilter)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "削除に失敗しました"
+        setPageError(message)
       } finally {
         setProcessingKey("")
       }
@@ -1205,6 +1251,7 @@ export default function AdminPageClient() {
                             {filteredBillables.map((billable) => {
                               const isReviewRequired =
                                 billable.status === "REVIEW_REQUIRED"
+                              const isVoid = billable.status === "VOID"
                               const isProcessing =
                                 processingKey === `billable:${billable.id}`
 
@@ -1258,6 +1305,15 @@ export default function AdminPageClient() {
                                           無効
                                         </Button>
                                       </div>
+                                    ) : isVoid ? (
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => void handleDeleteBillable(billable)}
+                                        disabled={isProcessing}
+                                      >
+                                        {isProcessing ? "削除中..." : "削除"}
+                                      </Button>
                                     ) : (
                                       <span className="text-sm text-muted-foreground">
                                         -
@@ -1374,6 +1430,7 @@ export default function AdminPageClient() {
                                 processingKey === `expense:${expense.id}`
                               const canApprove = expense.status === "SUBMITTED"
                               const canPay = expense.status === "APPROVED"
+                              const isRejected = expense.status === "REJECTED"
 
                               return (
                                 <TableRow key={expense.id}>
@@ -1424,7 +1481,16 @@ export default function AdminPageClient() {
                                     ) : null}
                                   </TableCell>
                                   <TableCell>
-                                    {canApprove || canPay ? (
+                                    {isRejected ? (
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => void handleDeleteExpense(expense)}
+                                        disabled={isProcessing}
+                                      >
+                                        {isProcessing ? "削除中..." : "削除"}
+                                      </Button>
+                                    ) : canApprove || canPay ? (
                                       <div className="flex flex-wrap gap-2">
                                         {canApprove ? (
                                           <>

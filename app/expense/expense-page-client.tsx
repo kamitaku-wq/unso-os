@@ -197,6 +197,29 @@ export default function ExpensePageClient() {
     setExpenses(data)
   }, [])
 
+  // 申請中の経費を取り消す（本人のみ・SUBMITTED のみ）
+  const handleCancel = useCallback(
+    async (expense: Expense) => {
+      if (!window.confirm(`経費 ${expense.expense_id} の申請を取り消しますか？`)) return
+      setBusyKey(`cancel:${expense.id}`)
+      try {
+        await requestJson(
+          `/api/expense/${expense.id}`,
+          { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancel" }) },
+          "取り消しに失敗しました"
+        )
+        setSubmitMessage(`経費 ${expense.expense_id} の申請を取り消しました。`)
+        await loadExpenses()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "取り消しに失敗しました"
+        setPageError(message)
+      } finally {
+        setBusyKey(null)
+      }
+    },
+    [loadExpenses]
+  )
+
   // レシートファイルをアップロードする
   const uploadReceipt = useCallback(async (expenseId: string, file: File) => {
     const formData = new FormData()
@@ -579,6 +602,21 @@ export default function ExpensePageClient() {
                                   ? "レシート"
                                   : "未添付"}
                             </Button>
+                          </TableCell>
+                          <TableCell>
+                            {expense.status === "SUBMITTED" ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void handleCancel(expense)}
+                                disabled={isMutating}
+                              >
+                                {busyKey === `cancel:${expense.id}` ? "取り消し中..." : "取り消し"}
+                              </Button>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">-</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}

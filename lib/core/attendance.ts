@@ -123,3 +123,47 @@ export async function rejectAttendance(id: string, reason: string) {
     .eq('id', id)
   if (error) throw new Error(error.message)
 }
+
+// 勤怠を取り消す（SUBMITTED のみ・申請者本人用）
+export async function cancelAttendance(id: string) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未認証')
+
+  const { data: employee } = await supabase
+    .from('employees')
+    .select('emp_id')
+    .eq('google_email', user.email!)
+    .single()
+  if (!employee) throw new Error('社員情報が見つかりません')
+
+  // 本人かつ SUBMITTED のみ取り消し可能
+  const { data, error: fetchErr } = await supabase
+    .from('attendances')
+    .select('status, emp_id')
+    .eq('id', id)
+    .single()
+  if (fetchErr || !data) throw new Error('勤怠が見つかりません')
+  if (data.emp_id !== employee.emp_id) throw new Error('自分の申請のみ取り消せます')
+  if (data.status !== 'SUBMITTED') throw new Error('申請中の勤怠のみ取り消せます')
+
+  const { error } = await supabase.from('attendances').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+// 勤怠を削除する（REJECTED のみ・ADMIN/OWNER 用）
+export async function deleteAttendance(id: string) {
+  const supabase = await createClient()
+
+  const { data, error: fetchErr } = await supabase
+    .from('attendances')
+    .select('status')
+    .eq('id', id)
+    .single()
+  if (fetchErr || !data) throw new Error('勤怠が見つかりません')
+  if (data.status !== 'REJECTED') throw new Error('却下済みの勤怠のみ削除できます')
+
+  const { error } = await supabase.from('attendances').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}

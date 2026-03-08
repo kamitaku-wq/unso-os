@@ -125,6 +125,50 @@ export async function reworkExpense(id: string, reason: string) {
   if (error) throw new Error(error.message)
 }
 
+// 経費を取り消す（SUBMITTED のみ・申請者本人用）
+export async function cancelExpense(id: string) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未認証')
+
+  const { data: employee } = await supabase
+    .from('employees')
+    .select('emp_id')
+    .eq('google_email', user.email!)
+    .single()
+  if (!employee) throw new Error('社員情報が見つかりません')
+
+  // 本人かつ SUBMITTED のみ取り消し可能
+  const { data, error: fetchErr } = await supabase
+    .from('expenses')
+    .select('status, emp_id')
+    .eq('id', id)
+    .single()
+  if (fetchErr || !data) throw new Error('経費が見つかりません')
+  if (data.emp_id !== employee.emp_id) throw new Error('自分の申請のみ取り消せます')
+  if (data.status !== 'SUBMITTED') throw new Error('申請中の経費のみ取り消せます')
+
+  const { error } = await supabase.from('expenses').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+// 経費を削除する（REJECTED のみ・ADMIN/OWNER 用）
+export async function deleteExpense(id: string) {
+  const supabase = await createClient()
+
+  const { data, error: fetchErr } = await supabase
+    .from('expenses')
+    .select('status')
+    .eq('id', id)
+    .single()
+  if (fetchErr || !data) throw new Error('経費が見つかりません')
+  if (data.status !== 'REJECTED') throw new Error('却下済みの経費のみ削除できます')
+
+  const { error } = await supabase.from('expenses').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 // 経費を支払済みにする
 export async function payExpense(id: string) {
   const supabase = await createClient()
