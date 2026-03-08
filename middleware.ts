@@ -1,9 +1,9 @@
-// 認証セッションをリフレッシュするプロキシ（Next.js 16 新仕様）
+// 認証セッションをリフレッシュするミドルウェア
 // 全ルートで Supabase のセッションが最新状態に保たれる
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
