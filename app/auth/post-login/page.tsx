@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 
 import { createClient } from "@/lib/supabase/server"
 
@@ -28,18 +29,16 @@ export default async function PostLoginPage() {
     redirect(getHomePath(employee.role))
   }
 
-  const { data: pendingRequest } = await supabase
-    .from("emp_requests")
-    .select("id")
-    .eq("google_email", user.email)
-    .eq("status", "PENDING")
-    .order("submitted_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  // 未登録ユーザーはデモ用自動登録APIで即時DRIVER登録
+  const headersList = await headers()
+  const host = headersList.get("host") ?? "localhost:3000"
+  const protocol = host.includes("localhost") ? "http" : "https"
+  const baseUrl = `${protocol}://${host}`
 
-  if (pendingRequest) {
-    redirect("/pending")
-  }
+  await fetch(`${baseUrl}/api/demo-register`, {
+    method: "POST",
+    headers: { cookie: headersList.get("cookie") ?? "" },
+  })
 
-  redirect("/register")
+  redirect("/")
 }
