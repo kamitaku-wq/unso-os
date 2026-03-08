@@ -29,6 +29,19 @@ export default async function PostLoginPage() {
     redirect(getHomePath(employee.role))
   }
 
+  // 申請済みで承認待ちの場合は /pending へ
+  const { data: pendingRequest } = await supabase
+    .from("emp_requests")
+    .select("request_id")
+    .eq("google_email", user.email)
+    .eq("status", "PENDING")
+    .limit(1)
+    .maybeSingle()
+
+  if (pendingRequest) {
+    redirect("/pending")
+  }
+
   // 未登録ユーザー: デモ会社なら自動 DRIVER 登録、通常会社なら申請ページへ
   const headersList = await headers()
   const host = headersList.get("host") ?? "localhost:3000"
