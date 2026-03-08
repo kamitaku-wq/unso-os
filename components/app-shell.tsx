@@ -28,6 +28,7 @@ function getNavigationItems(role: Role | null): NavigationItem[] {
     { href: "/", label: "運行実績" },
     { href: "/expense", label: "経費" },
     { href: "/attendance", label: "勤怠" },
+    { href: "/shift", label: "シフト" },
   ]
 
   if (role === "ADMIN") {

@@ -29,16 +29,23 @@ export default async function PostLoginPage() {
     redirect(getHomePath(employee.role))
   }
 
-  // 未登録ユーザーはデモ用自動登録APIで即時DRIVER登録
+  // 未登録ユーザー: デモ会社なら自動 DRIVER 登録、通常会社なら申請ページへ
   const headersList = await headers()
   const host = headersList.get("host") ?? "localhost:3000"
   const protocol = host.includes("localhost") ? "http" : "https"
   const baseUrl = `${protocol}://${host}`
 
-  await fetch(`${baseUrl}/api/demo-register`, {
+  const res = await fetch(`${baseUrl}/api/demo-register`, {
     method: "POST",
     headers: { cookie: headersList.get("cookie") ?? "" },
   })
+
+  type DemoRegisterResult = { registered: boolean }
+  const result = (await res.json()) as DemoRegisterResult
+
+  if (!result.registered) {
+    redirect("/register")
+  }
 
   redirect("/")
 }

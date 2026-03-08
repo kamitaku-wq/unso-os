@@ -17,13 +17,18 @@ export async function POST() {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
 
-    // 会社を取得
+    // 会社を取得（is_demo フラグも含む）
     const { data: company } = await admin
       .from('companies')
-      .select('id')
+      .select('id, is_demo')
       .limit(1)
       .single()
     if (!company) return NextResponse.json({ error: '会社が未登録です' }, { status: 400 })
+
+    // デモ会社でない場合は自動登録しない
+    if (!company.is_demo) {
+      return NextResponse.json({ registered: false })
+    }
 
     // 既に登録済みなら何もしない
     const { data: existing } = await admin
@@ -31,7 +36,7 @@ export async function POST() {
       .select('emp_id')
       .eq('google_email', user.email)
       .maybeSingle()
-    if (existing) return NextResponse.json({ emp_id: existing.emp_id })
+    if (existing) return NextResponse.json({ registered: true, emp_id: existing.emp_id })
 
     // emp_id を採番
     const { count } = await admin
@@ -55,7 +60,7 @@ export async function POST() {
     })
     if (error) throw new Error(error.message)
 
-    return NextResponse.json({ emp_id })
+    return NextResponse.json({ registered: true, emp_id })
   } catch (e) {
     return apiError(e)
   }
