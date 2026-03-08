@@ -42,14 +42,14 @@ export async function listInviteTokens(): Promise<InviteToken[]> {
   return (data ?? []) as InviteToken[]
 }
 
-// 招待トークンを無効化する（ADMIN/OWNER のみ）
+// 招待トークンを削除する（ADMIN/OWNER のみ）
 export async function revokeInviteToken(id: string): Promise<void> {
   await requireRole(['ADMIN', 'OWNER'])
   const supabase = await createClient()
 
   const { error } = await supabase
     .from('invite_tokens')
-    .update({ is_active: false })
+    .delete()
     .eq('id', id)
 
   if (error) throw new Error(error.message)

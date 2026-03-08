@@ -49,7 +49,10 @@ type EmpRequest = {
 const TEXTAREA_CLASS =
   "min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
 
+type PanelTab = "PENDING" | "REJECTED"
+
 export function EmpRequestPanel() {
+  const [activeTab, setActiveTab] = useState<PanelTab>("PENDING")
   const [requests, setRequests] = useState<EmpRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [pageError, setPageError] = useState("")
@@ -90,7 +93,7 @@ export function EmpRequestPanel() {
     setPageError("")
 
     try {
-      const response = await fetch("/api/admin/emp-requests?status=PENDING", {
+      const response = await fetch(`/api/admin/emp-requests?status=${activeTab}`, {
         cache: "no-store",
       })
       const data = (await response.json()) as EmpRequest[] | { error?: string }
@@ -119,6 +122,35 @@ export function EmpRequestPanel() {
   useEffect(() => {
     void loadRequests()
   }, [loadRequests])
+
+  useEffect(() => {
+    void loadRequests()
+  }, [activeTab, loadRequests])
+
+  const handleDelete = useCallback(
+    async (request: EmpRequest) => {
+      setProcessingKey(`delete:${request.id}`)
+      setPageError("")
+      setActionMessage("")
+      try {
+        const response = await fetch(`/api/admin/emp-requests/${request.id}`, {
+          method: "DELETE",
+        })
+        const data = (await response.json()) as { error?: string }
+        if (!response.ok) {
+          throw new Error(getErrorMessage(data, "削除に失敗しました"))
+        }
+        setActionMessage(`申請 ${request.request_id} を削除しました。`)
+        await loadRequests()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "削除に失敗しました"
+        setPageError(message)
+      } finally {
+        setProcessingKey("")
+      }
+    },
+    [loadRequests]
+  )
 
   const handleApprove = useCallback(
     async (request: EmpRequest) => {
@@ -236,12 +268,32 @@ export function EmpRequestPanel() {
             <div>
               <CardTitle>社員申請一覧</CardTitle>
               <CardDescription>
-                承認待ちの申請を確認し、承認または却下します。
+                {activeTab === "PENDING"
+                  ? "承認待ちの申請を確認し、承認または却下します。"
+                  : "却下済みの申請を確認・削除します。"}
               </CardDescription>
             </div>
-            <Button type="button" variant="outline" onClick={() => void loadRequests()} disabled={isLoading}>
-              再読み込み
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={activeTab === "PENDING" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTab("PENDING")}
+              >
+                承認待ち
+              </Button>
+              <Button
+                type="button"
+                variant={activeTab === "REJECTED" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveTab("REJECTED")}
+              >
+                却下済み
+              </Button>
+              <Button type="button" variant="outline" onClick={() => void loadRequests()} disabled={isLoading}>
+                再読み込み
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -282,23 +334,37 @@ export function EmpRequestPanel() {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => void handleApprove(request)}
-                                disabled={!!processingKey}
-                              >
-                                {isApproveProcessing ? "承認中..." : "承認"}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => openRejectDialog(request)}
-                                disabled={!!processingKey}
-                              >
-                                {isRejectProcessing ? "却下中..." : "却下"}
-                              </Button>
+                              {activeTab === "PENDING" ? (
+                                <>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={() => void handleApprove(request)}
+                                    disabled={!!processingKey}
+                                  >
+                                    {isApproveProcessing ? "承認中..." : "承認"}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => openRejectDialog(request)}
+                                    disabled={!!processingKey}
+                                  >
+                                    {isRejectProcessing ? "却下中..." : "却下"}
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => void handleDelete(request)}
+                                  disabled={!!processingKey}
+                                >
+                                  {processingKey === `delete:${request.id}` ? "削除中..." : "削除"}
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>

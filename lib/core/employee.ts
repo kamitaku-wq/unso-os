@@ -134,6 +134,23 @@ export async function rejectEmpRequest(requestId: string, decidedBy: string, not
   if (error) throw new Error(error.message)
 }
 
+// 社員申請を削除する（REJECTED のみ・ADMIN/OWNER 用）
+export async function deleteEmpRequest(requestId: string) {
+  const supabase = await createClient()
+
+  // REJECTED のみ削除可能
+  const { data, error: fetchErr } = await supabase
+    .from('emp_requests')
+    .select('status')
+    .eq('id', requestId)
+    .single()
+  if (fetchErr || !data) throw new Error('申請が見つかりません')
+  if (data.status !== 'REJECTED') throw new Error('却下済みの申請のみ削除できます')
+
+  const { error } = await supabase.from('emp_requests').delete().eq('id', requestId)
+  if (error) throw new Error(error.message)
+}
+
 // 新規ユーザーが社員登録を申請する（ログイン済みなら誰でも可）
 export async function submitEmpRequest(input: {
   name: string

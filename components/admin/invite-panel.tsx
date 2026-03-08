@@ -71,9 +71,9 @@ export function InvitePanel() {
     try {
       await fetchJson(`/api/admin/invite/${id}`, { method: "DELETE" })
       await loadTokens()
-      toast.success("招待リンクを無効化しました")
+      toast.success("招待リンクを削除しました")
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "無効化に失敗しました")
+      toast.error(e instanceof Error ? e.message : "削除に失敗しました")
     } finally {
       setRevokingId(null)
     }
@@ -156,7 +156,7 @@ export function InvitePanel() {
                             disabled={revokingId === t.id}
                           >
                             <Trash2 className="mr-1 size-3.5" />
-                            {revokingId === t.id ? "無効化中..." : "無効化"}
+                            {revokingId === t.id ? "削除中..." : "削除"}
                           </Button>
                         </div>
                       </TableCell>
