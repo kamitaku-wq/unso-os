@@ -17,6 +17,12 @@ function getHomePath(role: "DRIVER" | "ADMIN" | "OWNER") {
   return "/"
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  DRIVER: "ドライバー",
+  ADMIN: "管理者",
+  OWNER: "経営者",
+}
+
 function formatDateTime(value: string | null) {
   if (!value) return "-"
 
@@ -94,7 +100,7 @@ export default async function PendingPage() {
             </div>
             <div>
               <span className="text-muted-foreground">希望ロール: </span>
-              <span>{pendingRequest.role_requested}</span>
+              <span>{ROLE_LABELS[pendingRequest.role_requested] ?? pendingRequest.role_requested}</span>
             </div>
             <div>
               <span className="text-muted-foreground">申請日時: </span>
