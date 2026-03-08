@@ -1,7 +1,7 @@
 "use client"
 
-// デモ用ロール切替コンポーネント
-// OWNERがログイン中のみ表示され、ナビゲーションの見た目を切り替える
+// デモ用ロール切替コンポーネント（全ユーザー対象・DBを直接更新）
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 
 type Role = "DRIVER" | "ADMIN" | "OWNER"
@@ -12,12 +12,23 @@ const ROLES: { value: Role; label: string }[] = [
   { value: "OWNER",  label: "経営者" },
 ]
 
-export function DemoRoleSwitcher({ currentDisplayRole }: { currentDisplayRole: Role }) {
+export function DemoRoleSwitcher({ currentRole }: { currentRole: Role }) {
   const router = useRouter()
+  const [loading, setLoading] = useState(false)
 
-  function switchRole(role: Role) {
-    document.cookie = `demo_role=${role}; path=/; max-age=86400`
-    router.refresh()
+  async function switchRole(role: Role) {
+    if (role === currentRole || loading) return
+    setLoading(true)
+    try {
+      await fetch("/api/me/role", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      })
+      router.refresh()
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -27,10 +38,11 @@ export function DemoRoleSwitcher({ currentDisplayRole }: { currentDisplayRole: R
         <button
           key={r.value}
           type="button"
-          onClick={() => switchRole(r.value)}
+          onClick={() => void switchRole(r.value)}
+          disabled={loading}
           className={[
-            "rounded px-2 py-0.5 text-xs font-medium transition-colors",
-            currentDisplayRole === r.value
+            "rounded px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-50",
+            currentRole === r.value
               ? "bg-orange-500 text-white"
               : "text-orange-700 hover:bg-orange-100",
           ].join(" ")}

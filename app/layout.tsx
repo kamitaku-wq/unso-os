@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { cookies } from "next/headers";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { Toaster } from "@/components/ui/sonner";
@@ -33,7 +32,6 @@ export default async function RootLayout({
 
   let employeeName: string | null = null
   let role: "DRIVER" | "ADMIN" | "OWNER" | null = null
-  let displayRole: "DRIVER" | "ADMIN" | "OWNER" | null = null
 
   if (user?.email) {
     const { data: employee } = await supabase
@@ -45,18 +43,6 @@ export default async function RootLayout({
     if (employee?.is_active) {
       employeeName = employee.name
       role = employee.role
-
-      // OWNERはデモ用ロールcookieで表示ロールを切り替え可能
-      if (role === "OWNER") {
-        const cookieStore = await cookies()
-        const demoRole = cookieStore.get("demo_role")?.value
-        const validRoles = ["DRIVER", "ADMIN", "OWNER"] as const
-        displayRole = validRoles.includes(demoRole as typeof validRoles[number])
-          ? (demoRole as typeof validRoles[number])
-          : "OWNER"
-      } else {
-        displayRole = role
-      }
     }
   }
 
@@ -65,13 +51,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AppShell
-          userEmail={user?.email ?? null}
-          employeeName={employeeName}
-          role={displayRole}
-          isOwner={role === "OWNER"}
-          displayRole={displayRole}
-        >
+        <AppShell userEmail={user?.email ?? null} employeeName={employeeName} role={role}>
           {children}
         </AppShell>
         <Toaster position="top-right" richColors />

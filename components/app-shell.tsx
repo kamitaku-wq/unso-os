@@ -64,15 +64,11 @@ export function AppShell({
   userEmail,
   employeeName,
   role,
-  isOwner,
-  displayRole,
 }: {
   children: React.ReactNode
   userEmail: string | null
   employeeName: string | null
   role: Role | null
-  isOwner?: boolean
-  displayRole?: Role | null
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -146,9 +142,9 @@ export function AppShell({
 
             {/* 右側: デモスイッチャー + ログアウト + ハンバーガー */}
             <div className="flex items-center gap-2">
-              {isOwner && displayRole ? (
+              {role ? (
                 <div className="hidden sm:block">
-                  <DemoRoleSwitcher currentDisplayRole={displayRole} />
+                  <DemoRoleSwitcher currentRole={role} />
                 </div>
               ) : null}
               {userEmail && showHeaderSignOut ? (
