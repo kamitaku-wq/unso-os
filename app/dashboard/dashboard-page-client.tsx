@@ -268,7 +268,7 @@ function MonthlyAmountChart({
 
 // ---- サブコンポーネント: 経費区分別横棒グラフ ----
 
-function ExpenseCategoryChart({ rows, isLoading }: { rows: CategoryBreakdown[]; isLoading: boolean }) {
+function ExpenseCategoryChart({ rows, isLoading, includeAll }: { rows: CategoryBreakdown[]; isLoading: boolean; includeAll: boolean }) {
   const max = rows.reduce((m, r) => Math.max(m, r.amount), 0)
   const total = rows.reduce((s, r) => s + r.amount, 0)
   const colors = ["bg-orange-400", "bg-amber-400", "bg-yellow-400", "bg-orange-300", "bg-amber-300"]
@@ -277,7 +277,7 @@ function ExpenseCategoryChart({ rows, isLoading }: { rows: CategoryBreakdown[]; 
     <Card>
       <CardHeader>
         <CardTitle>当月 経費区分別内訳</CardTitle>
-        <CardDescription>承認済み・支払済み経費の区分別集計（上位5件）</CardDescription>
+        <CardDescription>{includeAll ? "全ステータス経費の区分別集計（上位5件）" : "承認済み・支払済み経費の区分別集計（上位5件）"}</CardDescription>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -290,7 +290,7 @@ function ExpenseCategoryChart({ rows, isLoading }: { rows: CategoryBreakdown[]; 
             ))}
           </div>
         ) : rows.length === 0 ? (
-          <EmptyState icon={Receipt} description="当月の承認済み経費がありません" />
+          <EmptyState icon={Receipt} description={includeAll ? "当月の経費がありません" : "当月の承認済み経費がありません"} />
         ) : (
           <div className="space-y-3">
             {rows.map((row, i) => {
@@ -457,14 +457,14 @@ export default function DashboardPageClient() {
               <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">当月 KPI</h2>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiCard
-                  title="売上（承認済み）"
+                  title={includeAll ? "売上（全ステータス）" : "売上（承認済み）"}
                   value={isLoading ? "---" : formatCurrency(kpi.sales.current)}
                   subValue={isLoading ? undefined : `前月: ${formatCurrency(kpi.sales.prev)}`}
                   change={isLoading ? null : kpi.sales.change}
                   colorScheme="blue"
                 />
                 <KpiCard
-                  title="経費（承認済み）"
+                  title={includeAll ? "経費（全ステータス）" : "経費（承認済み）"}
                   value={isLoading ? "---" : formatCurrency(kpi.expenses.current)}
                   subValue={isLoading ? undefined : `前月: ${formatCurrency(kpi.expenses.prev)}`}
                   change={isLoading ? null : kpi.expenses.change}
@@ -561,7 +561,7 @@ export default function DashboardPageClient() {
               <div className="grid gap-6 xl:grid-cols-2">
                 <MonthlyAmountChart
                   title="月別売上"
-                  description={`承認済み運行実績の直近 ${periodMonths} ヶ月集計`}
+                  description={includeAll ? `全ステータス運行実績の直近 ${periodMonths} ヶ月集計` : `承認済み運行実績の直近 ${periodMonths} ヶ月集計`}
                   rows={filteredMonthlySales}
                   barClassName="fill-blue-500"
                   emptyIcon={Truck}
@@ -569,7 +569,7 @@ export default function DashboardPageClient() {
                 />
                 <MonthlyAmountChart
                   title="月別経費"
-                  description={`承認済み・支払済み経費の直近 ${periodMonths} ヶ月集計`}
+                  description={includeAll ? `全ステータス経費の直近 ${periodMonths} ヶ月集計` : `承認済み・支払済み経費の直近 ${periodMonths} ヶ月集計`}
                   rows={filteredMonthlyExpenses}
                   barClassName="fill-orange-400"
                   emptyIcon={Receipt}
@@ -619,7 +619,7 @@ export default function DashboardPageClient() {
                 </CardContent>
               </Card>
 
-              <ExpenseCategoryChart rows={dashboard.expenseCategoryBreakdown} isLoading={isLoading} />
+              <ExpenseCategoryChart rows={dashboard.expenseCategoryBreakdown} isLoading={isLoading} includeAll={includeAll} />
             </section>
 
             {/* ⑥ 社員別実績 */}

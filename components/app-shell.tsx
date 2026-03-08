@@ -143,7 +143,7 @@ export function AppShell({
             {/* 右側: デモスイッチャー + ログアウト + ハンバーガー */}
             <div className="flex items-center gap-2">
               {role ? (
-                <div className="hidden sm:block">
+                <div className="hidden md:block">
                   <DemoRoleSwitcher currentRole={role} />
                 </div>
               ) : null}
@@ -204,24 +204,27 @@ export function AppShell({
           <div className="border-t bg-white md:hidden">
             <div className="mx-auto max-w-7xl px-4 py-3">
               {/* モバイル: ユーザー情報 */}
-              <div className="mb-2 flex items-center gap-2 border-b pb-3">
-                {employeeName ? (
-                  <span className="text-sm text-muted-foreground">{employeeName}</span>
-                ) : null}
-                {role ? (
-                  <Badge variant="secondary" className="text-xs">
-                    {ROLE_LABELS[role]}
-                  </Badge>
-                ) : null}
-                {showRegisterLink ? (
-                  <Link
-                    href="/register"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-sm text-primary underline-offset-4 hover:underline"
-                  >
-                    社員申請へ
-                  </Link>
-                ) : null}
+              <div className="mb-2 flex flex-col gap-2 border-b pb-3">
+                <div className="flex items-center gap-2">
+                  {employeeName ? (
+                    <span className="text-sm text-muted-foreground">{employeeName}</span>
+                  ) : null}
+                  {role ? (
+                    <Badge variant="secondary" className="text-xs">
+                      {ROLE_LABELS[role]}
+                    </Badge>
+                  ) : null}
+                  {showRegisterLink ? (
+                    <Link
+                      href="/register"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-sm text-primary underline-offset-4 hover:underline"
+                    >
+                      社員申請へ
+                    </Link>
+                  ) : null}
+                </div>
+                {role ? <DemoRoleSwitcher currentRole={role} /> : null}
               </div>
 
               {/* モバイル: ナビリンク */}
