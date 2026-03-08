@@ -13,9 +13,12 @@ import {
 import { requireRole } from '@/lib/server/auth'
 import { apiError } from '@/lib/api-error'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await requireRole(['OWNER'])
+
+    const { searchParams } = new URL(request.url)
+    const includeAll = searchParams.get('includeAll') === '1'
 
     const [
       pendingCounts,
@@ -28,12 +31,12 @@ export async function GET() {
       attendanceSummary,
     ] = await Promise.all([
       getPendingCounts(),
-      getMonthlySales(),
-      getMonthlyExpenses(),
+      getMonthlySales(includeAll),
+      getMonthlyExpenses(includeAll),
       getCurrentMonthByEmployee(),
-      getMonthlyKpi(),
+      getMonthlyKpi(includeAll),
       getUnbilledAmount(),
-      getExpenseCategoryBreakdown(),
+      getExpenseCategoryBreakdown(includeAll),
       getAttendanceSummary(),
     ])
 

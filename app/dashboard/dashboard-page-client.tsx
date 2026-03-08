@@ -110,7 +110,8 @@ function getErrorMessage(data: unknown, fallback: string) {
 
 function formatMonthLabel(ym: string) {
   if (!/^\d{6}$/.test(ym)) return ym
-  return `${ym.slice(0, 4)}/${ym.slice(4, 6)}`
+  // スマホでも収まるよう「M月」形式（例: 3月, 12月）
+  return `${parseInt(ym.slice(4, 6))}月`
 }
 
 // ---- サブコンポーネント: 前月比インジケーター ----
@@ -246,9 +247,11 @@ function MonthlyAmountChart({
                     <rect x={x} y={y} width={barWidth} height={barHeight} rx="6" className={barClassName} />
                     <text
                       x={x + barWidth / 2}
-                      y={chartHeight - 8}
+                      y={chartHeight - 7}
                       textAnchor="middle"
-                      className="fill-muted-foreground text-[10px]"
+                      fontSize={11}
+                      fill="currentColor"
+                      className="text-muted-foreground"
                     >
                       {formatMonthLabel(row.ym)}
                     </text>
@@ -327,6 +330,7 @@ export default function DashboardPageClient() {
   const [hasNoPermission, setHasNoPermission] = useState(false)
   const [periodMonths, setPeriodMonths] = useState<PeriodMonths>(6)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null)
+  const [includeAll, setIncludeAll] = useState(false)
 
   const currentMonthByEmployee = useMemo(() => {
     return [...dashboard.currentMonthByEmployee].sort((a, b) => {
@@ -344,12 +348,13 @@ export default function DashboardPageClient() {
     if (hasNoPermission) toast.error("権限がありません")
   }, [hasNoPermission])
 
-  const loadDashboard = useCallback(async () => {
+  const loadDashboard = useCallback(async (all?: boolean) => {
     setIsLoading(true)
     setPageError("")
 
     try {
-      const response = await fetch("/api/dashboard", { cache: "no-store" })
+      const qs = (all ?? includeAll) ? "?includeAll=1" : ""
+      const response = await fetch(`/api/dashboard${qs}`, { cache: "no-store" })
       const data = (await response.json()) as DashboardResponse | { error?: string }
 
       if (response.status === 403) {
@@ -418,6 +423,18 @@ export default function DashboardPageClient() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border bg-white px-3 py-1.5 text-sm shadow-sm">
+              <input
+                type="checkbox"
+                checked={includeAll}
+                onChange={(e) => {
+                  setIncludeAll(e.target.checked)
+                  void loadDashboard(e.target.checked)
+                }}
+                className="size-4 accent-orange-500"
+              />
+              <span className="text-muted-foreground">未承認を含む</span>
+            </label>
             <p className="text-xs text-muted-foreground">
               {lastUpdatedAt ? `更新: ${new Date(lastUpdatedAt).toLocaleString("ja-JP")}` : "更新: -"}
             </p>

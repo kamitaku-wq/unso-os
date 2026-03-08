@@ -47,20 +47,27 @@ export async function getPendingCounts() {
   }
 }
 
-// 月別売上（承認済み運行実績）を集計する（直近6ヶ月）
-export async function getMonthlySales() {
+// 月別売上を集計する（直近6ヶ月）
+export async function getMonthlySales(includeAll = false) {
   const supabase = await createClient()
   const ymList = getRecentYmList(6)
   const ymFrom = ymList[0]
   const ymTo = ymList[ymList.length - 1]
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('billables')
     .select('run_date, amount')
-    .eq('status', 'APPROVED')
     .not('amount', 'is', null)
     .gte('run_date', `${ymFrom.slice(0, 4)}-${ymFrom.slice(4, 6)}-01`)
     .lte('run_date', `${ymTo.slice(0, 4)}-${ymTo.slice(4, 6)}-31`)
+
+  if (includeAll) {
+    query = query.neq('status', 'VOID')
+  } else {
+    query = query.eq('status', 'APPROVED')
+  }
+
+  const { data, error } = await query
 
   if (error) throw new Error(error.message)
 
@@ -73,15 +80,19 @@ export async function getMonthlySales() {
   return ymList.map(ym => ({ ym, amount: totals[ym] }))
 }
 
-// 月別経費（承認済み）を集計する（直近6ヶ月）
-export async function getMonthlyExpenses() {
+// 月別経費を集計する（直近6ヶ月）
+export async function getMonthlyExpenses(includeAll = false) {
   const supabase = await createClient()
   const ymList = getRecentYmList(6)
+
+  const statuses = includeAll
+    ? ['SUBMITTED', 'APPROVED', 'PAID']
+    : ['APPROVED', 'PAID']
 
   const { data, error } = await supabase
     .from('expenses')
     .select('ym, amount')
-    .in('status', ['APPROVED', 'PAID'])
+    .in('status', statuses)
     .in('ym', ymList)
 
   if (error) throw new Error(error.message)
@@ -137,19 +148,22 @@ export async function getCurrentMonthByEmployee() {
 }
 
 // 当月・前月の KPI を比較する（売上・経費・利益）
-export async function getMonthlyKpi() {
+export async function getMonthlyKpi(includeAll = false) {
   const supabase = await createClient()
   const { thisYm, prevYm } = getCurrentAndPrevYm()
   const thisRange = ymToRange(thisYm)
   const prevRange = ymToRange(prevYm)
 
+  const billableStatuses = includeAll ? ['REVIEW_REQUIRED', 'APPROVED'] : ['APPROVED']
+  const expenseStatuses = includeAll ? ['SUBMITTED', 'APPROVED', 'PAID'] : ['APPROVED', 'PAID']
+
   const [thisBillables, prevBillables, thisExpenses, prevExpenses] = await Promise.all([
-    supabase.from('billables').select('amount').eq('status', 'APPROVED')
+    supabase.from('billables').select('amount').in('status', billableStatuses)
       .gte('run_date', thisRange.start).lte('run_date', thisRange.end),
-    supabase.from('billables').select('amount').eq('status', 'APPROVED')
+    supabase.from('billables').select('amount').in('status', billableStatuses)
       .gte('run_date', prevRange.start).lte('run_date', prevRange.end),
-    supabase.from('expenses').select('amount').in('status', ['APPROVED', 'PAID']).eq('ym', thisYm),
-    supabase.from('expenses').select('amount').in('status', ['APPROVED', 'PAID']).eq('ym', prevYm),
+    supabase.from('expenses').select('amount').in('status', expenseStatuses).eq('ym', thisYm),
+    supabase.from('expenses').select('amount').in('status', expenseStatuses).eq('ym', prevYm),
   ])
 
   const thisSales = (thisBillables.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0)
@@ -189,14 +203,18 @@ export async function getUnbilledAmount() {
 }
 
 // 当月の経費を区分別に集計する（上位5件）
-export async function getExpenseCategoryBreakdown() {
+export async function getExpenseCategoryBreakdown(includeAll = false) {
   const supabase = await createClient()
   const { thisYm } = getCurrentAndPrevYm()
+
+  const statuses = includeAll
+    ? ['SUBMITTED', 'APPROVED', 'PAID']
+    : ['APPROVED', 'PAID']
 
   const { data, error } = await supabase
     .from('expenses')
     .select('category_name, amount')
-    .in('status', ['APPROVED', 'PAID'])
+    .in('status', statuses)
     .eq('ym', thisYm)
 
   if (error) throw new Error(error.message)
