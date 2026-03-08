@@ -67,9 +67,15 @@ type Route = {
   drop_default: string | null
 }
 
+type Ratecard = {
+  route_id: string
+  base_fare: number
+}
+
 type MasterResponse = {
   customers: Customer[]
   routes: Route[]
+  ratecards: Ratecard[]
 }
 
 type AdminTab = "billables" | "expenses" | "closings" | "employees" | "empRequests" | "invite"
@@ -273,6 +279,7 @@ export default function AdminPageClient() {
   const [masters, setMasters] = useState<MasterResponse>({
     customers: [],
     routes: [],
+    ratecards: [],
   })
   const [billables, setBillables] = useState<Billable[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -407,6 +414,9 @@ export default function AdminPageClient() {
           : [],
         routes: Array.isArray((data as MasterResponse).routes)
           ? (data as MasterResponse).routes
+          : [],
+        ratecards: Array.isArray((data as MasterResponse).ratecards)
+          ? (data as MasterResponse).ratecards
           : [],
       })
     } finally {
@@ -583,13 +593,22 @@ export default function AdminPageClient() {
     void reload()
   }, [activeTab, loadClosings])
 
-  // 実績承認モーダルを開いて金額初期値をセットする
+  // 実績承認モーダルを開いて金額初期値をセットする（運賃マスタから自動補完）
   const openApproveDialog = useCallback((billable: Billable) => {
     setSelectedBillable(billable)
-    setApproveAmount(billable.amount != null ? String(billable.amount) : "")
+
+    let initialAmount = ""
+    if (billable.amount != null) {
+      initialAmount = String(billable.amount)
+    } else if (billable.route_id) {
+      const ratecard = masters.ratecards.find((r) => r.route_id === billable.route_id)
+      if (ratecard) initialAmount = String(ratecard.base_fare)
+    }
+
+    setApproveAmount(initialAmount)
     setBillableDialogError("")
     setIsApproveDialogOpen(true)
-  }, [])
+  }, [masters.ratecards])
 
   // 実績承認 API を呼び出して一覧を最新化する
   const handleApprove = useCallback(async () => {

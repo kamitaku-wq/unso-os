@@ -50,9 +50,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { getErrorMessage } from "@/lib/format"
+import { formatCurrency, getErrorMessage } from "@/lib/format"
 
-type MasterTab = "customers" | "routes" | "expenseCategories" | "vehicles"
+type MasterTab = "customers" | "routes" | "expenseCategories" | "vehicles" | "ratecards"
 
 type ApiError = {
   error?: string
@@ -120,6 +120,19 @@ type VehicleForm = {
   memo: string
 }
 
+type Ratecard = {
+  id: string
+  route_id: string
+  cust_id: string
+  base_fare: number
+}
+
+type RatecardForm = {
+  route_id: string
+  cust_id: string
+  base_fare: string
+}
+
 type DeleteIntent = {
   path: string
   label: string
@@ -156,6 +169,12 @@ const initialVehicleForm: VehicleForm = {
   vehicle_type: "",
   capacity_ton: "",
   memo: "",
+}
+
+const initialRatecardForm: RatecardForm = {
+  route_id: "",
+  cust_id: "",
+  base_fare: "",
 }
 
 // 空欄を API 送信用の空文字に整える
@@ -199,12 +218,14 @@ export default function MasterPageClient() {
   const [routes, setRoutes] = useState<RouteMaster[]>([])
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [ratecards, setRatecards] = useState<Ratecard[]>([])
   const [customerForm, setCustomerForm] = useState<CustomerForm>(initialCustomerForm)
   const [routeForm, setRouteForm] = useState<RouteForm>(initialRouteForm)
   const [expenseCategoryForm, setExpenseCategoryForm] = useState<ExpenseCategoryForm>(
     initialExpenseCategoryForm
   )
   const [vehicleForm, setVehicleForm] = useState<VehicleForm>(initialVehicleForm)
+  const [ratecardForm, setRatecardForm] = useState<RatecardForm>(initialRatecardForm)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [editingRoute, setEditingRoute] = useState<RouteMaster | null>(null)
   const [editingExpenseCategory, setEditingExpenseCategory] =
@@ -247,7 +268,7 @@ export default function MasterPageClient() {
     setPageError("")
 
     try {
-      const [customerData, routeData, expenseCategoryData, vehicleData] = await Promise.all([
+      const [customerData, routeData, expenseCategoryData, vehicleData, ratecardData] = await Promise.all([
         requestJson<Customer[]>(
           "/api/master/customers",
           undefined,
@@ -268,12 +289,18 @@ export default function MasterPageClient() {
           undefined,
           "車両一覧の取得に失敗しました"
         ),
+        requestJson<Ratecard[]>(
+          "/api/master/ratecards",
+          undefined,
+          "運賃一覧の取得に失敗しました"
+        ),
       ])
 
       setCustomers(customerData)
       setRoutes(routeData)
       setExpenseCategories(expenseCategoryData)
       setVehicles(vehicleData)
+      setRatecards(ratecardData)
       setHasNoPermission(false)
     } catch (error) {
       const message =
@@ -456,6 +483,41 @@ export default function MasterPageClient() {
       }
     },
     [refreshAfterMutation, vehicleForm]
+  )
+
+  // 運賃新規登録を行う
+  const handleCreateRatecard = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      setBusyKey("create-ratecard")
+      setPageError("")
+      setSubmitMessage("")
+
+      try {
+        await requestJson<{ ok: true }>(
+          "/api/master/ratecards",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              route_id: ratecardForm.route_id,
+              cust_id: ratecardForm.cust_id,
+              base_fare: Number(ratecardForm.base_fare),
+            }),
+          },
+          "運賃の登録に失敗しました"
+        )
+
+        setRatecardForm(initialRatecardForm)
+        await refreshAfterMutation("運賃を登録しました。")
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "運賃の登録に失敗しました"
+        setPageError(message)
+      } finally {
+        setBusyKey(null)
+      }
+    },
+    [ratecardForm, refreshAfterMutation]
   )
 
   // 荷主更新を行う
@@ -764,6 +826,13 @@ export default function MasterPageClient() {
                 onClick={() => setActiveTab("vehicles")}
               >
                 車両
+              </Button>
+              <Button
+                type="button"
+                variant={activeTab === "ratecards" ? "default" : "outline"}
+                onClick={() => setActiveTab("ratecards")}
+              >
+                運賃
               </Button>
             </div>
           </CardHeader>
@@ -1456,6 +1525,149 @@ export default function MasterPageClient() {
                                   : "削除"}
                               </Button>
                             </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
+
+        {activeTab === "ratecards" ? (
+          <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+            <Card>
+              <CardHeader>
+                <CardTitle>運賃の登録・更新</CardTitle>
+                <CardDescription>
+                  ルートと荷主の組み合わせに基本運賃を設定します。同じ組み合わせは上書きされます。
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form className="space-y-4" onSubmit={handleCreateRatecard}>
+                  <div className="space-y-2">
+                    <Label>ルート</Label>
+                    <Select
+                      value={ratecardForm.route_id || undefined}
+                      onValueChange={(value) =>
+                        setRatecardForm((current) => ({ ...current, route_id: value }))
+                      }
+                      disabled={isLoading || isMutating}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="ルートを選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {routes.map((route) => (
+                          <SelectItem key={route.id} value={route.route_id}>
+                            {route.route_id}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>荷主</Label>
+                    <Select
+                      value={ratecardForm.cust_id || undefined}
+                      onValueChange={(value) =>
+                        setRatecardForm((current) => ({ ...current, cust_id: value }))
+                      }
+                      disabled={isLoading || isMutating}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="荷主を選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.cust_id}>
+                            {customer.name} ({customer.cust_id})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ratecard-base-fare">基本運賃（円）</Label>
+                    <Input
+                      id="ratecard-base-fare"
+                      type="number"
+                      min="0"
+                      value={ratecardForm.base_fare}
+                      onChange={(event) =>
+                        setRatecardForm((current) => ({ ...current, base_fare: event.target.value }))
+                      }
+                      disabled={isLoading || isMutating}
+                      required
+                      placeholder="例: 15000"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isLoading || isMutating || !ratecardForm.route_id || !ratecardForm.cust_id}
+                  >
+                    {busyKey === "create-ratecard" ? "登録中..." : "運賃を登録・更新"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>運賃一覧</CardTitle>
+                <CardDescription>
+                  {isLoading ? "最新データを表示します。" : `${ratecards.length}件を表示しています。`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <TableSkeleton columns={4} rows={4} />
+                ) : ratecards.length === 0 ? (
+                  <EmptyState
+                    icon={Database}
+                    description="上のフォームから最初の運賃を登録してください"
+                  />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ルートコード</TableHead>
+                        <TableHead>荷主</TableHead>
+                        <TableHead>基本運賃</TableHead>
+                        <TableHead className="text-right">操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ratecards.map((ratecard) => (
+                        <TableRow key={ratecard.id}>
+                          <TableCell>{ratecard.route_id}</TableCell>
+                          <TableCell>
+                            {customerNameMap.get(ratecard.cust_id) ?? ratecard.cust_id}
+                          </TableCell>
+                          <TableCell>{formatCurrency(ratecard.base_fare)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              disabled={isMutating}
+                              onClick={() =>
+                                setPendingDelete({
+                                  path: `/api/master/ratecards/${ratecard.id}`,
+                                  label: `運賃「${ratecard.route_id}」`,
+                                  busyLabel: `delete-ratecard-${ratecard.id}`,
+                                  message: "運賃を削除しました。",
+                                })
+                              }
+                            >
+                              削除
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}

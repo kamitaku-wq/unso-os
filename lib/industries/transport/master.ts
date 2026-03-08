@@ -132,6 +132,43 @@ export async function deleteExpenseCategory(id: string) {
   if (error) throw new Error(error.message)
 }
 
+// --- 運賃マスタ ---
+
+export async function getRatecards() {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('ratecards')
+    .select('id, route_id, cust_id, base_fare')
+    .order('route_id')
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+export async function upsertRatecard(input: { route_id: string; cust_id: string; base_fare: number }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未認証')
+
+  const { data: employee } = await supabase
+    .from('employees')
+    .select('company_id')
+    .eq('google_email', user.email!)
+    .single()
+  if (!employee) throw new Error('社員情報が見つかりません')
+
+  const { error } = await supabase.from('ratecards').upsert(
+    { company_id: employee.company_id, ...input },
+    { onConflict: 'company_id,route_id' }
+  )
+  if (error) throw new Error(error.message)
+}
+
+export async function deleteRatecard(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('ratecards').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 // --- 車両 ---
 
 export async function getVehicles() {
