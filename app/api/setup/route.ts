@@ -1,6 +1,7 @@
 // 初回セットアップ API（会社作成 + 最初の OWNER 登録）
 // サービスロールキーで RLS をスキップして実行する
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 
@@ -65,9 +66,8 @@ export async function POST(request: Request) {
     if (empErr) throw new Error('社員登録に失敗しました: ' + empErr.message)
 
     return NextResponse.json({ ok: true, company_id: company.id })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'セットアップに失敗しました'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (e) {
+    return apiError(e)
   }
 }
 
@@ -86,8 +86,7 @@ export async function GET() {
     if (error) throw new Error('確認に失敗しました')
 
     return NextResponse.json({ setup_done: (count ?? 0) > 0 })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '確認に失敗しました'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (e) {
+    return apiError(e)
   }
 }

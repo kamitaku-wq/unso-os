@@ -1,14 +1,14 @@
 // 勤怠 API（自分の一覧取得・新規申請）
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { getMyAttendances, createAttendance } from '@/lib/core/attendance'
 
 export async function GET() {
   try {
     const data = await getMyAttendances()
     return NextResponse.json(data)
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '取得に失敗しました'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (e) {
+    return apiError(e)
   }
 }
 
@@ -24,8 +24,7 @@ export async function POST(request: Request) {
       note: body.note ?? null,
     })
     return NextResponse.json(result, { status: 201 })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '申請に失敗しました'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (e) {
+    return apiError(e)
   }
 }

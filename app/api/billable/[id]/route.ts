@@ -1,5 +1,6 @@
 // 運行実績 個別操作 API（承認・無効化）
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { approveBillable, voidBillable } from '@/lib/industries/transport/billable'
 import { requireRole } from '@/lib/core/auth'
 
@@ -23,9 +24,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     return NextResponse.json({ error: '不正な操作です' }, { status: 400 })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '操作に失敗しました'
-    const status = message === '権限がありません' ? 403 : 500
-    return NextResponse.json({ error: message }, { status })
+  } catch (e) {
+    return apiError(e)
   }
 }

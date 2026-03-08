@@ -1,5 +1,6 @@
 // デモ用自動登録API（サービスロールでRLSをバイパスして社員を即時登録）
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
@@ -55,8 +56,7 @@ export async function POST() {
     if (error) throw new Error(error.message)
 
     return NextResponse.json({ emp_id })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '登録に失敗しました'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (e) {
+    return apiError(e)
   }
 }

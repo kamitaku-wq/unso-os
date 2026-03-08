@@ -1,5 +1,6 @@
 // 管理者用：社員一覧取得・新規追加 API
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { getEmployees, createEmployee } from '@/lib/core/employee'
 import { requireRole } from '@/lib/core/auth'
 
@@ -8,10 +9,8 @@ export async function GET() {
     await requireRole(['ADMIN', 'OWNER'])
     const data = await getEmployees()
     return NextResponse.json(data)
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '取得に失敗しました'
-    const status = message === '権限がありません' ? 403 : 500
-    return NextResponse.json({ error: message }, { status })
+  } catch (e) {
+    return apiError(e)
   }
 }
 
@@ -25,9 +24,7 @@ export async function POST(request: Request) {
       role: body.role,
     })
     return NextResponse.json(result, { status: 201 })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '登録に失敗しました'
-    const status = message === '権限がありません' ? 403 : 500
-    return NextResponse.json({ error: message }, { status })
+  } catch (e) {
+    return apiError(e)
   }
 }

@@ -1,5 +1,6 @@
 // 管理者用：社員 個別更新 API（ロール変更・在籍状態変更）
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { updateEmployee } from '@/lib/core/employee'
 import { requireRole } from '@/lib/core/auth'
 
@@ -14,9 +15,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       name: body.name,
     })
     return NextResponse.json({ ok: true })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '更新に失敗しました'
-    const status = message === '権限がありません' ? 403 : 500
-    return NextResponse.json({ error: message }, { status })
+  } catch (e) {
+    return apiError(e)
   }
 }

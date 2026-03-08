@@ -1,5 +1,6 @@
 // 自分の社員情報を返す API（ナビゲーションのロール判定に使用）
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET() {
@@ -20,8 +21,7 @@ export async function GET() {
     }
 
     return NextResponse.json({ registered: true, ...employee })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '取得に失敗しました'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (e) {
+    return apiError(e)
   }
 }

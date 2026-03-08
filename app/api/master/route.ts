@@ -1,5 +1,6 @@
 // マスタデータ API（フォームのドロップダウン用）
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { getCustomers, getRoutes, getVehicles } from '@/lib/industries/transport/master'
 
 // 荷主・ルート・車両を一括取得
@@ -11,8 +12,7 @@ export async function GET() {
       getVehicles(),
     ])
     return NextResponse.json({ customers, routes, vehicles })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '取得に失敗しました'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (e) {
+    return apiError(e)
   }
 }

@@ -1,5 +1,6 @@
 // 運行実績 API
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { createBillable, getMyBillables } from '@/lib/industries/transport/billable'
 
 // 自分の運行実績一覧を取得
@@ -7,9 +8,8 @@ export async function GET() {
   try {
     const data = await getMyBillables()
     return NextResponse.json(data)
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '取得に失敗しました'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (e) {
+    return apiError(e)
   }
 }
 
@@ -30,8 +30,7 @@ export async function POST(request: Request) {
       note: body.note ?? null,
     })
     return NextResponse.json(result, { status: 201 })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '登録に失敗しました'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (e) {
+    return apiError(e)
   }
 }

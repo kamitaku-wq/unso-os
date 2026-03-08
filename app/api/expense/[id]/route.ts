@@ -1,5 +1,6 @@
 // 経費申請 個別操作 API（承認・却下・差し戻し・支払済み）
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { approveExpense, rejectExpense, reworkExpense, payExpense } from '@/lib/core/expense'
 import { requireRole } from '@/lib/core/auth'
 
@@ -29,9 +30,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     return NextResponse.json({ ok: true })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '操作に失敗しました'
-    const status = message === '権限がありません' ? 403 : 500
-    return NextResponse.json({ error: message }, { status })
+  } catch (e) {
+    return apiError(e)
   }
 }

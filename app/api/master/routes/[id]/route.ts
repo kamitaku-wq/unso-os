@@ -1,5 +1,6 @@
 // ルートマスタ API（更新・削除）
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { updateRoute, deleteRoute } from '@/lib/industries/transport/master'
 import { requireRole } from '@/lib/core/auth'
 
@@ -10,10 +11,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const body = await request.json()
     await updateRoute(id, body)
     return NextResponse.json({ ok: true })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '更新に失敗しました'
-    const status = message === '権限がありません' ? 403 : 500
-    return NextResponse.json({ error: message }, { status })
+  } catch (e) {
+    return apiError(e)
   }
 }
 
@@ -23,9 +22,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const { id } = await params
     await deleteRoute(id)
     return NextResponse.json({ ok: true })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '削除に失敗しました'
-    const status = message === '権限がありません' ? 403 : 500
-    return NextResponse.json({ error: message }, { status })
+  } catch (e) {
+    return apiError(e)
   }
 }

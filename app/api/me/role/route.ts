@@ -1,5 +1,6 @@
 // 自分自身のロールを変更するAPI（デモ用・全ユーザー利用可）
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
@@ -29,8 +30,7 @@ export async function PATCH(request: Request) {
     if (error) throw new Error(error.message)
 
     return NextResponse.json({ role })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'ロール変更に失敗しました'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (e) {
+    return apiError(e)
   }
 }

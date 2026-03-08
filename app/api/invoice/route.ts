@@ -1,5 +1,6 @@
 // 請求書 API（一覧取得・新規発行）
 import { NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-error'
 import { getInvoices, createInvoice, previewInvoice } from '@/lib/industries/transport/invoice'
 import { requireRole } from '@/lib/core/auth'
 
@@ -9,10 +10,8 @@ export async function GET() {
     await requireRole(['ADMIN', 'OWNER'])
     const data = await getInvoices()
     return NextResponse.json(data)
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '取得に失敗しました'
-    const status = message === '権限がありません' ? 403 : 500
-    return NextResponse.json({ error: message }, { status })
+  } catch (e) {
+    return apiError(e)
   }
 }
 
@@ -36,9 +35,7 @@ export async function POST(request: Request) {
 
     const result = await createInvoice(cust_id, period_from, period_to)
     return NextResponse.json(result, { status: 201 })
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '請求書発行に失敗しました'
-    const status = message === '権限がありません' ? 403 : 500
-    return NextResponse.json({ error: message }, { status })
+  } catch (e) {
+    return apiError(e)
   }
 }
