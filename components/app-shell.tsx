@@ -3,10 +3,12 @@
 import { useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import { Menu, Truck, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/browser"
+import { DemoRoleSwitcher } from "@/components/demo-role-switcher"
 
 type Role = "DRIVER" | "ADMIN" | "OWNER"
 
@@ -62,15 +64,20 @@ export function AppShell({
   userEmail,
   employeeName,
   role,
+  isOwner,
+  displayRole,
 }: {
   children: React.ReactNode
   userEmail: string | null
   employeeName: string | null
   role: Role | null
+  isOwner?: boolean
+  displayRole?: Role | null
 }) {
   const pathname = usePathname()
   const router = useRouter()
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const navigationItems = useMemo(() => getNavigationItems(role), [role])
   const showNavigation =
@@ -80,7 +87,7 @@ export function AppShell({
 
   async function handleSignOut() {
     setIsSigningOut(true)
-
+    setMobileMenuOpen(false)
     try {
       const supabase = createClient()
       await supabase.auth.signOut()
@@ -96,49 +103,97 @@ export function AppShell({
   }
 
   return (
-    <div className="min-h-screen bg-muted/20">
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-3 md:px-6">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-1">
-              <Link href="/" className="text-lg font-semibold tracking-tight">
-                運送OS
+    <div className="min-h-screen bg-muted/30">
+      <header className="sticky top-0 z-50 border-b bg-white/95 shadow-sm backdrop-blur-md">
+        {/* ブランドカラーのアクセントライン */}
+        <div className="h-1 bg-gradient-to-r from-primary via-blue-400 to-primary/60" />
+
+        <div className="mx-auto max-w-7xl px-4 md:px-6">
+          {/* メインヘッダー行 */}
+          <div className="flex h-14 items-center justify-between gap-4">
+            {/* ロゴ + ユーザー情報 */}
+            <div className="flex items-center gap-3">
+              <Link href="/" className="flex shrink-0 items-center gap-2">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
+                  <Truck className="size-4 text-white" />
+                </div>
+                <span className="text-base font-bold tracking-tight text-foreground">
+                  運送OS
+                </span>
               </Link>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                {employeeName ? <span>{employeeName}</span> : null}
-                {role ? <Badge variant="secondary">{ROLE_LABELS[role]}</Badge> : null}
+
+              {/* デスクトップ: ユーザー情報 */}
+              <div className="hidden items-center gap-2 sm:flex">
+                <span className="select-none text-muted-foreground/40">|</span>
+                {employeeName ? (
+                  <span className="text-sm text-muted-foreground">{employeeName}</span>
+                ) : null}
+                {role ? (
+                  <Badge variant="secondary" className="text-xs">
+                    {ROLE_LABELS[role]}
+                  </Badge>
+                ) : null}
                 {showRegisterLink ? (
-                  <Link href="/register" className="text-primary underline-offset-4 hover:underline">
+                  <Link
+                    href="/register"
+                    className="text-sm text-primary underline-offset-4 hover:underline"
+                  >
                     社員申請へ
                   </Link>
                 ) : null}
               </div>
             </div>
 
-            {userEmail && showHeaderSignOut ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleSignOut()}
-                disabled={isSigningOut}
-              >
-                {isSigningOut ? "ログアウト中..." : "ログアウト"}
-              </Button>
-            ) : null}
+            {/* 右側: デモスイッチャー + ログアウト + ハンバーガー */}
+            <div className="flex items-center gap-2">
+              {isOwner && displayRole ? (
+                <div className="hidden sm:block">
+                  <DemoRoleSwitcher currentDisplayRole={displayRole} />
+                </div>
+              ) : null}
+              {userEmail && showHeaderSignOut ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void handleSignOut()}
+                  disabled={isSigningOut}
+                  className="hidden text-muted-foreground hover:text-foreground sm:flex"
+                >
+                  {isSigningOut ? "ログアウト中..." : "ログアウト"}
+                </Button>
+              ) : null}
+
+              {/* モバイルのみ表示するハンバーガーボタン */}
+              {role ? (
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen((prev) => !prev)}
+                  className="flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+                  aria-label={mobileMenuOpen ? "メニューを閉じる" : "メニューを開く"}
+                  aria-expanded={mobileMenuOpen}
+                >
+                  {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+                </button>
+              ) : null}
+            </div>
           </div>
 
+          {/* デスクトップ ナビゲーション（タブ型アンダーライン） */}
           {role ? (
-            <nav className="flex flex-wrap items-center gap-5 border-b border-border/60">
+            <nav
+              className="hidden items-center gap-1 md:flex"
+              aria-label="メインナビゲーション"
+            >
               {navigationItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={[
-                    "border-b-2 pb-2 text-sm font-medium transition-colors",
+                    "-mb-px flex items-center border-b-2 px-3 py-2.5 text-sm font-medium transition-colors",
                     isActivePath(pathname, item.href)
-                      ? "border-primary text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground",
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
                   ].join(" ")}
                 >
                   {item.label}
@@ -147,6 +202,64 @@ export function AppShell({
             </nav>
           ) : null}
         </div>
+
+        {/* モバイル ドロップダウンメニュー */}
+        {mobileMenuOpen && role ? (
+          <div className="border-t bg-white md:hidden">
+            <div className="mx-auto max-w-7xl px-4 py-3">
+              {/* モバイル: ユーザー情報 */}
+              <div className="mb-2 flex items-center gap-2 border-b pb-3">
+                {employeeName ? (
+                  <span className="text-sm text-muted-foreground">{employeeName}</span>
+                ) : null}
+                {role ? (
+                  <Badge variant="secondary" className="text-xs">
+                    {ROLE_LABELS[role]}
+                  </Badge>
+                ) : null}
+                {showRegisterLink ? (
+                  <Link
+                    href="/register"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="text-sm text-primary underline-offset-4 hover:underline"
+                  >
+                    社員申請へ
+                  </Link>
+                ) : null}
+              </div>
+
+              {/* モバイル: ナビリンク */}
+              <nav className="flex flex-col gap-0.5" aria-label="モバイルナビゲーション">
+                {navigationItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={[
+                      "flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                      isActivePath(pathname, item.href)
+                        ? "bg-primary/10 text-primary"
+                        : "text-foreground hover:bg-muted",
+                    ].join(" ")}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+
+                {userEmail && showHeaderSignOut ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleSignOut()}
+                    disabled={isSigningOut}
+                    className="mt-1 flex w-full items-center rounded-md border-t px-3 py-2.5 pt-3 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  >
+                    {isSigningOut ? "ログアウト中..." : "ログアウト"}
+                  </button>
+                ) : null}
+              </nav>
+            </div>
+          </div>
+        ) : null}
       </header>
 
       <div>{children}</div>
