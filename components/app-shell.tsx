@@ -32,6 +32,7 @@ function getNavigationItems(role: Role | null): NavigationItem[] {
     return [
       ...commonItems,
       { href: "/invoice", label: "請求書" },
+      { href: "/payroll", label: "給与" },
       { href: "/admin", label: "管理" },
       { href: "/master", label: "マスタ" },
     ]
@@ -41,6 +42,7 @@ function getNavigationItems(role: Role | null): NavigationItem[] {
     return [
       ...commonItems,
       { href: "/invoice", label: "請求書" },
+      { href: "/payroll", label: "給与" },
       { href: "/admin", label: "管理" },
       { href: "/master", label: "マスタ" },
       { href: "/dashboard", label: "ダッシュボード" },
