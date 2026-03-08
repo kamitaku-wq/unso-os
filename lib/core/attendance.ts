@@ -1,6 +1,6 @@
 // 勤怠のサーバー側ビジネスロジック
 import { createClient } from '@/lib/supabase/server'
-import { isMonthClosed } from '@/lib/server/closing'
+import { isMonthClosed } from '@/lib/core/closing'
 
 type AttendanceInput = {
   work_date: string
@@ -36,15 +36,12 @@ export async function createAttendance(data: AttendanceInput) {
 
   if (empError || !employee) throw new Error('社員情報が見つかりません')
 
-  // attendance_id を生成（例: A-20260307-AB12）
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
   const attendance_id = `A-${date}-${rand}`
 
-  // ym（年月）を生成（例: 202603）
   const ym = data.work_date.slice(0, 7).replace('-', '')
 
-  // 締め済みチェック
   if (await isMonthClosed(ym)) throw new Error(`${ym} は月次締め済みのため申請できません`)
 
   const { workMin, overtimeMin } = calcWorkMinutes(data.clock_in, data.clock_out, data.break_min)

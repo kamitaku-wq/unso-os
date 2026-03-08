@@ -64,11 +64,13 @@ export function AppShell({
   userEmail,
   employeeName,
   role,
+  isDemo,
 }: {
   children: React.ReactNode
   userEmail: string | null
   employeeName: string | null
   role: Role | null
+  isDemo: boolean
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -142,7 +144,7 @@ export function AppShell({
 
             {/* 右側: デモスイッチャー + ログアウト + ハンバーガー */}
             <div className="flex items-center gap-2">
-              {role ? (
+              {role && isDemo ? (
                 <div className="hidden md:block">
                   <DemoRoleSwitcher currentRole={role} />
                 </div>
@@ -224,7 +226,7 @@ export function AppShell({
                     </Link>
                   ) : null}
                 </div>
-                {role ? <DemoRoleSwitcher currentRole={role} /> : null}
+                {role && isDemo ? <DemoRoleSwitcher currentRole={role} /> : null}
               </div>
 
               {/* モバイル: ナビリンク */}

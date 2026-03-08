@@ -2,7 +2,7 @@
 // ファイルを Supabase Storage に保存し、URL を expenses テーブルに記録する
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getMyEmployee } from '@/lib/server/auth'
+import { getMyEmployee } from '@/lib/core/auth'
 import { apiError } from '@/lib/api-error'
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {

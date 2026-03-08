@@ -1,6 +1,6 @@
 // 経費申請 API（自分の一覧取得・新規申請）
 import { NextResponse } from 'next/server'
-import { getMyExpenses, createExpense } from '@/lib/server/expense'
+import { getMyExpenses, createExpense } from '@/lib/core/expense'
 
 export async function GET() {
   try {

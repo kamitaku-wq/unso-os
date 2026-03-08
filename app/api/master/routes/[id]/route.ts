@@ -1,7 +1,7 @@
 // ルートマスタ API（更新・削除）
 import { NextResponse } from 'next/server'
-import { updateRoute, deleteRoute } from '@/lib/server/master'
-import { requireRole } from '@/lib/server/auth'
+import { updateRoute, deleteRoute } from '@/lib/industries/transport/master'
+import { requireRole } from '@/lib/core/auth'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

@@ -23,17 +23,14 @@ export async function previewInvoice(custId: string, periodFrom: string, periodT
 export async function createInvoice(custId: string, periodFrom: string, periodTo: string) {
   const supabase = await createClient()
 
-  // 対象実績を取得
   const targets = await previewInvoice(custId, periodFrom, periodTo)
   if (targets.length === 0) throw new Error('請求対象の実績がありません')
 
-  // invoice_id を生成（例: INV-202603-C001-AB12）
   const ym = periodTo.slice(0, 7).replace('-', '')
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
   const invoice_id = `INV-${ym}-${custId}-${rand}`
   const now = new Date().toISOString()
 
-  // 対象実績すべてに invoice_id を付与
   const ids = targets.map(t => t.id)
   const { error } = await supabase
     .from('billables')
@@ -62,7 +59,6 @@ export async function getInvoices() {
 
   if (error) throw new Error(error.message)
 
-  // invoice_id ごとに集計
   const map = new Map<string, {
     invoice_id: string
     cust_id: string

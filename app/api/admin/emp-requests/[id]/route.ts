@@ -1,7 +1,7 @@
 // 管理者用：社員申請 承認・却下 API
 import { NextResponse } from 'next/server'
-import { approveEmpRequest, rejectEmpRequest } from '@/lib/server/employee'
-import { requireRole } from '@/lib/server/auth'
+import { approveEmpRequest, rejectEmpRequest } from '@/lib/core/employee'
+import { requireRole } from '@/lib/core/auth'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

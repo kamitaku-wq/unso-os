@@ -1,6 +1,6 @@
 // 勤怠 API（自分の一覧取得・新規申請）
 import { NextResponse } from 'next/server'
-import { getMyAttendances, createAttendance } from '@/lib/server/attendance'
+import { getMyAttendances, createAttendance } from '@/lib/core/attendance'
 
 export async function GET() {
   try {

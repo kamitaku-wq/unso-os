@@ -9,8 +9,8 @@ import {
   getUnbilledAmount,
   getExpenseCategoryBreakdown,
   getAttendanceSummary,
-} from '@/lib/server/dashboard'
-import { requireRole } from '@/lib/server/auth'
+} from '@/lib/industries/transport/dashboard'
+import { requireRole } from '@/lib/core/auth'
 import { apiError } from '@/lib/api-error'
 
 export async function GET(request: Request) {

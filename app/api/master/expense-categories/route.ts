@@ -1,7 +1,7 @@
 // 経費区分マスタ API（一覧取得・新規登録）
 import { NextResponse } from 'next/server'
-import { getExpenseCategories, createExpenseCategory } from '@/lib/server/master'
-import { requireRole } from '@/lib/server/auth'
+import { getExpenseCategories, createExpenseCategory } from '@/lib/industries/transport/master'
+import { requireRole } from '@/lib/core/auth'
 
 export async function GET() {
   try {

@@ -68,7 +68,6 @@ export async function getMonthlySales(includeAll = false) {
   }
 
   const { data, error } = await query
-
   if (error) throw new Error(error.message)
 
   const totals: Record<string, number> = Object.fromEntries(ymList.map(ym => [ym, 0]))

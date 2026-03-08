@@ -1,6 +1,6 @@
 // 経費申請のサーバー側ビジネスロジック
 import { createClient } from '@/lib/supabase/server'
-import { isMonthClosed } from '@/lib/server/closing'
+import { isMonthClosed } from '@/lib/core/closing'
 
 type ExpenseInput = {
   expense_date: string
@@ -26,15 +26,12 @@ export async function createExpense(data: ExpenseInput) {
 
   if (empError || !employee) throw new Error('社員情報が見つかりません')
 
-  // expense_id を生成（例: E-20260307-AB12）
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
   const expense_id = `E-${date}-${rand}`
 
-  // ym（年月）を生成（例: 202603）
   const ym = data.expense_date.slice(0, 7).replace('-', '')
 
-  // 締め済みチェック
   if (await isMonthClosed(ym)) throw new Error(`${ym} は月次締め済みのため申請できません`)
 
   const { data: insertedExpense, error } = await supabase

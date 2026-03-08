@@ -1,7 +1,7 @@
 // 管理者用：社員一覧取得・新規追加 API
 import { NextResponse } from 'next/server'
-import { getEmployees, createEmployee } from '@/lib/server/employee'
-import { requireRole } from '@/lib/server/auth'
+import { getEmployees, createEmployee } from '@/lib/core/employee'
+import { requireRole } from '@/lib/core/auth'
 
 export async function GET() {
   try {

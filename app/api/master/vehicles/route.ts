@@ -1,7 +1,7 @@
 // 車両マスタ API（一覧取得・新規登録）
 import { NextResponse } from 'next/server'
-import { getVehicles, createVehicle } from '@/lib/server/master'
-import { requireRole } from '@/lib/server/auth'
+import { getVehicles, createVehicle } from '@/lib/industries/transport/master'
+import { requireRole } from '@/lib/core/auth'
 
 export async function GET() {
   try {

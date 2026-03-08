@@ -1,7 +1,7 @@
 // 車両マスタ API（更新・削除）
 import { NextResponse } from 'next/server'
-import { updateVehicle, deleteVehicle } from '@/lib/server/master'
-import { requireRole } from '@/lib/server/auth'
+import { updateVehicle, deleteVehicle } from '@/lib/industries/transport/master'
+import { requireRole } from '@/lib/core/auth'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

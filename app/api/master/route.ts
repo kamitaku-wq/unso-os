@@ -1,6 +1,6 @@
 // マスタデータ API（フォームのドロップダウン用）
 import { NextResponse } from 'next/server'
-import { getCustomers, getRoutes, getVehicles } from '@/lib/server/master'
+import { getCustomers, getRoutes, getVehicles } from '@/lib/industries/transport/master'
 
 // 荷主・ルート・車両を一括取得
 export async function GET() {

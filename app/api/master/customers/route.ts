@@ -1,7 +1,7 @@
 // 荷主マスタ API（一覧取得・新規登録）
 import { NextResponse } from 'next/server'
-import { getCustomers, createCustomer } from '@/lib/server/master'
-import { requireRole } from '@/lib/server/auth'
+import { getCustomers, createCustomer } from '@/lib/industries/transport/master'
+import { requireRole } from '@/lib/core/auth'
 
 export async function GET() {
   try {

@@ -1,6 +1,6 @@
 // 給与計算ロジック
 import { createClient } from '@/lib/supabase/server'
-import { getMyEmployee } from '@/lib/server/auth'
+import { getMyEmployee } from '@/lib/core/auth'
 
 export type PayType = 'MONTHLY' | 'HOURLY'
 export type PayrollStatus = 'DRAFT' | 'CONFIRMED' | 'PAID'
@@ -143,7 +143,6 @@ export async function calculatePayroll(ym: string): Promise<Payroll[]> {
 
   if (attError) throw new Error(attError.message)
 
-  // 社員ごとの勤怠集計
   const attByEmp: Record<string, { workMin: number; overtimeMin: number }> = {}
   for (const row of attendances ?? []) {
     if (!attByEmp[row.emp_id]) attByEmp[row.emp_id] = { workMin: 0, overtimeMin: 0 }
@@ -151,9 +150,7 @@ export async function calculatePayroll(ym: string): Promise<Payroll[]> {
     attByEmp[row.emp_id].overtimeMin += Number(row.overtime_min ?? 0)
   }
 
-  // 各社員の給与計算と upsert
   for (const setting of settings) {
-    // 確定済み・支払済みは上書きしない
     const { data: existing } = await supabase
       .from('payrolls')
       .select('status')

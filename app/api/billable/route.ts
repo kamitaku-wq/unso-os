@@ -1,6 +1,6 @@
 // 運行実績 API
 import { NextResponse } from 'next/server'
-import { createBillable, getMyBillables } from '@/lib/server/billable'
+import { createBillable, getMyBillables } from '@/lib/industries/transport/billable'
 
 // 自分の運行実績一覧を取得
 export async function GET() {

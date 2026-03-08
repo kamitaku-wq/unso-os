@@ -1,6 +1,6 @@
 // 運行実績（billable）のサーバー側ビジネスロジック
 import { createClient } from '@/lib/supabase/server'
-import { isMonthClosed } from '@/lib/server/closing'
+import { isMonthClosed } from '@/lib/core/closing'
 
 type BillableInput = {
   run_date: string
@@ -30,13 +30,11 @@ export async function createBillable(data: BillableInput) {
 
   if (empError || !employee) throw new Error('社員情報が見つかりません')
 
-  // 締め済みチェック
   if (data.run_date) {
     const ym = data.run_date.slice(0, 7).replace('-', '')
     if (await isMonthClosed(ym)) throw new Error(`${ym} は月次締め済みのため入力できません`)
   }
 
-  // billable_id を生成（例: B-20260307-AB12）
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
   const billable_id = `B-${date}-${rand}`

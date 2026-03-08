@@ -1,7 +1,7 @@
 // 請求書 API（一覧取得・新規発行）
 import { NextResponse } from 'next/server'
-import { getInvoices, createInvoice, previewInvoice } from '@/lib/server/invoice'
-import { requireRole } from '@/lib/server/auth'
+import { getInvoices, createInvoice, previewInvoice } from '@/lib/industries/transport/invoice'
+import { requireRole } from '@/lib/core/auth'
 
 // 請求書一覧取得
 export async function GET() {

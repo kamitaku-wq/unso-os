@@ -1,7 +1,7 @@
 // 給与設定 API（一覧取得・登録・更新）
 import { NextResponse } from 'next/server'
-import { getSalarySettings, upsertSalarySetting } from '@/lib/server/payroll'
-import { requireRole } from '@/lib/server/auth'
+import { getSalarySettings, upsertSalarySetting } from '@/lib/core/payroll'
+import { requireRole } from '@/lib/core/auth'
 import { apiError } from '@/lib/api-error'
 
 // 給与設定一覧を取得する

@@ -1,7 +1,7 @@
 // 管理者用：経費一覧取得 API
 import { NextResponse } from 'next/server'
-import { getAllExpenses } from '@/lib/server/expense'
-import { requireRole } from '@/lib/server/auth'
+import { getAllExpenses } from '@/lib/core/expense'
+import { requireRole } from '@/lib/core/auth'
 
 export async function GET(request: Request) {
   try {

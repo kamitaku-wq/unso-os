@@ -32,17 +32,26 @@ export default async function RootLayout({
 
   let employeeName: string | null = null
   let role: "DRIVER" | "ADMIN" | "OWNER" | null = null
+  let isDemo = false
 
   if (user?.email) {
     const { data: employee } = await supabase
       .from("employees")
-      .select("name, role, is_active")
+      .select("name, role, is_active, company_id")
       .eq("google_email", user.email)
       .maybeSingle()
 
     if (employee?.is_active) {
       employeeName = employee.name
       role = employee.role
+
+      // デモ会社かどうかを確認する
+      const { data: company } = await supabase
+        .from("companies")
+        .select("is_demo")
+        .eq("id", employee.company_id)
+        .maybeSingle()
+      isDemo = company?.is_demo ?? false
     }
   }
 
@@ -51,7 +60,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AppShell userEmail={user?.email ?? null} employeeName={employeeName} role={role}>
+        <AppShell userEmail={user?.email ?? null} employeeName={employeeName} role={role} isDemo={isDemo}>
           {children}
         </AppShell>
         <Toaster position="top-right" richColors />

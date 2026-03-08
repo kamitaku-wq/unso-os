@@ -1,7 +1,7 @@
 // 管理者用：勤怠一覧取得 API
 import { NextResponse } from 'next/server'
-import { getAllAttendances } from '@/lib/server/attendance'
-import { requireRole } from '@/lib/server/auth'
+import { getAllAttendances } from '@/lib/core/attendance'
+import { requireRole } from '@/lib/core/auth'
 
 export async function GET(request: Request) {
   try {

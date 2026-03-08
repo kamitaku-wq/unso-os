@@ -39,12 +39,11 @@ export async function getClosings() {
 export async function summarizeMonth(ym: string): Promise<ClosingSummary> {
   const supabase = await createClient()
 
-  // サマリを集計（締め前の最終確認用）
   const [billablesRes, expensesRes, attendancesRes] = await Promise.all([
     supabase
       .from('billables')
       .select('amount, status')
-      .eq('ym', ym.slice(0, 4) + '-' + ym.slice(4, 6)) // run_date の年月で絞る代わりに ym で近似
+      .eq('ym', ym.slice(0, 4) + '-' + ym.slice(4, 6))
       .neq('status', 'VOID'),
     supabase
       .from('expenses')
@@ -56,38 +55,27 @@ export async function summarizeMonth(ym: string): Promise<ClosingSummary> {
       .eq('ym', ym),
   ])
 
-  // 承認済み売上合計
   const approvedSales = (billablesRes.data ?? [])
     .filter((r) => r.status === 'APPROVED')
     .reduce((sum, r) => sum + Number(r.amount ?? 0), 0)
 
-  // 承認済み・支払済み経費合計
   const approvedExpenses = (expensesRes.data ?? [])
     .filter((r) => ['APPROVED', 'PAID'].includes(r.status))
     .reduce((sum, r) => sum + Number(r.amount ?? 0), 0)
 
-  // 承認済み勤怠の社員別集計
   const attendanceSummary: Record<string, { work_min: number; overtime_min: number }> = {}
   for (const r of (attendancesRes.data ?? []).filter((row) => row.status === 'APPROVED')) {
     if (!r.emp_id) continue
     if (!attendanceSummary[r.emp_id]) {
       attendanceSummary[r.emp_id] = { work_min: 0, overtime_min: 0 }
     }
-
     attendanceSummary[r.emp_id].work_min += r.work_min ?? 0
     attendanceSummary[r.emp_id].overtime_min += r.overtime_min ?? 0
   }
 
-  // 未承認件数（警告用）
-  const pendingBillables = (billablesRes.data ?? []).filter(
-    (r) => r.status === 'REVIEW_REQUIRED'
-  ).length
-  const pendingExpenses = (expensesRes.data ?? []).filter(
-    (r) => r.status === 'SUBMITTED'
-  ).length
-  const pendingAttendances = (attendancesRes.data ?? []).filter(
-    (r) => r.status === 'SUBMITTED'
-  ).length
+  const pendingBillables = (billablesRes.data ?? []).filter((r) => r.status === 'REVIEW_REQUIRED').length
+  const pendingExpenses = (expensesRes.data ?? []).filter((r) => r.status === 'SUBMITTED').length
+  const pendingAttendances = (attendancesRes.data ?? []).filter((r) => r.status === 'SUBMITTED').length
 
   return {
     ym,
@@ -102,13 +90,11 @@ export async function summarizeMonth(ym: string): Promise<ClosingSummary> {
 export async function closeMonth(ym: string, closedBy: string, note?: string) {
   const supabase = await createClient()
 
-  // すでに締め済みならエラー
   const already = await isMonthClosed(ym)
   if (already) throw new Error(`${ym} はすでに締め済みです`)
 
   const summary = await summarizeMonth(ym)
 
-  // company_id は RLS で自動フィルタされるため、自社のものが取れる
   const { data: myInfo } = await supabase
     .from('employees')
     .select('company_id')

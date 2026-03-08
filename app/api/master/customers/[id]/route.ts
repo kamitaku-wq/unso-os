@@ -1,7 +1,7 @@
 // 荷主マスタ API（更新・削除）
 import { NextResponse } from 'next/server'
-import { updateCustomer, deleteCustomer } from '@/lib/server/master'
-import { requireRole } from '@/lib/server/auth'
+import { updateCustomer, deleteCustomer } from '@/lib/industries/transport/master'
+import { requireRole } from '@/lib/core/auth'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

@@ -1,7 +1,7 @@
 // 請求書明細 API（特定請求書の実績一覧）
 import { NextResponse } from 'next/server'
-import { getInvoiceDetail } from '@/lib/server/invoice'
-import { requireRole } from '@/lib/server/auth'
+import { getInvoiceDetail } from '@/lib/industries/transport/invoice'
+import { requireRole } from '@/lib/core/auth'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ invoice_id: string }> }) {
   try {

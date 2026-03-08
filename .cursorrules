@@ -1,8 +1,15 @@
 # Cursor Rules — unso-os
 
 ## プロジェクト概要
-運送業向け業務システム（Next.js + Supabase + TypeScript + shadcn/ui）。
-旧 GAS プロジェクトの後継。マルチテナント SaaS 構成。
+運送業向け業務システム（Next.js 16 + Supabase + TypeScript + shadcn/ui）。
+モデルC（コアとアドオンを分ける SaaS）で複数業種・複数顧客への展開を目指す。
+AI全開発前提。設計の意思決定は人間が行う。
+
+## 事業方針（開発時に常に意識すること）
+- 最初から業種を絞らない。運送業を第1実装とし、他業種も初期から受け入れる
+- コアと業種固有の機能を混在させない。これが複数業種展開を可能にする
+- 顧客ごとの差分は `companies.custom_settings`（JSON）で吸収する設計にする
+- `company_id` は全テーブル・全クエリで必ず使う。省略は禁止
 
 ## 旧プロジェクト参照先
 - スキーマ定義: C:/Users/kamit/FUNCTION_cursor/Schema.js
@@ -10,10 +17,21 @@
 - 業種設定: C:/Users/kamit/FUNCTION_cursor/Config.js
 
 ## 技術スタック
-- Next.js 14+ App Router / TypeScript strict
+- Next.js 16 App Router / TypeScript strict
 - Tailwind CSS + shadcn/ui（UI は shadcn/ui を優先）
 - Supabase（PostgreSQL + Auth + RLS）
 - Vercel（ホスティング）
+
+## ディレクトリ構成の原則
+コアと業種固有を分離する。混在させない。
+
+```
+lib/
+  core/           ← 全業種共通（認証・社員管理・テナント管理）
+  industries/
+    transport/    ← 運送業固有（運行実績・運賃・帳票）
+    （将来の業種はここに追加）
+```
 
 ## コーディングルール
 - 言語は TypeScript。`any` 型は使わない
@@ -25,6 +43,12 @@
 - エラーは try-catch で必ず捕まえ、ユーザーにわかる日本語メッセージを返す
 - 関数の先頭コメントは日本語で「何をする関数か」を1行で書く
 
+## AI開発の限界を防ぐルール（必ず守る）
+- **1ファイル200行以内**。超えたら分割する
+- **1関数30行以内**を目安にする
+- コアと業種固有のロジックを同じファイルに書かない
+- 新しいテーブルや機能を追加したら CLAUDE.md を更新するよう促す
+
 ## ロール
 - DRIVER: 自分のデータのみ操作可
 - ADMIN: 承認・マスタ管理・レポート閲覧可
@@ -34,6 +58,13 @@
 - 全テーブルに company_id を持つ
 - Row Level Security (RLS) で company_id ごとにデータを分離
 - ユーザーの company_id は employees テーブルの google_email から引く
+- company_id の一貫性が将来の安全な移行を保証する
+
+## companies テーブルの拡張カラム
+```sql
+industry text DEFAULT 'transport'          -- 業種識別子
+custom_settings jsonb DEFAULT '{}'         -- 顧客ごとの設定
+```
 
 ## Cursor が担当する作業
 - React コンポーネント（.tsx）の実装・修正
@@ -46,16 +77,14 @@
 - RLS ポリシー設計
 - 複数ファイルをまたぐ大きな設計変更
 - 認証・権限設計
+- アーキテクチャの判断
 
 ## Git 運用
 - 変更を加えたら、作業完了時に必ず `git status` を確認し、対象差分だけを `git add` → `git commit`
 - コミットは意味のある単位で行い、壊れた途中状態では残さない
 - コミットメッセージは `feat:` `fix:` `style:` `refactor:` `chore:` `docs:` を使う
 - `.env.local`、認証情報、秘密鍵、適用済み migration の直接編集結果はコミットしない
-- remote 設定済みなら、意味のあるコミット直後、作業終了時、長時間作業前の安定点で `git push` の要否を必ず確認する
-- この会話でバックアップ優先の意図が明示されている場合は、コミット後に `git push` 候補として扱い、短く確認してから実行する
-- 既存の未コミット差分と自分の変更を混同しない
-- `git reset --hard`、`git checkout --`、強制 push などの破壊的操作は明示許可なしで行わない
+- `git reset --hard`、強制 push などの破壊的操作は明示許可なしで行わない
 
 ## 回答スタイル
 - 専門用語は（）で平易に説明する

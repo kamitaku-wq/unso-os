@@ -1,7 +1,7 @@
 // 給与台帳 API（一覧取得・給与計算実行）
 import { NextResponse } from 'next/server'
-import { getPayrolls, calculatePayroll } from '@/lib/server/payroll'
-import { requireRole } from '@/lib/server/auth'
+import { getPayrolls, calculatePayroll } from '@/lib/core/payroll'
+import { requireRole } from '@/lib/core/auth'
 import { apiError } from '@/lib/api-error'
 
 // 指定月の給与一覧を取得する

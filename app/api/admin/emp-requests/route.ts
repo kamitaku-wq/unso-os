@@ -1,7 +1,7 @@
 // 管理者用：社員申請一覧取得 API
 import { NextResponse } from 'next/server'
-import { getEmpRequests } from '@/lib/server/employee'
-import { requireRole } from '@/lib/server/auth'
+import { getEmpRequests } from '@/lib/core/employee'
+import { requireRole } from '@/lib/core/auth'
 
 export async function GET(request: Request) {
   try {

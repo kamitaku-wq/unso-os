@@ -1,7 +1,7 @@
 // 月次締め API（一覧取得・締め実行・取り消し）
 import { NextResponse } from 'next/server'
-import { getClosings, closeMonth, reopenMonth, summarizeMonth } from '@/lib/server/closing'
-import { requireRole } from '@/lib/server/auth'
+import { getClosings, closeMonth, reopenMonth, summarizeMonth } from '@/lib/core/closing'
+import { requireRole } from '@/lib/core/auth'
 import { apiError } from '@/lib/api-error'
 
 // 締め済み月一覧を取得

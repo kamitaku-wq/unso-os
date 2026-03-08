@@ -1,7 +1,7 @@
 // 経費申請 個別操作 API（承認・却下・差し戻し・支払済み）
 import { NextResponse } from 'next/server'
-import { approveExpense, rejectExpense, reworkExpense, payExpense } from '@/lib/server/expense'
-import { requireRole } from '@/lib/server/auth'
+import { approveExpense, rejectExpense, reworkExpense, payExpense } from '@/lib/core/expense'
+import { requireRole } from '@/lib/core/auth'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

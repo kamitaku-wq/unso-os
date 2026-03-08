@@ -1,7 +1,7 @@
 // 運行実績 個別操作 API（承認・無効化）
 import { NextResponse } from 'next/server'
-import { approveBillable, voidBillable } from '@/lib/server/billable'
-import { requireRole } from '@/lib/server/auth'
+import { approveBillable, voidBillable } from '@/lib/industries/transport/billable'
+import { requireRole } from '@/lib/core/auth'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

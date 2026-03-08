@@ -1,7 +1,7 @@
 // 勤怠 個別操作 API（承認・却下）
 import { NextResponse } from 'next/server'
-import { approveAttendance, rejectAttendance } from '@/lib/server/attendance'
-import { requireRole } from '@/lib/server/auth'
+import { approveAttendance, rejectAttendance } from '@/lib/core/attendance'
+import { requireRole } from '@/lib/core/auth'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

@@ -1,7 +1,7 @@
 // 管理者用：社員 個別更新 API（ロール変更・在籍状態変更）
 import { NextResponse } from 'next/server'
-import { updateEmployee } from '@/lib/server/employee'
-import { requireRole } from '@/lib/server/auth'
+import { updateEmployee } from '@/lib/core/employee'
+import { requireRole } from '@/lib/core/auth'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

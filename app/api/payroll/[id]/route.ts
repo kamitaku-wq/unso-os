@@ -1,7 +1,7 @@
 // 給与台帳 個別更新 API（ステータス変更・経費精算額設定）
 import { NextResponse } from 'next/server'
-import { updatePayrollStatus, updateExpenseReimbursement } from '@/lib/server/payroll'
-import { requireRole } from '@/lib/server/auth'
+import { updatePayrollStatus, updateExpenseReimbursement } from '@/lib/core/payroll'
+import { requireRole } from '@/lib/core/auth'
 import { apiError } from '@/lib/api-error'
 
 export async function PATCH(
