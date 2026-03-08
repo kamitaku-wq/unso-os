@@ -18,14 +18,6 @@ export default async function PostLoginPage() {
     redirect("/login")
   }
 
-  const { count: companyCount } = await supabase
-    .from("companies")
-    .select("id", { count: "exact", head: true })
-
-  if ((companyCount ?? 0) === 0) {
-    redirect("/setup")
-  }
-
   const { data: employee } = await supabase
     .from("employees")
     .select("role, is_active")

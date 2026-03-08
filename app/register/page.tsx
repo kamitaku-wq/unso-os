@@ -29,13 +29,5 @@ export default async function RegisterPage() {
     redirect(getHomePath(employee.role))
   }
 
-  const { count: companyCount } = await supabase
-    .from("companies")
-    .select("id", { count: "exact", head: true })
-
-  if ((companyCount ?? 0) === 0) {
-    redirect("/setup")
-  }
-
   return <RegisterForm />
 }
