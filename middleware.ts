@@ -32,12 +32,13 @@ export async function middleware(request: NextRequest) {
     // セッションリフレッシュ（必須）
     const { data: { user } } = await supabase.auth.getUser()
 
-    // 未ログインユーザーを /login にリダイレクト（/login・/auth・/register は除外）
+    // 未ログインユーザーを /login にリダイレクト（/login・/auth・/register・/invite は除外）
     if (
       !user &&
       !request.nextUrl.pathname.startsWith('/login') &&
       !request.nextUrl.pathname.startsWith('/auth') &&
-      !request.nextUrl.pathname.startsWith('/register')
+      !request.nextUrl.pathname.startsWith('/register') &&
+      !request.nextUrl.pathname.startsWith('/invite')
     ) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'

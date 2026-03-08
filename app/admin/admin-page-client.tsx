@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { EmpRequestPanel } from "@/components/admin/emp-request-panel"
 import { EmptyState } from "@/components/empty-state"
 import { EmployeeManagementPanel } from "@/components/admin/employee-management-panel"
+import { InvitePanel } from "@/components/admin/invite-panel"
 import { StatusBadge } from "@/components/status-badge"
 import { TableSkeleton } from "@/components/table-skeleton"
 import {
@@ -71,7 +72,7 @@ type MasterResponse = {
   routes: Route[]
 }
 
-type AdminTab = "billables" | "expenses" | "closings" | "employees" | "empRequests"
+type AdminTab = "billables" | "expenses" | "closings" | "employees" | "empRequests" | "invite"
 type UserRole = "DRIVER" | "ADMIN" | "OWNER"
 
 type BillableStatus = "REVIEW_REQUIRED" | "APPROVED" | "VOID"
@@ -166,6 +167,7 @@ function getAdminTabFromQuery(value: string | null): AdminTab {
   if (value === "closings") return "closings"
   if (value === "employees") return "employees"
   if (value === "empRequests") return "empRequests"
+  if (value === "invite") return "invite"
   return "billables"
 }
 
@@ -1041,6 +1043,13 @@ export default function AdminPageClient() {
                   >
                     社員申請
                   </Button>
+                  <Button
+                    type="button"
+                    variant={activeTab === "invite" ? "default" : "outline"}
+                    onClick={() => setActiveTab("invite")}
+                  >
+                    招待リンク
+                  </Button>
                 </div>
               </CardHeader>
             </Card>
@@ -1661,6 +1670,8 @@ export default function AdminPageClient() {
             {activeTab === "employees" ? <EmployeeManagementPanel /> : null}
 
             {activeTab === "empRequests" ? <EmpRequestPanel /> : null}
+
+            {activeTab === "invite" ? <InvitePanel /> : null}
           </>
         )}
       </div>
