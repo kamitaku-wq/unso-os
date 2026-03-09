@@ -2,8 +2,10 @@
 // 全ルートで Supabase のセッションが最新状態に保たれる
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { Logger } from 'next-axiom'
 
 export async function middleware(request: NextRequest) {
+  const logger = new Logger({ source: 'middleware' })
   try {
     let supabaseResponse = NextResponse.next({ request })
 
@@ -46,7 +48,9 @@ export async function middleware(request: NextRequest) {
     }
 
     return supabaseResponse
-  } catch {
+  } catch (e) {
+    logger.error('middleware error', { error: String(e), path: request.nextUrl.pathname })
+    await logger.flush()
     return NextResponse.next({ request })
   }
 }
