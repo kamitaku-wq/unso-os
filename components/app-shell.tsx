@@ -1,9 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu, Truck, X } from "lucide-react"
+import { Bell, Menu, Truck, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -29,6 +29,7 @@ function getNavigationItems(role: Role | null): NavigationItem[] {
     { href: "/expense", label: "経費" },
     { href: "/attendance", label: "勤怠" },
     { href: "/shift", label: "シフト" },
+    { href: "/todo", label: "Todo" },
   ]
 
   if (role === "ADMIN") {
@@ -77,6 +78,16 @@ export function AppShell({
   const router = useRouter()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  // 未確認Todo件数をページ表示時に取得
+  useEffect(() => {
+    if (!role) return
+    fetch('/api/todo/unread-count')
+      .then((r) => r.ok ? r.json() : { count: 0 })
+      .then((d) => setUnreadCount(d.count))
+      .catch(() => {})
+  }, [role, pathname])
 
   const navigationItems = useMemo(() => getNavigationItems(role), [role])
   const showNavigation =
@@ -143,8 +154,18 @@ export function AppShell({
               </div>
             </div>
 
-            {/* 右側: デモスイッチャー + ログアウト + ハンバーガー */}
+            {/* 右側: ベルアイコン + デモスイッチャー + ログアウト + ハンバーガー */}
             <div className="flex items-center gap-2">
+              {role ? (
+                <Link href="/todo" className="relative flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
+                  <Bell className="size-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </Link>
+              ) : null}
               {role && isDemo ? (
                 <div className="hidden md:block">
                   <DemoRoleSwitcher currentRole={role} />

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
+import { PushSetup } from "@/components/push-setup";
 import { Toaster } from "@/components/ui/sonner";
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,6 +19,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "運送OS",
   description: "運送業向け業務システム",
+  manifest: "/manifest.json",
 };
 
 export default async function RootLayout({
@@ -63,6 +65,7 @@ export default async function RootLayout({
         <AppShell userEmail={user?.email ?? null} employeeName={employeeName} role={role} isDemo={isDemo}>
           {children}
         </AppShell>
+        <PushSetup />
         <Toaster position="top-right" richColors />
       </body>
     </html>
