@@ -472,14 +472,16 @@ export default function DashboardPageClient() {
                   badge={isLoading ? undefined : `利益率 ${kpi.profit.rate}%`}
                   colorScheme="emerald"
                 />
-                <KpiCard
-                  title="未請求残高"
-                  value={isLoading ? "---" : formatCurrency(dashboard.unbilledAmount.amount)}
-                  subValue={isLoading ? undefined : `${dashboard.unbilledAmount.count} 件の承認済み運行実績`}
-                  change={null}
-                  badge={!isLoading && dashboard.unbilledAmount.count > 0 ? "請求書未発行" : undefined}
-                  colorScheme="purple"
-                />
+                <Link href="/invoice" className="block">
+                  <KpiCard
+                    title="未請求残高"
+                    value={isLoading ? "---" : formatCurrency(dashboard.unbilledAmount.amount)}
+                    subValue={isLoading ? undefined : `${dashboard.unbilledAmount.count} 件 → 請求書を作成`}
+                    change={null}
+                    badge={!isLoading && dashboard.unbilledAmount.count > 0 ? "請求書未発行" : undefined}
+                    colorScheme="purple"
+                  />
+                </Link>
               </div>
             </section>
 
@@ -534,7 +536,9 @@ export default function DashboardPageClient() {
                       </CardHeader>
                       <CardContent>
                         <div className="text-3xl font-semibold tracking-tight">{isLoading ? "--" : card.count}</div>
-                        <p className="text-sm text-muted-foreground">クリックして確認</p>
+                        <p className="text-sm text-muted-foreground">
+                          {isLoading ? "" : card.count > 0 ? "クリックして確認" : "すべて承認済みです ✓"}
+                        </p>
                       </CardContent>
                     </Card>
                   </Link>

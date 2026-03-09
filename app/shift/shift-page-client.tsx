@@ -1,9 +1,11 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, Users } from "lucide-react"
 import { toast } from "sonner"
 
+import { EmptyState } from "@/components/empty-state"
+import { TableSkeleton } from "@/components/table-skeleton"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -249,11 +251,9 @@ export default function ShiftPageClient() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">読み込み中...</div>
+              <TableSkeleton columns={8} rows={5} />
             ) : shiftData.employees.length === 0 ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                社員が登録されていません
-              </div>
+              <EmptyState icon={Users} description="社員が登録されていません" />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-sm">

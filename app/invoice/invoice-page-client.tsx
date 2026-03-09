@@ -139,12 +139,24 @@ function formatPeriodLabel(from: string, to: string) {
   return `${formatDateLabel(from)} - ${formatDateLabel(to)}`
 }
 
+// 前月の開始日・終了日を "YYYY-MM-DD" 形式で返す
+function getLastMonthRange(): { from: string; to: string } {
+  const now = new Date()
+  const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const lastDay = new Date(now.getFullYear(), now.getMonth(), 0)
+  return {
+    from: firstDay.toISOString().slice(0, 10),
+    to: lastDay.toISOString().slice(0, 10),
+  }
+}
+
 export default function InvoicePageClient() {
+  const lastMonth = getLastMonthRange()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [invoices, setInvoices] = useState<InvoiceSummary[]>([])
   const [selectedCustomerCode, setSelectedCustomerCode] = useState("")
-  const [periodFrom, setPeriodFrom] = useState("")
-  const [periodTo, setPeriodTo] = useState("")
+  const [periodFrom, setPeriodFrom] = useState(lastMonth.from)
+  const [periodTo, setPeriodTo] = useState(lastMonth.to)
   const [previewResult, setPreviewResult] = useState<InvoicePreviewResponse | null>(null)
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceSummary | null>(null)
   const [invoiceDetails, setInvoiceDetails] = useState<InvoiceDetail[]>([])
