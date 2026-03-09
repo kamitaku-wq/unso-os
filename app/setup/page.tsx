@@ -1,6 +1,11 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 
 import { SetupForm } from "@/components/setup-form"
+
+export const metadata: Metadata = {
+  title: "初期設定 | 運送OS",
+}
 import { createClient } from "@/lib/supabase/server"
 
 export default async function SetupPage() {

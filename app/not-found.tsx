@@ -16,9 +16,14 @@ export default function NotFound() {
             URL が間違っているか、ページが移動された可能性があります。
           </p>
         </div>
-        <Button asChild>
-          <Link href="/">トップに戻る</Link>
-        </Button>
+        <div className="flex gap-3">
+          <Button asChild variant="outline">
+            <Link href="/">トップに戻る</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/admin">管理画面へ</Link>
+          </Button>
+        </div>
       </div>
     </main>
   )

@@ -1,6 +1,11 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 
 import { RegisterForm } from "@/components/register-form"
+
+export const metadata: Metadata = {
+  title: "参加申請 | 運送OS",
+}
 import { createClient } from "@/lib/supabase/server"
 
 function getHomePath(role: "DRIVER" | "ADMIN" | "OWNER") {

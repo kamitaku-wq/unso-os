@@ -1,5 +1,10 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { Clock } from "lucide-react"
+
+export const metadata: Metadata = {
+  title: "承認待ち | 運送OS",
+}
 
 import { PendingPolling } from "./pending-polling"
 import { LogoutButton } from "@/components/logout-button"

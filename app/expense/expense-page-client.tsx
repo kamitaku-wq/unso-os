@@ -41,6 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Textarea } from "@/components/ui/textarea"
 import { formatCurrency, formatDate, getErrorMessage } from "@/lib/format"
 
 type ApiError = {
@@ -96,8 +97,6 @@ type ReceiptPreview = {
   url: string
 }
 
-const TEXTAREA_CLASS =
-  "min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
 
 function createInitialExpenseForm(): ExpenseForm {
   return {
@@ -477,9 +476,8 @@ export default function ExpensePageClient() {
 
                 <div className="space-y-2">
                   <Label htmlFor="expense-description">内容</Label>
-                  <textarea
+                  <Textarea
                     id="expense-description"
-                    className={TEXTAREA_CLASS}
                     value={form.description}
                     onChange={(event) =>
                       setForm((current) => ({
