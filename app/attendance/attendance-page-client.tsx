@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Clock } from "lucide-react"
 import { toast } from "sonner"
 
+import { ClosingBanner } from "@/components/closing-banner"
 import { EmptyState } from "@/components/empty-state"
 import { StatusBadge } from "@/components/status-badge"
 import { TableSkeleton } from "@/components/table-skeleton"
@@ -124,6 +125,7 @@ export default function AttendancePageClient() {
   const [submitMessage, setSubmitMessage] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [busyKey, setBusyKey] = useState<string | null>(null)
+  const [closedMonths, setClosedMonths] = useState<string[]>([])
 
   const isMutating = busyKey !== null
 
@@ -197,7 +199,11 @@ export default function AttendancePageClient() {
       setPageError("")
 
       try {
-        await loadAttendances()
+        const [, closingData] = await Promise.all([
+          loadAttendances(),
+          fetch("/api/closing-status", { cache: "no-store" }).then((r) => r.json() as Promise<{ closedMonths: string[] }>),
+        ])
+        setClosedMonths(closingData.closedMonths ?? [])
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "画面の読み込みに失敗しました"
@@ -287,6 +293,8 @@ export default function AttendancePageClient() {
             勤務時間を申請し、自分の申請状況を確認する画面です。
           </p>
         </div>
+
+        <ClosingBanner ym={form.work_date.slice(0, 7).replace("-", "")} closedMonths={closedMonths} />
 
         <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
           <Card>
@@ -414,7 +422,7 @@ export default function AttendancePageClient() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isLoading || isMutating}>
+                <Button type="submit" className="w-full" disabled={isLoading || isMutating || closedMonths.includes(form.work_date.slice(0, 7).replace("-", ""))}>
                   {busyKey === "submit-attendance" ? "申請中..." : "勤怠を申請"}
                 </Button>
               </form>

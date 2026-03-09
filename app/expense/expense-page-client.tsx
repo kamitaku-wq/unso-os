@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Receipt } from "lucide-react"
 import { toast } from "sonner"
 
+import { ClosingBanner } from "@/components/closing-banner"
 import { EmptyState } from "@/components/empty-state"
 import { StatusBadge } from "@/components/status-badge"
 import { TableSkeleton } from "@/components/table-skeleton"
@@ -157,6 +158,7 @@ export default function ExpensePageClient() {
   const [isLoading, setIsLoading] = useState(true)
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [receiptPreview, setReceiptPreview] = useState<ReceiptPreview | null>(null)
+  const [closedMonths, setClosedMonths] = useState<string[]>([])
   const receiptInputRef = useRef<HTMLInputElement | null>(null)
 
   const selectedCategory = useMemo(() => {
@@ -241,7 +243,12 @@ export default function ExpensePageClient() {
       setPageError("")
 
       try {
-        await Promise.all([loadCategories(), loadExpenses()])
+        const [, , closingData] = await Promise.all([
+          loadCategories(),
+          loadExpenses(),
+          fetch("/api/closing-status", { cache: "no-store" }).then((r) => r.json() as Promise<{ closedMonths: string[] }>),
+        ])
+        setClosedMonths(closingData.closedMonths ?? [])
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "画面の読み込みに失敗しました"
@@ -370,6 +377,8 @@ export default function ExpensePageClient() {
             経費を申請し、自分の申請状況を確認する画面です。
           </p>
         </div>
+
+        <ClosingBanner ym={form.expense_date.slice(0, 7).replace("-", "")} closedMonths={closedMonths} />
 
         <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
           <Card>
@@ -508,7 +517,7 @@ export default function ExpensePageClient() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={isLoading || isMutating || categories.length === 0 || !selectedCategory}
+                  disabled={isLoading || isMutating || categories.length === 0 || !selectedCategory || closedMonths.includes(form.expense_date.slice(0, 7).replace("-", ""))}
                 >
                   {busyKey === "submit-expense" ? "申請中..." : "経費を申請"}
                 </Button>
