@@ -44,11 +44,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'すでに登録済みです' }, { status: 409 })
     }
 
+    // 参加コード（8文字英数字）を生成
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    const company_code = Array.from(
+      { length: 8 },
+      () => chars[Math.floor(Math.random() * chars.length)]
+    ).join('')
+
     // 会社を作成
     const { data: company, error: companyErr } = await admin
       .from('companies')
-      .insert({ name: company_name, plan: 'standard' })
-      .select('id')
+      .insert({ name: company_name, plan: 'standard', company_code })
+      .select('id, company_code')
       .single()
 
     if (companyErr || !company) throw new Error('会社の作成に失敗しました')
@@ -65,7 +72,7 @@ export async function POST(request: Request) {
 
     if (empErr) throw new Error('社員登録に失敗しました: ' + empErr.message)
 
-    return NextResponse.json({ ok: true, company_id: company.id })
+    return NextResponse.json({ ok: true, company_id: company.id, company_code: company.company_code })
   } catch (e) {
     return apiError(e)
   }

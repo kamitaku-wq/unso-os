@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { Clock } from "lucide-react"
 
+import { PendingPolling } from "./pending-polling"
 import { LogoutButton } from "@/components/logout-button"
 import {
   Card,
@@ -59,6 +60,7 @@ export default async function PendingPage() {
 
   return (
     <main className="min-h-[calc(100vh-80px)] px-4 py-8 md:px-6">
+      <PendingPolling />
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
         <div className="flex justify-end">
           <LogoutButton variant="ghost" className="text-muted-foreground" />
@@ -70,7 +72,10 @@ export default async function PendingPage() {
           </div>
           <h1 className="text-3xl font-semibold tracking-tight">承認待ち</h1>
           <p className="max-w-xl text-sm text-muted-foreground">
-            管理者が承認するまでしばらくお待ちください。承認が完了すると、ログイン後に業務画面へ進めるようになります。
+            管理者が承認するまでしばらくお待ちください。承認が完了すると、自動的に業務画面へ移動します。
+          </p>
+          <p className="max-w-xl text-xs text-muted-foreground">
+            承認されない場合は、管理者に直接お問い合わせください。再申請が必要な場合は、管理者に申請の取り下げを依頼してから新たに申請してください。
           </p>
         </div>
 

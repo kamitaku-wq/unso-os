@@ -26,15 +26,15 @@ type RequestedRole = "DRIVER" | "ADMIN"
 
 export function RegisterForm() {
   const [name, setName] = useState("")
-  const [companyId, setCompanyId] = useState("")
+  const [companyCode, setCompanyCode] = useState("")
   const [roleRequested, setRoleRequested] = useState<RequestedRole>("DRIVER")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (!name.trim() || !companyId.trim()) {
-      toast.error("氏名と company_id を入力してください")
+    if (!name.trim() || !companyCode.trim()) {
+      toast.error("氏名と参加コードを入力してください")
       return
     }
 
@@ -49,7 +49,7 @@ export function RegisterForm() {
         body: JSON.stringify({
           name: name.trim(),
           role_requested: roleRequested,
-          company_id: companyId.trim(),
+          company_code: companyCode.trim(),
         }),
       })
       const data = (await response.json()) as { error?: string }
@@ -60,7 +60,7 @@ export function RegisterForm() {
 
       toast.success("申請を受け付けました。管理者の承認をお待ちください")
       setName("")
-      setCompanyId("")
+      setCompanyCode("")
       setRoleRequested("DRIVER")
     } catch (error) {
       const message =
@@ -80,7 +80,7 @@ export function RegisterForm() {
             ログイン後にまだ社員登録がない場合は、ここから所属申請を送信します。
           </p>
           <div className="rounded-lg border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-            会社名または `company_id` は、管理者から共有された情報を入力してください。分からない場合は、先に管理者へ確認してください。
+            参加コードは、管理者（OWNER）から共有された8文字のコードです。分からない場合は、先に管理者へ確認してください。
           </div>
         </div>
 
@@ -88,22 +88,24 @@ export function RegisterForm() {
           <CardHeader>
             <CardTitle>申請内容</CardTitle>
             <CardDescription>
-              参加先の `company_id`、氏名、希望ロールを入力して送信してください。
+              参加コード・氏名・希望ロールを入力して送信してください。
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="register-company-id">company_id</Label>
+                <Label htmlFor="register-company-code">参加コード</Label>
                 <Input
-                  id="register-company-id"
-                  value={companyId}
-                  onChange={(event) => setCompanyId(event.target.value)}
+                  id="register-company-code"
+                  value={companyCode}
+                  onChange={(event) => setCompanyCode(event.target.value.toUpperCase())}
                   disabled={isSubmitting}
+                  placeholder="例: AB3C5D8E"
+                  maxLength={8}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  例: 管理者から案内された会社コードまたは会社ID
+                  管理者から案内された8文字の参加コード
                 </p>
               </div>
 
@@ -129,8 +131,8 @@ export function RegisterForm() {
                     <SelectValue placeholder="希望ロールを選択" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="DRIVER">DRIVER</SelectItem>
-                    <SelectItem value="ADMIN">ADMIN</SelectItem>
+                    <SelectItem value="DRIVER">ドライバー</SelectItem>
+                    <SelectItem value="ADMIN">管理者</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
