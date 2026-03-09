@@ -179,7 +179,7 @@ export default function HomePageClient() {
 
     try {
       const [masterResponse, billableResponse] = await Promise.all([
-        fetch("/api/master", { cache: "no-store" }),
+        fetch("/api/master"),
         fetch("/api/billable", { cache: "no-store" }),
       ])
 

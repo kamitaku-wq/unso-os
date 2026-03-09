@@ -137,6 +137,9 @@ unso-os/
 | `shifts` | 週間シフト（UNIQUE: company_id + emp_id + shift_date） |
 | `monthly_closings` | 月次締め管理 |
 | `payrolls` | 給与計算結果 |
+| `todos` | Todo本体（個人・割り当て共通。物理削除） |
+| `todo_assignments` | 割り当てTodoの受信者別ステータス（confirmed_at・completed_at） |
+| `push_subscriptions` | Web Push購読情報（UNIQUE: emp_id + endpoint） |
 
 ### companies テーブルの重要カラム
 ```sql
@@ -157,6 +160,7 @@ is_demo        boolean DEFAULT false      -- デモ会社フラグ（true=自動
 | `007_companies_extensions.sql` | companies に industry / custom_settings / is_demo 追加 |
 | `008_shifts.sql` | シフトテーブル + RLS |
 | `009_invite_tokens.sql` | 招待トークンテーブル + RLS |
+| `010_todos.sql` | todos・todo_assignments・push_subscriptions テーブル + RLS |
 
 ---
 
@@ -213,6 +217,10 @@ Google OAuth
 | 請求書生成 | ✅ 完成 | |
 | 経営ダッシュボード | ✅ 完成 | OWNER専用。KPI・推移・社員別実績 |
 | CSV エクスポート | ✅ 完成 | 実績・経費・勤怠。社員名カラム含む |
+| Todo管理（個人・割り当て） | ✅ 完成 | 確認済み/対応済み2段階・物理削除・期日超過赤表示 |
+| Web Push通知 + PWA | ✅ 完成 | VAPID・Service Worker・Vercel Cron（朝8時リマインダー） |
+| ヘッダー未読バッジ | ✅ 完成 | ベルアイコン・未確認件数をリアルタイム表示 |
+| エラー監視（Axiom） | ✅ 完成 | next-axiomによるリクエスト・エラーログ |
 | デモモード | 🔶 部分実装 | is_demo フラグで分岐するが、デモデータは未投入 |
 
 ---

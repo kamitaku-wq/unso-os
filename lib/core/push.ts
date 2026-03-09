@@ -104,19 +104,18 @@ export async function sendDueDateReminders() {
 
   const notifySet = new Set<string>()
 
-  for (const todo of todos) {
-    if (todo.type === 'personal') {
-      // 個人Todoは作成者本人に通知
-      notifySet.add(todo.creator_id)
-    } else {
-      // 割り当てTodoは未対応の受信者に通知
-      const { data: assignments } = await supabase
-        .from('todo_assignments')
-        .select('assignee_id')
-        .eq('todo_id', todo.id)
-        .is('completed_at', null)
-      ;(assignments ?? []).forEach((a) => notifySet.add(a.assignee_id))
-    }
+  // 個人Todoの作成者をまとめて追加
+  todos.filter(t => t.type === 'personal').forEach(t => notifySet.add(t.creator_id))
+
+  // 割り当てTodoの未対応受信者を1回のクエリで取得（N+1解消）
+  const assignedIds = todos.filter(t => t.type === 'assigned').map(t => t.id)
+  if (assignedIds.length > 0) {
+    const { data: assignments } = await supabase
+      .from('todo_assignments')
+      .select('assignee_id')
+      .in('todo_id', assignedIds)
+      .is('completed_at', null)
+    ;(assignments ?? []).forEach((a) => notifySet.add(a.assignee_id))
   }
 
   await Promise.allSettled(

@@ -12,7 +12,10 @@ export async function GET() {
       getVehicles(),
       getRatecards(),
     ])
-    return NextResponse.json({ customers, routes, vehicles, ratecards })
+    return NextResponse.json(
+      { customers, routes, vehicles, ratecards },
+      { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=30' } }
+    )
   } catch (e) {
     return apiError(e)
   }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 
@@ -36,12 +36,7 @@ type ShiftRow = {
 type ShiftData = {
   shifts: ShiftRow[]
   employees: Employee[]
-}
-
-type MeData = {
-  registered: boolean
-  role?: Role
-  emp_id?: string
+  role: Role | null
 }
 
 type ModalState = {
@@ -97,29 +92,16 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 // --- メインコンポーネント ---
 export default function ShiftPageClient() {
   const [monday, setMonday] = useState<Date>(() => getMondayOf(new Date()))
-  const [shiftData, setShiftData] = useState<ShiftData>({ shifts: [], employees: [] })
+  const [shiftData, setShiftData] = useState<ShiftData>({ shifts: [], employees: [], role: null })
   const [role, setRole] = useState<Role | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [modal, setModal] = useState<ModalState | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
   const weekDates = getWeekDates(monday)
-  const canEdit = role === "ADMIN" || role === "OWNER"
+  const canEdit = (shiftData.role ?? role) === "ADMIN" || (shiftData.role ?? role) === "OWNER"
 
-  // 自分のロールを取得する
-  useEffect(() => {
-    async function loadMe() {
-      try {
-        const me = await fetchJson<MeData>("/api/me")
-        setRole(me.role ?? null)
-      } catch {
-        // ロール取得失敗時は閲覧専用として扱う
-      }
-    }
-    void loadMe()
-  }, [])
-
-  // 指定週のシフトを取得する
+  // 指定週のシフトを取得する（role も同時に返るため /api/me は不要）
   const loadShifts = useCallback(async (mon: Date) => {
     setIsLoading(true)
     try {
@@ -129,6 +111,7 @@ export default function ShiftPageClient() {
       const to = toISODate(sun)
       const data = await fetchJson<ShiftData>(`/api/shift?from=${from}&to=${to}`)
       setShiftData(data)
+      setRole(data.role ?? null)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "シフトの取得に失敗しました")
     } finally {
@@ -200,11 +183,18 @@ export default function ShiftPageClient() {
     }
   }
 
-  // セルに表示するテキストを返す
+  // シフトデータを "emp_id_shift_date" キーで引けるMapに変換（O(n)で一度だけ構築）
+  const shiftMap = useMemo(() => {
+    const map = new Map<string, (typeof shiftData.shifts)[number]>()
+    for (const s of shiftData.shifts) {
+      map.set(`${s.emp_id}_${s.shift_date}`, s)
+    }
+    return map
+  }, [shiftData.shifts])
+
+  // セルに表示するテキストを返す（O(1) Map検索）
   function getCellContent(emp_id: string, shift_date: string) {
-    const shift = shiftData.shifts.find(
-      (s) => s.emp_id === emp_id && s.shift_date === shift_date
-    )
+    const shift = shiftMap.get(`${emp_id}_${shift_date}`)
     if (!shift) return null
     if (shift.is_day_off) return { text: "休み", isDayOff: true }
     const parts = [shift.location, shift.work_type].filter(Boolean)

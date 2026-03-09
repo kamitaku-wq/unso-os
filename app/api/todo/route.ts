@@ -1,12 +1,39 @@
 // Todo一覧取得・新規作成
 import { NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-error'
-import { getMyTodos, createPersonalTodo, createAssignedTodo } from '@/lib/core/todo'
+import { getMyEmployee } from '@/lib/core/auth'
+import { getMyTodos, getSentTodos, createPersonalTodo, createAssignedTodo } from '@/lib/core/todo'
 import { sendPushToEmployee } from '@/lib/core/push'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET() {
+/** 初回表示用に sent・employees を含めて一括取得（リクエスト数を減らす） */
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const withParam = searchParams.get('with') ?? ''
+
+    if (withParam.includes('sent') && withParam.includes('employees')) {
+      const me = await getMyEmployee()
+      const supabase = await createClient()
+      const [todoData, sent, employeesRows] = await Promise.all([
+        getMyTodos(),
+        getSentTodos(),
+        supabase
+          .from('employees')
+          .select('id, name, role')
+          .eq('company_id', me.company_id)
+          .eq('is_active', true)
+          .neq('id', me.id)
+          .order('name'),
+      ])
+      const employees = employeesRows.data ?? []
+      return NextResponse.json({
+        ...todoData,
+        sent,
+        employees: employees.map((r) => ({ id: r.id, name: r.name, role: r.role })),
+      })
+    }
+
     const data = await getMyTodos()
     return NextResponse.json(data)
   } catch (e) {

@@ -152,7 +152,7 @@ export function BillablePanel() {
   const loadMasters = useCallback(async () => {
     setIsMasterLoading(true)
     try {
-      const res = await fetch("/api/master", { cache: "no-store" })
+      const res = await fetch("/api/master")
       const data = (await res.json()) as MasterResponse | { error?: string }
       if (!res.ok) throw new Error(getErrorMessage(data, "マスタ取得に失敗しました"))
       setMasters({

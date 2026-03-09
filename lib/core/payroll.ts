@@ -37,25 +37,21 @@ export type Payroll = {
   created_at: string
 }
 
-// 社員 ID → 名前のマップを作る
-async function buildNameMap(empIds: string[]): Promise<Record<string, string>> {
-  if (empIds.length === 0) return {}
-  const supabase = await createClient()
-  const { data } = await supabase.from('employees').select('emp_id, name').in('emp_id', empIds)
-  return Object.fromEntries((data ?? []).map(e => [e.emp_id, e.name]))
-}
-
 // 給与設定一覧を取得する
 export async function getSalarySettings(): Promise<SalarySetting[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('salary_settings')
-    .select('id, emp_id, pay_type, basic_monthly, hourly_wage, overtime_rate, transport_allowance, standard_work_hours, note')
-    .order('emp_id')
+  // 給与設定と社員名を並列で取得
+  const [{ data, error }, { data: empData }] = await Promise.all([
+    supabase
+      .from('salary_settings')
+      .select('id, emp_id, pay_type, basic_monthly, hourly_wage, overtime_rate, transport_allowance, standard_work_hours, note')
+      .order('emp_id'),
+    supabase.from('employees').select('emp_id, name'),
+  ])
 
   if (error) throw new Error(error.message)
 
-  const nameMap = await buildNameMap((data ?? []).map(s => s.emp_id))
+  const nameMap = Object.fromEntries((empData ?? []).map(e => [e.emp_id, e.name]))
 
   return (data ?? []).map(s => ({
     ...s,
@@ -104,15 +100,19 @@ export async function upsertSalarySetting(params: {
 // 指定月の給与一覧を取得する
 export async function getPayrolls(ym: string): Promise<Payroll[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('payrolls')
-    .select('id, emp_id, ym, basic_pay, overtime_pay, transport_allowance, expense_reimbursement, gross_pay, work_hours, overtime_hours, status, note, confirmed_at, paid_at, created_at')
-    .eq('ym', ym)
-    .order('emp_id')
+  // 給与データと社員名を並列で取得
+  const [{ data, error }, { data: empData }] = await Promise.all([
+    supabase
+      .from('payrolls')
+      .select('id, emp_id, ym, basic_pay, overtime_pay, transport_allowance, expense_reimbursement, gross_pay, work_hours, overtime_hours, status, note, confirmed_at, paid_at, created_at')
+      .eq('ym', ym)
+      .order('emp_id'),
+    supabase.from('employees').select('emp_id, name'),
+  ])
 
   if (error) throw new Error(error.message)
 
-  const nameMap = await buildNameMap((data ?? []).map(p => p.emp_id))
+  const nameMap = Object.fromEntries((empData ?? []).map(e => [e.emp_id, e.name]))
 
   return (data ?? []).map(p => ({
     ...p,
@@ -150,16 +150,21 @@ export async function calculatePayroll(ym: string): Promise<Payroll[]> {
     attByEmp[row.emp_id].overtimeMin += Number(row.overtime_min ?? 0)
   }
 
-  for (const setting of settings) {
-    const { data: existing } = await supabase
-      .from('payrolls')
-      .select('status')
-      .eq('company_id', employee.company_id)
-      .eq('emp_id', setting.emp_id)
-      .eq('ym', ym)
-      .maybeSingle()
+  // 既存給与のステータスを1回で取得（N+1解消）
+  const { data: existingPayrolls } = await supabase
+    .from('payrolls')
+    .select('emp_id, status')
+    .eq('company_id', employee.company_id)
+    .eq('ym', ym)
+    .in('emp_id', settings.map(s => s.emp_id))
+  const existingMap = Object.fromEntries(
+    (existingPayrolls ?? []).map(p => [p.emp_id, p.status])
+  )
 
-    if (existing && existing.status !== 'DRAFT') continue
+  // 各社員の給与を計算してバッチupsert用の配列に積む
+  const rows: Record<string, unknown>[] = []
+  for (const setting of settings) {
+    if (existingMap[setting.emp_id] && existingMap[setting.emp_id] !== 'DRAFT') continue
 
     const att = attByEmp[setting.emp_id] ?? { workMin: 0, overtimeMin: 0 }
     const workHours = Math.round((att.workMin / 60) * 10) / 10
@@ -180,25 +185,28 @@ export async function calculatePayroll(ym: string): Promise<Payroll[]> {
       overtimePay = Math.round(hourly * overtimeHours * setting.overtime_rate)
     }
 
-    const grossPay = basicPay + overtimePay + setting.transport_allowance
+    rows.push({
+      company_id: employee.company_id,
+      emp_id: setting.emp_id,
+      ym,
+      basic_pay: basicPay,
+      overtime_pay: overtimePay,
+      transport_allowance: setting.transport_allowance,
+      expense_reimbursement: 0,
+      gross_pay: basicPay + overtimePay + setting.transport_allowance,
+      work_hours: workHours,
+      overtime_hours: overtimeHours,
+      status: 'DRAFT',
+      updated_at: new Date().toISOString(),
+    })
+  }
 
-    await supabase.from('payrolls').upsert(
-      {
-        company_id: employee.company_id,
-        emp_id: setting.emp_id,
-        ym,
-        basic_pay: basicPay,
-        overtime_pay: overtimePay,
-        transport_allowance: setting.transport_allowance,
-        expense_reimbursement: 0,
-        gross_pay: grossPay,
-        work_hours: workHours,
-        overtime_hours: overtimeHours,
-        status: 'DRAFT',
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'company_id,emp_id,ym' }
-    )
+  // 全社員分を1回のバッチupsertで書き込む
+  if (rows.length > 0) {
+    const { error: upsertError } = await supabase
+      .from('payrolls')
+      .upsert(rows, { onConflict: 'company_id,emp_id,ym' })
+    if (upsertError) throw new Error(upsertError.message)
   }
 
   return getPayrolls(ym)
