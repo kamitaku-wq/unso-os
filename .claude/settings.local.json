@@ -33,7 +33,8 @@
       "Bash(find:*)",
       "Bash(ls:*)",
       "Bash(/tmp/summary.txt:*)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(npm uninstall @sentry/nextjs)"
     ]
   }
 }
