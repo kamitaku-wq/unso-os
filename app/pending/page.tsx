@@ -2,10 +2,6 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { Clock } from "lucide-react"
 
-export const metadata: Metadata = {
-  title: "承認待ち | 運送OS",
-}
-
 import { PendingPolling } from "./pending-polling"
 import { LogoutButton } from "@/components/logout-button"
 import {
@@ -17,6 +13,10 @@ import {
 } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/server"
 import { formatDateTime } from "@/lib/format"
+
+export const metadata: Metadata = {
+  title: "承認待ち | 運送OS",
+}
 
 function getHomePath(role: "DRIVER" | "ADMIN" | "OWNER") {
   if (role === "OWNER") return "/dashboard"
