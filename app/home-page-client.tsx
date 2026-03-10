@@ -32,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { ClosingBanner } from "@/components/closing-banner"
 import { formatCurrency, formatDate, formatDateTime, getErrorMessage } from "@/lib/format"
 
 type Customer = {
@@ -128,6 +129,7 @@ export default function HomePageClient() {
   const [statusFilter, setStatusFilter] = useState<BillableStatusFilter>("ALL")
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [closedMonths, setClosedMonths] = useState<string[]>([])
 
   const customerNameMap = useMemo(() => {
     return new Map(masters.customers.map((customer) => [customer.cust_id, customer.name]))
@@ -178,13 +180,15 @@ export default function HomePageClient() {
     setIsLoading(true)
 
     try {
-      const [masterResponse, billableResponse] = await Promise.all([
+      const [masterResponse, billableResponse, closingResponse] = await Promise.all([
         fetch("/api/master"),
         fetch("/api/billable", { cache: "no-store" }),
+        fetch("/api/closing-status", { cache: "no-store" }),
       ])
 
       const masterData = (await masterResponse.json()) as MasterResponse | { error?: string }
       const billableData = (await billableResponse.json()) as Billable[] | { error?: string }
+      const closingData = (await closingResponse.json()) as { closedMonths?: string[] }
 
       if (!masterResponse.ok) {
         throw new Error(getErrorMessage(masterData, "マスタ取得に失敗しました"))
@@ -196,6 +200,7 @@ export default function HomePageClient() {
 
       setMasters(masterData as MasterResponse)
       setBillables(Array.isArray(billableData) ? billableData : [])
+      setClosedMonths(closingData.closedMonths ?? [])
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "画面の読み込みに失敗しました"
@@ -364,6 +369,8 @@ export default function HomePageClient() {
           </p>
         </div>
 
+        <ClosingBanner ym={form.run_date.slice(0, 7).replace("-", "")} closedMonths={closedMonths} />
+
         <Card>
           <CardHeader>
             <CardTitle>実績登録フォーム</CardTitle>
@@ -528,7 +535,7 @@ export default function HomePageClient() {
                 <p className="text-sm text-muted-foreground">
                   送信後に実績一覧を再取得して最新表示に更新します。
                 </p>
-                <Button type="submit" disabled={isLoading || isSubmitting}>
+                <Button type="submit" disabled={isLoading || isSubmitting || closedMonths.includes(form.run_date.slice(0, 7).replace("-", ""))}>
                   {isSubmitting ? "登録中..." : "実績を登録"}
                 </Button>
               </div>

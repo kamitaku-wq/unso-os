@@ -39,20 +39,14 @@ export default async function RootLayout({
   if (user?.email) {
     const { data: employee } = await supabase
       .from("employees")
-      .select("name, role, is_active, company_id")
+      .select("name, role, is_active, company_id, companies(is_demo)")
       .eq("google_email", user.email)
       .maybeSingle()
 
     if (employee?.is_active) {
       employeeName = employee.name
       role = employee.role
-
-      // デモ会社かどうかを確認する
-      const { data: company } = await supabase
-        .from("companies")
-        .select("is_demo")
-        .eq("id", employee.company_id)
-        .maybeSingle()
+      const company = employee.companies as { is_demo?: boolean } | null
       isDemo = company?.is_demo ?? false
     }
   }
