@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -43,13 +44,13 @@ export function SetupForm() {
           owner_name: ownerName.trim(),
         }),
       })
-      const data = (await response.json()) as { error?: string }
+      const data = (await response.json()) as { error?: string; company_code?: string }
 
       if (!response.ok) {
         throw new Error(getErrorMessage(data, "初回セットアップに失敗しました"))
       }
 
-      router.replace("/")
+      router.replace("/onboarding")
       router.refresh()
     } catch (error) {
       const message =
@@ -113,7 +114,14 @@ export function SetupForm() {
               </div>
 
               <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "登録中..." : "初回セットアップを完了"}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    登録中...
+                  </>
+                ) : (
+                  "初回セットアップを完了"
+                )}
               </Button>
             </form>
           </CardContent>

@@ -11,10 +11,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const body = await request.json()
 
     if (body.action === 'approve') {
-      if (body.amount == null || isNaN(Number(body.amount))) {
-        return NextResponse.json({ error: '金額を入力してください' }, { status: 400 })
+      const amount = Number(body.amount)
+      if (body.amount == null || isNaN(amount) || amount < 0) {
+        return NextResponse.json({ error: '正しい金額を入力してください' }, { status: 400 })
       }
-      await approveBillable(id, Number(body.amount), employee.name)
+      await approveBillable(id, amount, employee.name)
       return NextResponse.json({ ok: true })
     }
 

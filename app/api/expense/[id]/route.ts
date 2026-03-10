@@ -2,13 +2,22 @@
 import { NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-error'
 import { approveExpense, rejectExpense, reworkExpense, payExpense, cancelExpense, deleteExpense } from '@/lib/core/expense'
-import { requireRole } from '@/lib/core/auth'
+import { requireRole, getMyEmployee } from '@/lib/core/auth'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const employee = await requireRole(['ADMIN', 'OWNER'])
     const { id } = await params
     const body = await request.json()
+
+    // 取り消しは申請者本人（ロール不問）が SUBMITTED を取り消す
+    if (body.action === 'cancel') {
+      await getMyEmployee() // 認証チェックのみ
+      await cancelExpense(id)
+      return NextResponse.json({ ok: true })
+    }
+
+    // それ以外の操作は ADMIN/OWNER のみ
+    const employee = await requireRole(['ADMIN', 'OWNER'])
 
     switch (body.action) {
       case 'approve':
@@ -24,10 +33,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         break
       case 'pay':
         await payExpense(id)
-        break
-      case 'cancel':
-        // 申請者本人が SUBMITTED を取り消す（ロール不問）
-        await cancelExpense(id)
         break
       default:
         return NextResponse.json({ error: '不正な操作です' }, { status: 400 })

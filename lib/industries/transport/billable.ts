@@ -1,5 +1,6 @@
 // 運行実績（billable）のサーバー側ビジネスロジック
 import { createClient } from '@/lib/supabase/server'
+import { getMyEmployee } from '@/lib/core/auth'
 import { isMonthClosed } from '@/lib/core/closing'
 
 type BillableInput = {
@@ -18,17 +19,7 @@ type BillableInput = {
 // 運行実績を新規登録する
 export async function createBillable(data: BillableInput) {
   const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('未認証')
-
-  const { data: employee, error: empError } = await supabase
-    .from('employees')
-    .select('emp_id, company_id')
-    .eq('google_email', user.email!)
-    .single()
-
-  if (empError || !employee) throw new Error('社員情報が見つかりません')
+  const me = await getMyEmployee()
 
   if (data.run_date) {
     const ym = data.run_date.slice(0, 7).replace('-', '')
@@ -40,9 +31,9 @@ export async function createBillable(data: BillableInput) {
   const billable_id = `B-${date}-${rand}`
 
   const { error } = await supabase.from('billables').insert({
-    company_id: employee.company_id,
+    company_id: me.company_id,
     billable_id,
-    emp_id: employee.emp_id,
+    emp_id: me.emp_id,
     status: 'REVIEW_REQUIRED',
     ...data,
   })
@@ -67,10 +58,10 @@ export async function getAllBillables(status?: string) {
   return data ?? []
 }
 
-// 運行実績を承認する（金額も同時に設定）
+// 運行実績を承認する（金額も同時に設定。REVIEW_REQUIRED のみ承認可）
 export async function approveBillable(id: string, amount: number, approvedBy: string) {
   const supabase = await createClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('billables')
     .update({
       status: 'APPROVED',
@@ -79,13 +70,16 @@ export async function approveBillable(id: string, amount: number, approvedBy: st
       approved_by: approvedBy,
     })
     .eq('id', id)
+    .eq('status', 'REVIEW_REQUIRED')
+    .select('id')
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) throw new Error('この実績はすでに処理済みです')
 }
 
-// 運行実績を無効化（VOID）する
+// 運行実績を無効化（VOID）する（APPROVED のみ無効化可）
 export async function voidBillable(id: string, voidBy: string) {
   const supabase = await createClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('billables')
     .update({
       status: 'VOID',
@@ -93,7 +87,10 @@ export async function voidBillable(id: string, voidBy: string) {
       void_by: voidBy,
     })
     .eq('id', id)
+    .in('status', ['REVIEW_REQUIRED', 'APPROVED'])
+    .select('id')
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) throw new Error('この実績はすでに無効化済みです')
 }
 
 // 運行実績を削除する（VOID 済みのみ・ADMIN/OWNER 用）
@@ -115,22 +112,12 @@ export async function deleteBillable(id: string) {
 // ログインユーザー自身の運行実績一覧を取得する
 export async function getMyBillables() {
   const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('未認証')
-
-  const { data: employee } = await supabase
-    .from('employees')
-    .select('emp_id')
-    .eq('google_email', user.email!)
-    .single()
-
-  if (!employee) throw new Error('社員情報が見つかりません')
+  const me = await getMyEmployee()
 
   const { data, error } = await supabase
     .from('billables')
     .select('billable_id, run_date, cust_id, route_id, pickup_loc, drop_loc, status, amount, note, depart_at, arrive_at, vehicle_id, distance_km, timestamp')
-    .eq('emp_id', employee.emp_id)
+    .eq('emp_id', me.emp_id)
     .order('run_date', { ascending: false })
     .limit(50)
 

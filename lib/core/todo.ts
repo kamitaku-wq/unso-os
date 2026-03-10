@@ -120,35 +120,78 @@ export async function getMyTodos(): Promise<{
   received: ReceivedTodo[]
 }> {
   const { supabase, employee } = await getMe()
+  return fetchMyTodosWithClient(supabase, employee.id)
+}
 
-  // 個人Todo（自分が作成した personal）
-  const { data: personal, error: e1 } = await supabase
-    .from('todos')
-    .select('id, todo_id, title, due_date, created_at')
-    .eq('creator_id', employee.id)
-    .eq('type', 'personal')
-    .order('created_at', { ascending: false })
-  if (e1) throw new Error(e1.message)
+// ── 送ったTodo一覧 ────────────────────────────────────────
 
-  // 受け取った割り当てTodo（completed_at が NULL のもの = 未対応）
-  const { data: received, error: e2 } = await supabase
-    .from('todo_assignments')
-    .select(`
-      id,
-      confirmed_at,
-      completed_at,
-      created_at,
-      todos (
-        id, todo_id, title, due_date, created_at,
-        employees!todos_creator_id_fkey ( name )
-      )
-    `)
-    .eq('assignee_id', employee.id)
-    .is('completed_at', null)
-    .order('created_at', { ascending: false })
-  if (e2) throw new Error(e2.message)
+export async function getSentTodos(): Promise<SentTodo[]> {
+  const { supabase, employee } = await getMe()
+  return fetchSentTodosWithClient(supabase, employee.id)
+}
 
-  const receivedList: ReceivedTodo[] = (received ?? []).map((a) => {
+// ── 初回一括取得（1回の認証で personal + received + sent + employees を並列取得）
+export async function getAllTodoData(): Promise<{
+  personal: PersonalTodo[]
+  received: ReceivedTodo[]
+  sent: SentTodo[]
+  employees: { id: string; name: string; role: string }[]
+}> {
+  const { supabase, employee } = await getMe()
+
+  const [myTodos, sent, empRows] = await Promise.all([
+    fetchMyTodosWithClient(supabase, employee.id),
+    fetchSentTodosWithClient(supabase, employee.id),
+    supabase
+      .from('employees')
+      .select('id, name, role')
+      .eq('company_id', employee.company_id)
+      .eq('is_active', true)
+      .neq('id', employee.id)
+      .order('name'),
+  ])
+
+  return {
+    ...myTodos,
+    sent,
+    employees: (empRows.data ?? []).map((r) => ({ id: r.id, name: r.name, role: r.role })),
+  }
+}
+
+// ── 内部ヘルパー: supabase クライアントを受け取って個人Todo + 受信Todoを取得する
+async function fetchMyTodosWithClient(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  employeeId: string
+): Promise<{ personal: PersonalTodo[]; received: ReceivedTodo[] }> {
+  // 個人Todoと受信Todoを並列取得
+  const [personalResult, receivedResult] = await Promise.all([
+    supabase
+      .from('todos')
+      .select('id, todo_id, title, due_date, created_at')
+      .eq('creator_id', employeeId)
+      .eq('type', 'personal')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('todo_assignments')
+      .select(`
+        id,
+        confirmed_at,
+        completed_at,
+        created_at,
+        todos (
+          id, todo_id, title, due_date, created_at,
+          employees!todos_creator_id_fkey ( name )
+        )
+      `)
+      .eq('assignee_id', employeeId)
+      .is('completed_at', null)
+      .order('created_at', { ascending: false }),
+  ])
+
+  if (personalResult.error) throw new Error(personalResult.error.message)
+  if (receivedResult.error) throw new Error(receivedResult.error.message)
+
+  const receivedList: ReceivedTodo[] = (receivedResult.data ?? []).map((a) => {
     const t = a.todos as unknown as {
       id: string; todo_id: string; title: string; due_date: string | null; created_at: string
       employees: { name: string } | null
@@ -166,14 +209,14 @@ export async function getMyTodos(): Promise<{
     }
   })
 
-  return { personal: personal ?? [], received: receivedList }
+  return { personal: personalResult.data ?? [], received: receivedList }
 }
 
-// ── 送ったTodo一覧 ────────────────────────────────────────
-
-export async function getSentTodos(): Promise<SentTodo[]> {
-  const { supabase, employee } = await getMe()
-
+// ── 内部ヘルパー: supabase クライアントを受け取って送信Todoを取得する
+async function fetchSentTodosWithClient(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  creatorId: string
+): Promise<SentTodo[]> {
   const { data, error } = await supabase
     .from('todos')
     .select(`
@@ -183,7 +226,7 @@ export async function getSentTodos(): Promise<SentTodo[]> {
         employees!todo_assignments_assignee_id_fkey ( name )
       )
     `)
-    .eq('creator_id', employee.id)
+    .eq('creator_id', creatorId)
     .eq('type', 'assigned')
     .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)

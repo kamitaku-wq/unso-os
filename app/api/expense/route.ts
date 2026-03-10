@@ -15,11 +15,14 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    const amount = Number(body.amount)
+    if (!body.expense_date) return NextResponse.json({ error: '日付は必須です' }, { status: 400 })
+    if (isNaN(amount) || amount <= 0) return NextResponse.json({ error: '正しい金額を入力してください' }, { status: 400 })
     const result = await createExpense({
       expense_date: body.expense_date,
       category_id: body.category_id,
       category_name: body.category_name,
-      amount: Number(body.amount),
+      amount,
       vendor: body.vendor ?? null,
       description: body.description ?? null,
     })

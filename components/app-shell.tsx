@@ -80,13 +80,15 @@ export function AppShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
 
-  // 未確認Todo件数をページ表示時に取得
+  // 未確認Todo件数をページ表示時に取得（前回リクエストをキャンセルして競合防止）
   useEffect(() => {
     if (!role) return
-    fetch('/api/todo/unread-count')
+    const controller = new AbortController()
+    fetch('/api/todo/unread-count', { signal: controller.signal })
       .then((r) => r.ok ? r.json() : { count: 0 })
       .then((d) => setUnreadCount(d.count))
       .catch(() => {})
+    return () => controller.abort()
   }, [role, pathname])
 
   const navigationItems = useMemo(() => getNavigationItems(role), [role])
@@ -157,8 +159,8 @@ export function AppShell({
             {/* 右側: ベルアイコン + デモスイッチャー + ログアウト + ハンバーガー */}
             <div className="flex items-center gap-2">
               {role ? (
-                <Link href="/todo" className="relative flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
-                  <Bell className="size-5" />
+                <Link href="/todo" className="relative flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Todo通知">
+                  <Bell className="size-5" aria-hidden="true" />
                   {unreadCount > 0 && (
                     <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                       {unreadCount > 9 ? '9+' : unreadCount}
