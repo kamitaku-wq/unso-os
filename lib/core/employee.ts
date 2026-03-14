@@ -1,5 +1,6 @@
 // 社員管理のサーバー側ビジネスロジック
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // 社員一覧を取得する（ADMIN/OWNER 用）
 export async function getEmployees() {
@@ -122,6 +123,40 @@ export async function approveEmpRequest(requestId: string, decidedBy: string) {
   if (updErr) throw new Error(updErr.message)
 
   return { emp_id }
+}
+
+// 無効化済み社員を物理削除する（ADMIN/OWNER 用）
+// 関連する todo_assignments・todos・push_subscriptions を先に削除
+// push_subscriptions は RLS で自レコードのみ削除可のため、admin クライアントを使用
+export async function deleteEmployee(id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('未認証')
+
+  const { data: emp, error: empErr } = await supabase
+    .from('employees')
+    .select('id, emp_id, is_active, role, company_id')
+    .eq('id', id)
+    .single()
+  if (empErr || !emp) throw new Error('社員が見つかりません')
+  if (emp.is_active) throw new Error('無効化済みの社員のみ削除できます。先に無効化してください。')
+
+  // 最後の OWNER は削除不可
+  const { count } = await supabase
+    .from('employees')
+    .select('id', { count: 'exact', head: true })
+    .eq('company_id', emp.company_id)
+    .eq('role', 'OWNER')
+    .eq('is_active', true)
+  if ((count ?? 0) <= 0) throw new Error('OWNER が1人もいない状態では削除できません')
+
+  const admin = createAdminClient()
+  // 関連データを削除（外部キー制約のため順序重要）
+  await admin.from('todo_assignments').delete().eq('assignee_id', id)
+  await admin.from('todos').delete().eq('creator_id', id)
+  await admin.from('push_subscriptions').delete().eq('emp_id', id)
+  const { error } = await admin.from('employees').delete().eq('id', id)
+  if (error) throw new Error(error.message)
 }
 
 // 社員申請を却下する

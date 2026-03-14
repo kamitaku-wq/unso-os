@@ -5,6 +5,16 @@ import { Database } from "lucide-react"
 import { toast } from "sonner"
 
 import { EmptyState } from "@/components/empty-state"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -51,6 +61,7 @@ export function EmployeeManagementPanel() {
   const [actionMessage, setActionMessage] = useState("")
   const [hasNoPermission, setHasNoPermission] = useState(false)
   const [processingKey, setProcessingKey] = useState("")
+  const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null)
 
   useEffect(() => {
     if (pageError) {
@@ -186,6 +197,77 @@ export function EmployeeManagementPanel() {
     [loadEmployees]
   )
 
+  const handleReactivate = useCallback(
+    async (employee: Employee) => {
+      setProcessingKey(`active:${employee.id}`)
+      setPageError("")
+      setActionMessage("")
+
+      try {
+        const response = await fetch(`/api/admin/employees/${employee.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_active: true }),
+        })
+        const data = (await response.json()) as { error?: string }
+
+        if (response.status === 403) {
+          setHasNoPermission(true)
+          return
+        }
+
+        if (!response.ok) {
+          throw new Error(getErrorMessage(data, "社員の再有効化に失敗しました"))
+        }
+
+        setActionMessage(`社員 ${employee.emp_id} を再有効化しました。`)
+        await loadEmployees()
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "社員の再有効化に失敗しました"
+        setPageError(message)
+      } finally {
+        setProcessingKey("")
+      }
+    },
+    [loadEmployees]
+  )
+
+  const handleDelete = useCallback(
+    async (employee: Employee) => {
+      setProcessingKey(`delete:${employee.id}`)
+      setEmployeeToDelete(null)
+      setPageError("")
+      setActionMessage("")
+
+      try {
+        const response = await fetch(`/api/admin/employees/${employee.id}`, {
+          method: "DELETE",
+        })
+        const data = (await response.json()) as { error?: string }
+
+        if (response.status === 403) {
+          setHasNoPermission(true)
+          return
+        }
+
+        if (!response.ok) {
+          throw new Error(getErrorMessage(data, "社員の削除に失敗しました"))
+        }
+
+        setActionMessage(`社員 ${employee.emp_id} を削除しました。`)
+        await loadEmployees()
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "社員の削除に失敗しました"
+        setPageError(message)
+      } finally {
+        setProcessingKey("")
+      }
+    },
+    [loadEmployees]
+  )
+
   if (hasNoPermission) {
     return (
       <Card>
@@ -200,6 +282,28 @@ export function EmployeeManagementPanel() {
 
   return (
     <div className="flex flex-col gap-6">
+      <AlertDialog open={!!employeeToDelete} onOpenChange={(open) => !open && setEmployeeToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>社員を削除しますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              {employeeToDelete
+                ? `社員 ${employeeToDelete.emp_id}（${employeeToDelete.name}）を完全に削除します。この操作は取り消せません。`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => employeeToDelete && void handleDelete(employeeToDelete)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              削除する
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -283,7 +387,26 @@ export function EmployeeManagementPanel() {
                               {isActiveUpdating ? "更新中..." : "無効化"}
                             </Button>
                           ) : (
-                            <span className="text-sm text-muted-foreground">無効</span>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void handleReactivate(employee)}
+                                disabled={!!processingKey}
+                              >
+                                {isActiveUpdating ? "更新中..." : "再有効化"}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => setEmployeeToDelete(employee)}
+                                disabled={!!processingKey}
+                              >
+                                {processingKey === `delete:${employee.id}` ? "削除中..." : "削除"}
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
