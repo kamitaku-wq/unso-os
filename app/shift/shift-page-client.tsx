@@ -35,10 +35,18 @@ type ShiftRow = {
   note: string | null
 }
 
+type DailySummary = {
+  clockIn: string | null
+  clockOut: string | null
+  totalAmount: number
+  jobCount: number
+}
+
 type ShiftData = {
   shifts: ShiftRow[]
   employees: Employee[]
   role: Role | null
+  dailySummaries?: Record<string, DailySummary>
 }
 
 type ModalState = {
@@ -197,10 +205,12 @@ export default function ShiftPageClient() {
   // セルに表示するテキストを返す（O(1) Map検索）
   function getCellContent(emp_id: string, shift_date: string) {
     const shift = shiftMap.get(`${emp_id}_${shift_date}`)
-    if (!shift) return null
-    if (shift.is_day_off) return { text: "休み", isDayOff: true }
-    const parts = [shift.location, shift.work_type].filter(Boolean)
-    return { text: parts.join(" / ") || "（内容未設定）", isDayOff: false }
+    const summary = shiftData.dailySummaries?.[`${emp_id}_${shift_date}`] ?? null
+    if (!shift && !summary) return null
+    if (shift?.is_day_off) return { text: "休み", isDayOff: true, summary: null }
+    const parts = [shift?.location, shift?.work_type].filter(Boolean)
+    const shiftText = parts.join(" / ") || (shift ? "（内容未設定）" : "")
+    return { text: shiftText, isDayOff: false, summary }
   }
 
   const mondayLabel = toISODate(monday).replace(/-/g, "/")
@@ -302,9 +312,25 @@ export default function ShiftPageClient() {
                               ].join(" ")}
                             >
                               {cell ? (
-                                <span className={cell.isDayOff ? "text-xs" : "text-xs font-medium"}>
-                                  {cell.text}
-                                </span>
+                                <div className="space-y-0.5">
+                                  {cell.text ? (
+                                    <span className={cell.isDayOff ? "text-xs" : "text-xs font-medium"}>
+                                      {cell.text}
+                                    </span>
+                                  ) : null}
+                                  {cell.summary ? (
+                                    <div className="text-[10px] leading-tight text-emerald-600">
+                                      {cell.summary.clockIn && cell.summary.clockOut
+                                        ? `${cell.summary.clockIn}–${cell.summary.clockOut}`
+                                        : cell.summary.clockIn
+                                          ? `${cell.summary.clockIn}–`
+                                          : null}
+                                      {cell.summary.jobCount > 0 ? (
+                                        <div>¥{cell.summary.totalAmount.toLocaleString()} / {cell.summary.jobCount}件</div>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+                                </div>
                               ) : (
                                 <span className="text-xs text-muted-foreground/40">
                                   {canEdit ? "＋" : "－"}

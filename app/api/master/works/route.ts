@@ -1,7 +1,7 @@
 // 作業種別マスタ API
 import { NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-error'
-import { getWorkTypes, createWorkType, updateWorkType } from '@/lib/industries/car-cleaning/master'
+import { getWorkTypes, createWorkType, updateWorkType, reorderWorkTypes } from '@/lib/industries/car-cleaning/master'
 
 export async function GET() {
   try {
@@ -24,7 +24,13 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { id, ...input } = await request.json()
+    const body = await request.json()
+    // 並び替え一括更新
+    if (body.action === 'reorder' && Array.isArray(body.orderedIds)) {
+      await reorderWorkTypes(body.orderedIds as string[])
+      return NextResponse.json({ ok: true })
+    }
+    const { id, ...input } = body
     if (!id) return NextResponse.json({ error: 'id が必要です' }, { status: 400 })
     await updateWorkType(id, input)
     return NextResponse.json({ ok: true })

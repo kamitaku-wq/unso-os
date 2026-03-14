@@ -281,6 +281,16 @@ export default function ExpensePageClient() {
         return
       }
 
+      if (!form.vendor.trim()) {
+        setPageError("支払先を入力してください")
+        return
+      }
+
+      if (!form.description.trim()) {
+        setPageError("内容を入力してください")
+        return
+      }
+
       setBusyKey("submit-expense")
       setPageError("")
       setSubmitMessage("")
@@ -384,7 +394,7 @@ export default function ExpensePageClient() {
             <CardHeader>
               <CardTitle>新規申請</CardTitle>
               <CardDescription>
-                経費日、区分、金額は必須です。支払先、内容、レシートは任意で入力できます。
+                経費日、区分、金額、支払先、内容は必須です。レシートは任意で添付できます。
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -470,7 +480,8 @@ export default function ExpensePageClient() {
                       }))
                     }
                     disabled={isLoading || isMutating}
-                    placeholder="任意"
+                    placeholder="例: ENEOS"
+                    required
                   />
                 </div>
 
@@ -486,7 +497,8 @@ export default function ExpensePageClient() {
                       }))
                     }
                     disabled={isLoading || isMutating}
-                    placeholder="任意"
+                    placeholder="例: 現場移動用ガソリン"
+                    required
                   />
                 </div>
 

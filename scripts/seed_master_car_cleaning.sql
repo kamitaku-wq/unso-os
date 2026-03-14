@@ -8,9 +8,8 @@ DO $$
 DECLARE
   v_cid uuid;
 BEGIN
-  -- 対象会社を取得（1社のみの場合は LIMIT 1 で取得）
-  -- ※ 複数会社がある場合は WHERE id = '会社のUUID' で絞ること
-  SELECT id INTO v_cid FROM companies LIMIT 1;
+  -- 本番会社（is_demo = false）を取得
+  SELECT id INTO v_cid FROM companies WHERE is_demo = false LIMIT 1;
 
   IF v_cid IS NULL THEN
     RAISE EXCEPTION '会社が見つかりません。先に /setup から会社を登録してください。';
@@ -70,7 +69,7 @@ BEGIN
       'cleaning_job', true,
       'billable', false,
       'expense', true,
-      'attendance', true,
+      'attendance', false,
       'shift', true,
       'invoice', true,
       'payroll', true,
@@ -82,8 +81,8 @@ BEGIN
 END $$;
 
 -- 確認
-SELECT 'stores' AS type, COUNT(*) AS cnt FROM customers WHERE company_id = (SELECT id FROM companies WHERE id = (SELECT id FROM companies LIMIT 1))
+SELECT 'stores' AS type, COUNT(*) AS cnt FROM customers WHERE company_id = (SELECT id FROM companies WHERE is_demo = false LIMIT 1)
 UNION ALL
-SELECT 'works', COUNT(*) FROM works WHERE company_id = (SELECT id FROM companies WHERE id = (SELECT id FROM companies LIMIT 1))
+SELECT 'works', COUNT(*) FROM works WHERE company_id = (SELECT id FROM companies WHERE is_demo = false LIMIT 1)
 UNION ALL
-SELECT 'expense_categories', COUNT(*) FROM expense_categories WHERE company_id = (SELECT id FROM companies WHERE id = (SELECT id FROM companies LIMIT 1));
+SELECT 'expense_categories', COUNT(*) FROM expense_categories WHERE company_id = (SELECT id FROM companies WHERE is_demo = false LIMIT 1);

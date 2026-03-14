@@ -136,10 +136,16 @@ export default function JobPageClient() {
     })
   }
 
-  // 行追加（前の行の店舗を引き継ぎ）
+  // 行追加（前の行の店舗と作業種別を引き継ぎ）
   function addEntry() {
     const last = entries[entries.length - 1]
-    setEntries((prev) => [...prev, { ...emptyEntry(), store: last?.store ?? "" }])
+    const inherited = { ...emptyEntry(), store: last?.store ?? "", work: last?.work ?? "" }
+    // 引き継いだ作業種別の単価もセット
+    if (inherited.work) {
+      const w = works.find((x) => x.work_code === inherited.work)
+      if (w?.default_unit_price != null) inherited.unitPrice = String(w.default_unit_price)
+    }
+    setEntries((prev) => [...prev, inherited])
   }
 
   // 行削除
@@ -163,6 +169,16 @@ export default function JobPageClient() {
       const work = works.find((w) => w.work_code === entry.work)
       if (!store || !work) continue
 
+      if (!entry.carType.trim()) {
+        toast.error(`${work.name}: 車種を入力してください`)
+        setIsSaving(false)
+        return
+      }
+      if (!entry.idList.trim()) {
+        toast.error(`${work.name}: 車両管理番号を入力してください`)
+        setIsSaving(false)
+        return
+      }
       const qty = autoQtyFromIdList(entry.idList) ?? parseInt(entry.qty, 10)
       const unitPrice = parseFloat(entry.unitPrice)
       if (!qty || qty <= 0 || isNaN(unitPrice)) {
@@ -437,14 +453,14 @@ function EntryRow({ entry, idx, stores, works, total, onUpdate, onWorkChange, on
         <Input
           value={entry.carType}
           onChange={(e) => onUpdate(idx, { carType: e.target.value })}
-          placeholder="車種（任意）"
+          placeholder="車種（必須）"
           className="text-xs"
           disabled={disabled}
         />
         <Textarea
           value={entry.idList}
           onChange={(e) => onUpdate(idx, { idList: e.target.value })}
-          placeholder="車両管理番号（1行1台、任意）"
+          placeholder="車両管理番号（1行1台、必須）"
           rows={2}
           className="text-xs"
           disabled={disabled}

@@ -9,6 +9,7 @@ export type WorkType = {
   default_unit_price: number | null
   is_active: boolean
   note: string | null
+  sort_order: number
 }
 
 // 作業種別一覧を取得する
@@ -18,7 +19,8 @@ export async function getWorkTypes(): Promise<WorkType[]> {
 
   const { data, error } = await supabase
     .from('works')
-    .select('id, work_code, name, default_unit_price, is_active, note')
+    .select('id, work_code, name, default_unit_price, is_active, note, sort_order')
+    .order('sort_order')
     .order('work_code')
 
   if (error) throw new Error(error.message)
@@ -48,6 +50,7 @@ export async function updateWorkType(id: string, input: {
   default_unit_price?: number | null
   is_active?: boolean
   note?: string | null
+  sort_order?: number
 }) {
   await requireRole(['ADMIN', 'OWNER'])
   const supabase = await createClient()
@@ -57,4 +60,18 @@ export async function updateWorkType(id: string, input: {
     .update(input)
     .eq('id', id)
   if (error) throw new Error(error.message)
+}
+
+// 作業種別の表示順を一括更新する（ADMIN/OWNER のみ）
+export async function reorderWorkTypes(orderedIds: string[]) {
+  await requireRole(['ADMIN', 'OWNER'])
+  const supabase = await createClient()
+
+  for (let i = 0; i < orderedIds.length; i++) {
+    const { error } = await supabase
+      .from('works')
+      .update({ sort_order: i + 1 })
+      .eq('id', orderedIds[i])
+    if (error) throw new Error(error.message)
+  }
 }

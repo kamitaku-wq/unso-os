@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Database } from "lucide-react"
+import { ArrowDown, ArrowUp, Database } from "lucide-react"
 import { toast } from "sonner"
 
 import { EmptyState } from "@/components/empty-state"
@@ -21,6 +21,7 @@ type Work = {
   default_unit_price: number | null
   is_active: boolean
   note: string | null
+  sort_order: number
 }
 
 type WorkForm = {
@@ -32,7 +33,7 @@ type WorkForm = {
 
 const initialForm: WorkForm = { work_code: "", name: "", default_unit_price: "", note: "" }
 
-// 作業種別マスタの一覧表示・登録・編集を担当するパネルコンポーネント
+// 作業種別マスタの一覧表示・登録・編集・並び替えを担当するパネルコンポーネント
 export function WorksPanel() {
   const [works, setWorks] = useState<Work[]>([])
   const [form, setForm] = useState<WorkForm>(initialForm)
@@ -115,6 +116,31 @@ export function WorksPanel() {
     }
   }, [editing, load])
 
+  // 並び替え（上下ボタン）
+  const handleMove = useCallback(async (idx: number, direction: -1 | 1) => {
+    const newIdx = idx + direction
+    if (newIdx < 0 || newIdx >= works.length) return
+    const reordered = [...works]
+    const [moved] = reordered.splice(idx, 1)
+    reordered.splice(newIdx, 0, moved)
+    setWorks(reordered)
+
+    setBusyKey("reorder")
+    try {
+      const res = await fetch("/api/master/works", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reorder", orderedIds: reordered.map((w) => w.id) }),
+      })
+      if (!res.ok) throw new Error("並び替えに失敗しました")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "並び替えに失敗しました")
+      await load()
+    } finally {
+      setBusyKey(null)
+    }
+  }, [works, load])
+
   const formatPrice = (p: number | null) => p != null ? `¥${p.toLocaleString()}` : "—"
 
   return (
@@ -162,18 +188,19 @@ export function WorksPanel() {
           <CardHeader>
             <CardTitle>作業種別一覧</CardTitle>
             <CardDescription>
-              {isLoading ? "読み込み中..." : `${works.length}件を表示しています。`}
+              {isLoading ? "読み込み中..." : `${works.length}件。↑↓ボタンで表示順を変更できます。`}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <TableSkeleton columns={5} rows={4} />
+              <TableSkeleton columns={6} rows={4} />
             ) : works.length === 0 ? (
               <EmptyState icon={Database} description="左のフォームから最初の作業種別を登録してください" />
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-16">順序</TableHead>
                     <TableHead>コード</TableHead>
                     <TableHead>名称</TableHead>
                     <TableHead className="text-right">単価</TableHead>
@@ -182,8 +209,22 @@ export function WorksPanel() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {works.map((w) => (
+                  {works.map((w, idx) => (
                     <TableRow key={w.id} className={w.is_active ? "" : "opacity-50"}>
+                      <TableCell>
+                        <div className="flex gap-0.5">
+                          <button type="button" disabled={idx === 0 || isMutating}
+                            onClick={() => void handleMove(idx, -1)}
+                            className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30">
+                            <ArrowUp className="size-3.5" />
+                          </button>
+                          <button type="button" disabled={idx === works.length - 1 || isMutating}
+                            onClick={() => void handleMove(idx, 1)}
+                            className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30">
+                            <ArrowDown className="size-3.5" />
+                          </button>
+                        </div>
+                      </TableCell>
                       <TableCell>{w.work_code}</TableCell>
                       <TableCell>{w.name}</TableCell>
                       <TableCell className="text-right">{formatPrice(w.default_unit_price)}</TableCell>
