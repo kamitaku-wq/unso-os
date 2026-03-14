@@ -321,11 +321,6 @@ export default function ExpensePageClient() {
         return
       }
 
-      if (!form.description.trim()) {
-        setPageError("内容を入力してください")
-        return
-      }
-
       // 区分別の動的フィールドバリデーション
       const fieldType = getDynamicFieldType(form.category_id)
       if (fieldType === "gas" && !form.extra.gas_liters.trim()) {
@@ -451,7 +446,7 @@ export default function ExpensePageClient() {
             <CardHeader>
               <CardTitle>新規申請</CardTitle>
               <CardDescription>
-                経費日、区分、金額、支払先、内容は必須です。レシートは任意で添付できます。
+                経費日、区分、金額、支払先は必須です。区分に応じた追加入力があります。
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -586,8 +581,7 @@ export default function ExpensePageClient() {
                       }))
                     }
                     disabled={isLoading || isMutating}
-                    placeholder="例: 現場移動用ガソリン"
-                    required
+                    placeholder="任意（区分別入力に含まれない補足があれば）"
                   />
                 </div>
 
