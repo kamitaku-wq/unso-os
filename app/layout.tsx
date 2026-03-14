@@ -33,21 +33,23 @@ export default async function RootLayout({
   } = await supabase.auth.getUser()
 
   let employeeName: string | null = null
-  let role: "DRIVER" | "ADMIN" | "OWNER" | null = null
+  let role: "WORKER" | "ADMIN" | "OWNER" | null = null
   let isDemo = false
+  let customSettings: Record<string, unknown> | null = null
 
   if (user?.email) {
     const { data: employee } = await supabase
       .from("employees")
-      .select("name, role, is_active, company_id, companies(is_demo)")
+      .select("name, role, is_active, company_id, companies(is_demo, custom_settings)")
       .eq("google_email", user.email)
       .maybeSingle()
 
     if (employee?.is_active) {
       employeeName = employee.name
       role = employee.role
-      const company = employee.companies as { is_demo?: boolean } | null
+      const company = employee.companies as { is_demo?: boolean; custom_settings?: Record<string, unknown> } | null
       isDemo = company?.is_demo ?? false
+      customSettings = (company?.custom_settings as Record<string, unknown>) ?? null
     }
   }
 
@@ -56,7 +58,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AppShell userEmail={user?.email ?? null} employeeName={employeeName} role={role} isDemo={isDemo}>
+        <AppShell userEmail={user?.email ?? null} employeeName={employeeName} role={role} isDemo={isDemo} customSettings={customSettings}>
           {children}
         </AppShell>
         <PushSetup />

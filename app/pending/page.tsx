@@ -18,14 +18,14 @@ export const metadata: Metadata = {
   title: "承認待ち | 運送OS",
 }
 
-function getHomePath(role: "DRIVER" | "ADMIN" | "OWNER") {
+function getHomePath(role: "WORKER" | "ADMIN" | "OWNER") {
   if (role === "OWNER") return "/dashboard"
   if (role === "ADMIN") return "/admin"
   return "/"
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  DRIVER: "ドライバー",
+  WORKER: "ワーカー",
   ADMIN: "管理者",
   OWNER: "経営者",
 }

@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const result = await submitEmpRequest({
       name: body.name,
       google_email: user.email!,
-      role_requested: body.role_requested ?? 'DRIVER',
+      role_requested: body.role_requested ?? 'WORKER',
       company_id: company.id,
     })
     return NextResponse.json(result, { status: 201 })

@@ -110,7 +110,7 @@ export async function useInviteToken(token: string, name: string): Promise<{ req
     company_id: tokenRow.company_id,
     name: name.trim(),
     google_email: user.email,
-    role_requested: 'DRIVER',
+    role_requested: 'WORKER',
     status: 'PENDING',
     submitted_at: new Date().toISOString(),
   })

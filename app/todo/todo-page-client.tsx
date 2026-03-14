@@ -14,7 +14,7 @@ import type { PersonalTodo, ReceivedTodo, SentTodo } from '@/lib/core/todo'
 type Employee = { id: string; name: string; role: string }
 
 const ROLE_LABELS: Record<string, string> = {
-  DRIVER: 'ドライバー', ADMIN: '管理者', OWNER: '経営者',
+  WORKER: 'ワーカー', ADMIN: '管理者', OWNER: '経営者',
 }
 
 function isOverdue(due_date: string | null) {

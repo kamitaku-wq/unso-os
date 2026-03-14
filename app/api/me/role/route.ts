@@ -11,7 +11,7 @@ export async function PATCH(request: Request) {
     if (!user?.email) return NextResponse.json({ error: '未認証' }, { status: 401 })
 
     const { role } = await request.json()
-    const validRoles = ['DRIVER', 'ADMIN', 'OWNER']
+    const validRoles = ['WORKER', 'ADMIN', 'OWNER']
     if (!validRoles.includes(role)) {
       return NextResponse.json({ error: '無効なロールです' }, { status: 400 })
     }

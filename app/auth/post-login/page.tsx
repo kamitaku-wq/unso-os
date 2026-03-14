@@ -3,7 +3,7 @@ import { headers } from "next/headers"
 
 import { createClient } from "@/lib/supabase/server"
 
-function getHomePath(role: "DRIVER" | "ADMIN" | "OWNER") {
+function getHomePath(role: "WORKER" | "ADMIN" | "OWNER") {
   if (role === "OWNER") return "/dashboard"
   if (role === "ADMIN") return "/admin"
   return "/"
@@ -42,7 +42,7 @@ export default async function PostLoginPage() {
     redirect("/pending")
   }
 
-  // 未登録ユーザー: デモ会社なら自動 DRIVER 登録、通常会社なら申請ページへ
+  // 未登録ユーザー: デモ会社なら自動 WORKER 登録、通常会社なら申請ページへ
   const headersList = await headers()
   const host = headersList.get("host") ?? "localhost:3000"
   const protocol = host.includes("localhost") ? "http" : "https"

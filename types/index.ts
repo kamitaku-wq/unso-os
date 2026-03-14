@@ -1,6 +1,6 @@
 // アプリ全体で使う共有型定義
 
-export type Role = 'DRIVER' | 'ADMIN' | 'OWNER'
+export type Role = 'WORKER' | 'ADMIN' | 'OWNER'
 
 export type BillableStatus = 'REVIEW_REQUIRED' | 'APPROVED' | 'VOID'
 export type ExpenseStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'PAID' | 'REWORK_REQUIRED'

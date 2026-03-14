@@ -60,9 +60,10 @@ unso-os/
 │   ├── auth/                   # OAuth コールバック（next パラメータ対応）
 │   ├── admin/page.tsx          # 管理者承認画面（実績・経費・勤怠・社員・締め・招待）
 │   ├── dashboard/page.tsx      # 経営ダッシュボード（OWNER専用）
-│   ├── expense/page.tsx        # 経費申請・一覧（DRIVER: 申請+取り消し）
+│   ├── job/page.tsx             # 清掃作業実績（登録・一覧・承認）
+│   ├── expense/page.tsx        # 経費申請・一覧（WORKER: 申請+取り消し）
 │   ├── master/page.tsx         # マスタ管理（荷主・ルート・運賃・経費区分・車両）
-│   ├── attendance/page.tsx     # 勤怠管理（DRIVER: 申請+取り消し）
+│   ├── attendance/page.tsx     # 勤怠管理（WORKER: 申請+取り消し）
 │   ├── shift/page.tsx          # シフト管理（全員閲覧・ADMIN/OWNER編集）
 │   ├── invoice/page.tsx        # 請求書
 │   ├── payroll/page.tsx        # 給与計算・設定
@@ -70,11 +71,14 @@ unso-os/
 │       ├── admin/              # 管理者用API（attendances, billables, employees, emp-requests, expenses, invite）
 │       ├── attendance/[id]/    # 勤怠個別（承認・却下・取り消し・削除）
 │       ├── billable/[id]/      # 実績個別（承認・却下・VOID・削除）
+│       ├── cleaning-job/       # 清掃作業実績（一覧+登録）
+│       ├── cleaning-job/[id]/  # 清掃作業個別（承認・VOID・削除）
+│       ├── cron/drive-sync/    # Google Drive 画像転送 Cron
 │       ├── demo-register/      # デモ会社への自動登録（is_demo=true の場合のみ）
 │       ├── expense/[id]/       # 経費個別（承認・却下・取り消し・削除）
 │       ├── export/             # CSV エクスポート（attendances・billables・expenses）
 │       ├── invite/             # 招待トークン経由の申請受付（公開エンドポイント）
-│       ├── master/             # マスタデータ（customers・routes・ratecards・vehicles・expense-categories）
+│       ├── master/             # マスタデータ（customers・routes・ratecards・vehicles・expense-categories・works）
 │       ├── me/                 # ログイン中社員情報取得
 │       ├── shift/[id]/         # シフト個別操作
 │       └── payroll/            # 給与計算・設定
@@ -94,12 +98,15 @@ unso-os/
 │   │   ├── invite.ts           # 招待トークン（発行・一覧・失効・使用）
 │   │   └── shift.ts            # シフト（取得・登録・削除）
 │   ├── industries/
-│   │   └── transport/          # 運送業固有のビジネスロジック
-│   │       ├── billable.ts     # 運行実績（申請・承認・却下・VOID・削除）
-│   │       ├── dashboard.ts    # ダッシュボード集計
-│   │       ├── invoice.ts      # 請求書生成
-│   │       ├── master.ts       # マスタCRUD（荷主・ルート・運賃・車両・経費区分）
-│   │       └── templates/      # 帳票テンプレート
+│   │   ├── transport/          # 運送業固有のビジネスロジック
+│   │   │   ├── billable.ts     # 運行実績（申請・承認・却下・VOID・削除）
+│   │   │   ├── dashboard.ts    # ダッシュボード集計
+│   │   │   ├── invoice.ts      # 請求書生成
+│   │   │   ├── master.ts       # マスタCRUD（荷主・ルート・運賃・車両・経費区分）
+│   │   │   └── templates/      # 帳票テンプレート
+│   │   └── car-cleaning/       # 清掃業固有のビジネスロジック
+│   │       ├── job.ts          # 清掃作業実績（登録・承認・VOID・削除）
+│   │       └── master.ts       # 作業種別マスタ CRUD
 │   ├── api-error.ts            # API エラーハンドリング共通関数
 │   └── format.ts               # 日付・金額・エラーメッセージのフォーマット
 ├── supabase/
@@ -123,7 +130,7 @@ unso-os/
 | テーブル名 | 内容 |
 |---|---|
 | `companies` | テナント管理。`industry`・`custom_settings`・`is_demo` カラムを持つ |
-| `employees` | ユーザー・ロール管理（DRIVER / ADMIN / OWNER） |
+| `employees` | ユーザー・ロール管理（WORKER / ADMIN / OWNER） |
 | `emp_requests` | 社員登録申請（PENDING / APPROVED / REJECTED） |
 | `invite_tokens` | 招待リンク用トークン（有効期限7日・is_active管理） |
 | `customers` | 荷主マスタ |
@@ -137,6 +144,8 @@ unso-os/
 | `shifts` | 週間シフト（UNIQUE: company_id + emp_id + shift_date） |
 | `monthly_closings` | 月次締め管理 |
 | `payrolls` | 給与計算結果 |
+| `works` | 作業種別マスタ（清掃業務用。UNIQUE: company_id + work_code） |
+| `cleaning_jobs` | 清掃作業実績（REVIEW_REQUIRED / APPROVED / VOID） |
 | `todos` | Todo本体（個人・割り当て共通。物理削除） |
 | `todo_assignments` | 割り当てTodoの受信者別ステータス（confirmed_at・completed_at） |
 | `push_subscriptions` | Web Push購読情報（UNIQUE: emp_id + endpoint） |
@@ -161,6 +170,9 @@ is_demo        boolean DEFAULT false      -- デモ会社フラグ（true=自動
 | `008_shifts.sql` | シフトテーブル + RLS |
 | `009_invite_tokens.sql` | 招待トークンテーブル + RLS |
 | `010_todos.sql` | todos・todo_assignments・push_subscriptions テーブル + RLS |
+| `013_rename_driver_to_worker.sql` | DRIVER → WORKER ロール名変更 |
+| `014_receipt_sync.sql` | expenses に receipt_synced カラム追加 |
+| `015_car_cleaning.sql` | cleaning_jobs・works テーブル + RLS |
 
 ---
 
@@ -172,7 +184,7 @@ Google OAuth
   → auth/post-login
       ├─ employees に登録済み → ロール別トップへ
       ├─ emp_requests に PENDING あり → /pending
-      ├─ is_demo=true の会社 → demo-register で DRIVER 自動登録 → /
+      ├─ is_demo=true の会社 → demo-register で WORKER 自動登録 → /
       └─ 通常会社（is_demo=false）→ /register（申請フォーム）
 
 招待リンク（/invite?token=xxx）
@@ -186,7 +198,7 @@ Google OAuth
 
 | ロール | 主な権限 |
 |---|---|
-| `DRIVER` | 自分の実績・経費・勤怠の申請と取り消し。シフト閲覧（自分のみ） |
+| `WORKER` | 自分の実績・経費・勤怠の申請と取り消し。シフト閲覧（自分のみ） |
 | `ADMIN` | 承認・却下・削除。マスタ管理。全員のシフト編集。招待リンク発行 |
 | `OWNER` | ADMIN の全権限 + ダッシュボード + 月次締め + 給与計算 |
 
@@ -198,6 +210,7 @@ Google OAuth
 | 経費（expense） | 申請・取り消し（SUBMITTED のみ） | 承認・却下・削除（REJECTED のみ） |
 | 勤怠（attendance） | 申請・取り消し（SUBMITTED のみ） | 承認・却下・削除（REJECTED のみ） |
 | シフト（shift） | 閲覧のみ（自分のみ） | 作成・編集・削除（全員分） |
+| 清掃実績（cleaning_job） | 登録のみ | 承認・VOID・削除（VOID のみ） |
 
 ---
 
@@ -210,8 +223,8 @@ Google OAuth
 | 運行実績入力・承認 | ✅ 完成 | 承認時に運賃マスタから金額自動補完 |
 | 経費申請・承認 | ✅ 完成 | 領収書アップロード対応 |
 | 勤怠申請・承認 | ✅ 完成 | 月次締め後は入力ロック |
-| 週間シフト管理 | ✅ 完成 | ADMIN/OWNER編集・DRIVER閲覧のみ |
-| マスタ管理 | ✅ 完成 | 荷主・ルート・運賃・車両・経費区分 |
+| 週間シフト管理 | ✅ 完成 | ADMIN/OWNER編集・WORKER閲覧のみ |
+| マスタ管理 | ✅ 完成 | 荷主・ルート・運賃・車両・経費区分・作業種別 |
 | 月次締め | ✅ 完成 | 締め後は実績・経費・勤怠の新規入力をブロック |
 | 給与計算 | ✅ 完成 | 月給・時給対応。勤怠データから自動計算 |
 | 請求書生成 | ✅ 完成 | |
@@ -221,6 +234,10 @@ Google OAuth
 | Web Push通知 + PWA | ✅ 完成 | VAPID・Service Worker・Vercel Cron（朝8時リマインダー） |
 | ヘッダー未読バッジ | ✅ 完成 | ベルアイコン・未確認件数をリアルタイム表示 |
 | エラー監視（Axiom） | ✅ 完成 | next-axiomによるリクエスト・エラーログ |
+| 機能表示制御 | ✅ 完成 | custom_settings.enabled_features でナビ項目を会社別に表示/非表示 |
+| アプリ名カスタマイズ | ✅ 完成 | custom_settings.app_name でヘッダー表示名を変更 |
+| 清掃作業実績（car-cleaning） | ✅ 完成 | 作業種別・店舗・車両ID管理・承認フロー |
+| Google Drive 画像転送 | ✅ 完成 | Supabase Storage → Vercel Cron → 各社 Google Drive |
 | デモモード | 🔶 部分実装 | is_demo フラグで分岐するが、デモデータは未投入 |
 
 ---

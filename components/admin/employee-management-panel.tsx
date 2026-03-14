@@ -32,7 +32,7 @@ import {
 import { TableSkeleton } from "@/components/table-skeleton"
 import { formatDateTime, getErrorMessage } from "@/lib/format"
 
-type EmployeeRole = "DRIVER" | "ADMIN" | "OWNER"
+type EmployeeRole = "WORKER" | "ADMIN" | "OWNER"
 
 type Employee = {
   id: string
@@ -256,7 +256,7 @@ export function EmployeeManagementPanel() {
                               <SelectValue placeholder="ロールを選択" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="DRIVER">DRIVER</SelectItem>
+                              <SelectItem value="WORKER">WORKER</SelectItem>
                               <SelectItem value="ADMIN">ADMIN</SelectItem>
                               <SelectItem value="OWNER">OWNER</SelectItem>
                             </SelectContent>

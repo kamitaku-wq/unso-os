@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/table"
 import { formatCurrency, formatDateTime, getErrorMessage } from "@/lib/format"
 
-type UserRole = "DRIVER" | "ADMIN" | "OWNER"
+type UserRole = "WORKER" | "ADMIN" | "OWNER"
 
 type ClosingWarnings = {
   pendingBillables: number

@@ -27,7 +27,7 @@ export type EmployeeForShift = {
 }
 
 // シフト閲覧用の社員一覧を取得する
-// DRIVER: 自分だけ / ADMIN・OWNER: 全員
+// WORKER: 自分だけ / ADMIN・OWNER: 全員
 export async function getEmployeesForShift(): Promise<EmployeeForShift[]> {
   const me = await getMyEmployee()
   const supabase = await createClient()
@@ -38,7 +38,7 @@ export async function getEmployeesForShift(): Promise<EmployeeForShift[]> {
     .eq('is_active', true)
     .order('emp_id')
 
-  if (me.role === 'DRIVER') {
+  if (me.role === 'WORKER') {
     query = query.eq('emp_id', me.emp_id)
   }
 
@@ -48,7 +48,7 @@ export async function getEmployeesForShift(): Promise<EmployeeForShift[]> {
 }
 
 // 指定週のシフト一覧を取得する
-// DRIVER: 自分のシフトのみ / ADMIN・OWNER: 全員分
+// WORKER: 自分のシフトのみ / ADMIN・OWNER: 全員分
 export async function getShifts(dateFrom: string, dateTo: string): Promise<ShiftRow[]> {
   const me = await getMyEmployee()
   const supabase = await createClient()
@@ -60,7 +60,7 @@ export async function getShifts(dateFrom: string, dateTo: string): Promise<Shift
     .lte('shift_date', dateTo)
     .order('shift_date')
 
-  if (me.role === 'DRIVER') {
+  if (me.role === 'WORKER') {
     query = query.eq('emp_id', me.emp_id)
   }
 

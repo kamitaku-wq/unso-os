@@ -49,13 +49,13 @@ export async function POST() {
     // メールアドレスの @ 前をデフォルト名に使用
     const defaultName = user.email.split('@')[0]
 
-    // 社員を自動登録（DRIVER）
+    // 社員を自動登録（WORKER）
     const { error } = await admin.from('employees').insert({
       company_id: company.id,
       emp_id,
       name: user.user_metadata?.full_name ?? defaultName,
       google_email: user.email,
-      role: 'DRIVER',
+      role: 'WORKER',
       is_active: true,
     })
     if (error) throw new Error(error.message)

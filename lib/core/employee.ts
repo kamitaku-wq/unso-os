@@ -16,7 +16,7 @@ export async function getEmployees() {
 export async function createEmployee(input: {
   name: string
   google_email: string
-  role: 'DRIVER' | 'ADMIN' | 'OWNER'
+  role: 'WORKER' | 'ADMIN' | 'OWNER'
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -49,7 +49,7 @@ export async function createEmployee(input: {
 
 // 社員のロール・在籍状態を更新する（ADMIN/OWNER 用）
 export async function updateEmployee(id: string, input: {
-  role?: 'DRIVER' | 'ADMIN' | 'OWNER'
+  role?: 'WORKER' | 'ADMIN' | 'OWNER'
   is_active?: boolean
   name?: string
 }) {
@@ -155,7 +155,7 @@ export async function deleteEmpRequest(requestId: string) {
 export async function submitEmpRequest(input: {
   name: string
   google_email: string
-  role_requested: 'DRIVER' | 'ADMIN' | 'OWNER'
+  role_requested: 'WORKER' | 'ADMIN' | 'OWNER'
   company_id: string
 }) {
   const supabase = await createClient()

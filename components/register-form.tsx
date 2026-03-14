@@ -22,12 +22,12 @@ import {
 } from "@/components/ui/select"
 import { getErrorMessage } from "@/lib/format"
 
-type RequestedRole = "DRIVER" | "ADMIN"
+type RequestedRole = "WORKER" | "ADMIN"
 
 export function RegisterForm() {
   const [name, setName] = useState("")
   const [companyCode, setCompanyCode] = useState("")
-  const [roleRequested, setRoleRequested] = useState<RequestedRole>("DRIVER")
+  const [roleRequested, setRoleRequested] = useState<RequestedRole>("WORKER")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -61,7 +61,7 @@ export function RegisterForm() {
       toast.success("申請を受け付けました。管理者の承認をお待ちください")
       setName("")
       setCompanyCode("")
-      setRoleRequested("DRIVER")
+      setRoleRequested("WORKER")
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "申請の送信に失敗しました"
@@ -131,7 +131,7 @@ export function RegisterForm() {
                     <SelectValue placeholder="希望ロールを選択" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="DRIVER">ドライバー</SelectItem>
+                    <SelectItem value="WORKER">ワーカー</SelectItem>
                     <SelectItem value="ADMIN">管理者</SelectItem>
                   </SelectContent>
                 </Select>

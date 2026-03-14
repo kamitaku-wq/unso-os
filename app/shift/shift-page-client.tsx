@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label"
 import { getErrorMessage } from "@/lib/format"
 
 // --- 型定義 ---
-type Role = "DRIVER" | "ADMIN" | "OWNER"
+type Role = "WORKER" | "ADMIN" | "OWNER"
 
 type Employee = {
   emp_id: string

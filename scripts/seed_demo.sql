@@ -22,10 +22,10 @@ BEGIN
   -- ================================================================
   INSERT INTO employees (company_id, emp_id, name, google_email, role, is_active) VALUES
     (v_cid, 'E002', '田中 健',   'tanaka@demo.local',    'ADMIN',  true),
-    (v_cid, 'D001', '佐藤 次郎', 'sato@demo.local',      'DRIVER', true),
-    (v_cid, 'D002', '山田 三郎', 'yamada@demo.local',    'DRIVER', true),
-    (v_cid, 'D003', '鈴木 花子', 'suzuki@demo.local',    'DRIVER', true),
-    (v_cid, 'D004', '高橋 一郎', 'takahashi@demo.local', 'DRIVER', true)
+    (v_cid, 'D001', '佐藤 次郎', 'sato@demo.local',      'WORKER', true),
+    (v_cid, 'D002', '山田 三郎', 'yamada@demo.local',    'WORKER', true),
+    (v_cid, 'D003', '鈴木 花子', 'suzuki@demo.local',    'WORKER', true),
+    (v_cid, 'D004', '高橋 一郎', 'takahashi@demo.local', 'WORKER', true)
   ON CONFLICT (company_id, emp_id) DO UPDATE SET name = EXCLUDED.name;
 
   -- ================================================================

@@ -10,33 +10,39 @@ import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/browser"
 import { DemoRoleSwitcher } from "@/components/demo-role-switcher"
 
-type Role = "DRIVER" | "ADMIN" | "OWNER"
+type Role = "WORKER" | "ADMIN" | "OWNER"
 
 type NavigationItem = {
   href: string
   label: string
+  featureKey?: string
 }
 
+type CustomSettings = Record<string, unknown> | null
+
 const ROLE_LABELS: Record<Role, string> = {
-  DRIVER: "ドライバー",
+  WORKER: "ワーカー",
   ADMIN: "管理者",
   OWNER: "経営者",
 }
 
+// ナビ項目を featureKey で enabled_features に対応させる
+// featureKey が未定義 → 常に表示（admin, master など管理系）
 function getNavigationItems(role: Role | null): NavigationItem[] {
   const commonItems: NavigationItem[] = [
-    { href: "/", label: "運行実績" },
-    { href: "/expense", label: "経費" },
-    { href: "/attendance", label: "勤怠" },
-    { href: "/shift", label: "シフト" },
-    { href: "/todo", label: "Todo" },
+    { href: "/", label: "運行実績", featureKey: "billable" },
+    { href: "/job", label: "作業実績", featureKey: "cleaning_job" },
+    { href: "/expense", label: "経費", featureKey: "expense" },
+    { href: "/attendance", label: "勤怠", featureKey: "attendance" },
+    { href: "/shift", label: "シフト", featureKey: "shift" },
+    { href: "/todo", label: "Todo", featureKey: "todo" },
   ]
 
   if (role === "ADMIN") {
     return [
       ...commonItems,
-      { href: "/invoice", label: "請求書" },
-      { href: "/payroll", label: "給与" },
+      { href: "/invoice", label: "請求書", featureKey: "invoice" },
+      { href: "/payroll", label: "給与", featureKey: "payroll" },
       { href: "/admin", label: "管理" },
       { href: "/master", label: "マスタ" },
     ]
@@ -45,15 +51,24 @@ function getNavigationItems(role: Role | null): NavigationItem[] {
   if (role === "OWNER") {
     return [
       ...commonItems,
-      { href: "/invoice", label: "請求書" },
-      { href: "/payroll", label: "給与" },
+      { href: "/invoice", label: "請求書", featureKey: "invoice" },
+      { href: "/payroll", label: "給与", featureKey: "payroll" },
       { href: "/admin", label: "管理" },
       { href: "/master", label: "マスタ" },
-      { href: "/dashboard", label: "ダッシュボード" },
+      { href: "/dashboard", label: "ダッシュボード", featureKey: "dashboard" },
     ]
   }
 
   return commonItems
+}
+
+// enabled_features でナビ項目をフィルタする
+// enabled_features が未設定 → 全表示（後方互換）
+// featureKey が未定義 → 常に表示
+function filterByFeatures(items: NavigationItem[], settings: CustomSettings): NavigationItem[] {
+  const features = (settings?.enabled_features ?? null) as Record<string, boolean> | null
+  if (!features) return items
+  return items.filter((item) => !item.featureKey || features[item.featureKey] !== false)
 }
 
 function isActivePath(pathname: string, href: string) {
@@ -67,12 +82,14 @@ export function AppShell({
   employeeName,
   role,
   isDemo,
+  customSettings = null,
 }: {
   children: React.ReactNode
   userEmail: string | null
   employeeName: string | null
   role: Role | null
   isDemo: boolean
+  customSettings?: CustomSettings
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -91,7 +108,11 @@ export function AppShell({
     return () => controller.abort()
   }, [role, pathname])
 
-  const navigationItems = useMemo(() => getNavigationItems(role), [role])
+  const appName = (customSettings?.app_name as string) || "運送OS"
+  const navigationItems = useMemo(
+    () => filterByFeatures(getNavigationItems(role), customSettings),
+    [role, customSettings]
+  )
   const showNavigation =
     !pathname.startsWith("/auth") && pathname !== "/login"
   const showHeaderSignOut = pathname !== "/pending"
@@ -130,7 +151,7 @@ export function AppShell({
                   <Truck className="size-4 text-white" />
                 </div>
                 <span className="text-base font-bold tracking-tight text-foreground">
-                  運送OS
+                  {appName}
                 </span>
               </Link>
 

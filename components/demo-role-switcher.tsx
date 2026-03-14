@@ -4,10 +4,10 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
-type Role = "DRIVER" | "ADMIN" | "OWNER"
+type Role = "WORKER" | "ADMIN" | "OWNER"
 
 const ROLES: { value: Role; label: string }[] = [
-  { value: "DRIVER", label: "ドライバー" },
+  { value: "WORKER", label: "ワーカー" },
   { value: "ADMIN",  label: "管理者" },
   { value: "OWNER",  label: "経営者" },
 ]

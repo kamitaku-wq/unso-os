@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "参加申請 | 運送OS",
 }
 
-function getHomePath(role: "DRIVER" | "ADMIN" | "OWNER") {
+function getHomePath(role: "WORKER" | "ADMIN" | "OWNER") {
   if (role === "OWNER") return "/dashboard"
   if (role === "ADMIN") return "/admin"
   return "/"

@@ -5,7 +5,7 @@ export type Employee = {
   id: string
   emp_id: string
   company_id: string
-  role: 'DRIVER' | 'ADMIN' | 'OWNER'
+  role: 'WORKER' | 'ADMIN' | 'OWNER'
   name: string
 }
 
@@ -26,7 +26,7 @@ export async function getMyEmployee(): Promise<Employee> {
 }
 
 // 指定ロールを持つユーザーのみ通過させる（権限がなければ例外を投げる）
-export async function requireRole(allowedRoles: ('DRIVER' | 'ADMIN' | 'OWNER')[]): Promise<Employee> {
+export async function requireRole(allowedRoles: ('WORKER' | 'ADMIN' | 'OWNER')[]): Promise<Employee> {
   const employee = await getMyEmployee()
   if (!allowedRoles.includes(employee.role)) throw new Error('権限がありません')
   return employee
