@@ -476,6 +476,7 @@ export default function ExpensePageClient() {
                       setForm((current) => ({
                         ...current,
                         category_id: value,
+                        extra: { gas_liters: "", highw_in: "", highw_out: "", details_text: "" },
                       }))
                     }
                     disabled={isLoading || isMutating || categories.length === 0}

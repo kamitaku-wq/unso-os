@@ -177,12 +177,12 @@ export async function getExpenseCategoryBreakdown(includeAll = false) {
   return Object.entries(byCategory).map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount).slice(0, 5)
 }
 
-// スタッフ稼働分析テーブル
-export async function getStaffAnalysis(includeAll = false) {
+// スタッフ稼働分析テーブル（承認率計算のため常にREVIEW_REQUIREDも含む）
+export async function getStaffAnalysis() {
   const supabase = await createClient()
   const { thisYm } = getCurrentAndPrevYm()
   const { start, end } = ymToRange(thisYm)
-  const statuses = includeAll ? ['REVIEW_REQUIRED', 'APPROVED'] : ['REVIEW_REQUIRED', 'APPROVED']
+  const statuses = ['REVIEW_REQUIRED', 'APPROVED']
 
   const { data, error } = await supabase.from('cleaning_jobs')
     .select('emp_id, amount, status, created_at, approved_at')

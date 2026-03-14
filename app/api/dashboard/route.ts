@@ -36,7 +36,7 @@ export async function GET(request: Request) {
         carCleaning.getStoreBreakdown(includeAll),
         carCleaning.getWorkTypeBreakdown(includeAll),
         carCleaning.getExpenseCategoryBreakdown(includeAll),
-        carCleaning.getStaffAnalysis(includeAll),
+        carCleaning.getStaffAnalysis(),
         carCleaning.getAttendanceSummary(),
       ])
       return NextResponse.json({
