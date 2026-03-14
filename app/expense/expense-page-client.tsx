@@ -72,6 +72,14 @@ type Expense = {
   rejected_at: string | null
   reject_reason: string | null
   rework_reason: string | null
+  extra_fields: Record<string, unknown> | null
+}
+
+type ExtraFields = {
+  gas_liters: string
+  highw_in: string
+  highw_out: string
+  details_text: string
 }
 
 type ExpenseForm = {
@@ -80,6 +88,7 @@ type ExpenseForm = {
   amount: string
   vendor: string
   description: string
+  extra: ExtraFields
 }
 
 type CreateExpenseResponse = {
@@ -105,7 +114,33 @@ function createInitialExpenseForm(): ExpenseForm {
     amount: "",
     vendor: "",
     description: "",
+    extra: { gas_liters: "", highw_in: "", highw_out: "", details_text: "" },
   }
+}
+
+// 拡張フィールドの表示テキストを返す
+function formatExtraFields(extra: Record<string, unknown> | null): string | null {
+  if (!extra) return null
+  const parts: string[] = []
+  if (extra.gas_liters) parts.push(`${extra.gas_liters}L`)
+  if (extra.highw_in) parts.push(`${extra.highw_in} → ${extra.highw_out}`)
+  if (extra.details_text) parts.push(String(extra.details_text))
+  return parts.length > 0 ? parts.join(" / ") : null
+}
+
+// 区分コードに応じた動的フィールドの種類を返す
+function getDynamicFieldType(categoryId: string): "gas" | "highway" | "details" | null {
+  if (categoryId === "gas") return "gas"
+  if (categoryId === "highw") return "highway"
+  if (["cons", "enterm", "other"].includes(categoryId)) return "details"
+  return null
+}
+
+// 区分コードに応じた詳細フィールドのラベルを返す
+function getDetailsLabel(categoryId: string): string {
+  if (categoryId === "cons") return "消耗品の内訳"
+  if (categoryId === "enterm") return "日帰の目的・出席者"
+  return "具体的な内容"
 }
 
 // 空欄入力を送信用に整える
@@ -291,6 +326,27 @@ export default function ExpensePageClient() {
         return
       }
 
+      // 区分別の動的フィールドバリデーション
+      const fieldType = getDynamicFieldType(form.category_id)
+      if (fieldType === "gas" && !form.extra.gas_liters.trim()) {
+        setPageError("給油リッター数を入力してください")
+        return
+      }
+      if (fieldType === "highway") {
+        if (!form.extra.highw_in.trim()) { setPageError("乗り口を入力してください"); return }
+        if (!form.extra.highw_out.trim()) { setPageError("降り口を入力してください"); return }
+      }
+      if (fieldType === "details" && !form.extra.details_text.trim()) {
+        setPageError(`${getDetailsLabel(form.category_id)}を入力してください`)
+        return
+      }
+
+      // 拡張フィールドを構築
+      const extra_fields: Record<string, unknown> = {}
+      if (fieldType === "gas") extra_fields.gas_liters = Number(form.extra.gas_liters)
+      if (fieldType === "highway") { extra_fields.highw_in = form.extra.highw_in.trim(); extra_fields.highw_out = form.extra.highw_out.trim() }
+      if (fieldType === "details") extra_fields.details_text = form.extra.details_text.trim()
+
       setBusyKey("submit-expense")
       setPageError("")
       setSubmitMessage("")
@@ -310,6 +366,7 @@ export default function ExpensePageClient() {
               amount,
               vendor: normalizeOptionalValue(form.vendor),
               description: normalizeOptionalValue(form.description),
+              extra_fields,
             }),
           },
           "経費申請に失敗しました"
@@ -446,6 +503,38 @@ export default function ExpensePageClient() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* 区分別の動的フィールド */}
+                {getDynamicFieldType(form.category_id) === "gas" ? (
+                  <div className="space-y-2 rounded-md border border-dashed border-emerald-400 bg-emerald-50/50 p-3">
+                    <Label htmlFor="gas-liters" className="text-emerald-700">給油リッター数 (L)</Label>
+                    <Input id="gas-liters" type="number" step="0.01" value={form.extra.gas_liters}
+                      onChange={e => setForm(f => ({ ...f, extra: { ...f.extra, gas_liters: e.target.value } }))}
+                      disabled={isLoading || isMutating} placeholder="例: 35.5" required />
+                  </div>
+                ) : null}
+
+                {getDynamicFieldType(form.category_id) === "highway" ? (
+                  <div className="space-y-2 rounded-md border border-dashed border-emerald-400 bg-emerald-50/50 p-3">
+                    <Label htmlFor="highw-in" className="text-emerald-700">乗り口</Label>
+                    <Input id="highw-in" value={form.extra.highw_in}
+                      onChange={e => setForm(f => ({ ...f, extra: { ...f.extra, highw_in: e.target.value } }))}
+                      disabled={isLoading || isMutating} placeholder="例: 春日井IC" required />
+                    <Label htmlFor="highw-out" className="text-emerald-700">降り口</Label>
+                    <Input id="highw-out" value={form.extra.highw_out}
+                      onChange={e => setForm(f => ({ ...f, extra: { ...f.extra, highw_out: e.target.value } }))}
+                      disabled={isLoading || isMutating} placeholder="例: 一宮IC" required />
+                  </div>
+                ) : null}
+
+                {getDynamicFieldType(form.category_id) === "details" ? (
+                  <div className="space-y-2 rounded-md border border-dashed border-emerald-400 bg-emerald-50/50 p-3">
+                    <Label htmlFor="details-text" className="text-emerald-700">{getDetailsLabel(form.category_id)}</Label>
+                    <Textarea id="details-text" value={form.extra.details_text}
+                      onChange={e => setForm(f => ({ ...f, extra: { ...f.extra, details_text: e.target.value } }))}
+                      disabled={isLoading || isMutating} placeholder="複数あれば改行して入力してください" required />
+                  </div>
+                ) : null}
 
                 <div className="space-y-2">
                   <Label htmlFor="expense-amount">金額</Label>
@@ -590,7 +679,12 @@ export default function ExpensePageClient() {
                             {expense.vendor || "-"}
                           </TableCell>
                           <TableCell className="max-w-56 whitespace-normal">
-                            {expense.description || "-"}
+                            <div>{expense.description || "-"}</div>
+                            {formatExtraFields(expense.extra_fields as Record<string, unknown> | null) ? (
+                              <div className="mt-0.5 text-xs text-emerald-600">
+                                {formatExtraFields(expense.extra_fields as Record<string, unknown> | null)}
+                              </div>
+                            ) : null}
                           </TableCell>
                           <TableCell>
                             <StatusBadge status={expense.status}>

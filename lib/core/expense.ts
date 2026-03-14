@@ -9,6 +9,7 @@ type ExpenseInput = {
   amount: number
   vendor: string | null
   description: string | null
+  extra_fields?: Record<string, unknown>
 }
 
 // 経費を新規申請する
@@ -69,7 +70,7 @@ export async function getMyExpenses() {
 
   const { data, error } = await supabase
     .from('expenses')
-    .select('id, expense_id, expense_date, category_id, category_name, amount, vendor, description, receipt_url, status, submitted_at, approved_at, rejected_at, reject_reason, rework_reason')
+    .select('id, expense_id, expense_date, category_id, category_name, amount, vendor, description, receipt_url, status, submitted_at, approved_at, rejected_at, reject_reason, rework_reason, extra_fields')
     .eq('emp_id', employee.emp_id)
     .order('expense_date', { ascending: false })
     .limit(100)

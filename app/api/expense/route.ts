@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       amount,
       vendor: body.vendor ?? null,
       description: body.description ?? null,
+      extra_fields: body.extra_fields ?? {},
     })
     return NextResponse.json(result, { status: 201 })
   } catch (e) {
