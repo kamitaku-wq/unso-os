@@ -90,8 +90,8 @@ async function requestJson<T>(
   return data as T
 }
 
-// 荷主マスタの一覧表示・登録・編集・削除を担当するパネルコンポーネント
-export function CustomerPanel() {
+// 荷主（客先）マスタの一覧表示・登録・編集・削除を担当するパネルコンポーネント
+export function CustomerPanel({ labelPrefix = "荷主" }: { labelPrefix?: string }) {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [customerForm, setCustomerForm] = useState<CustomerForm>(initialCustomerForm)
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
@@ -101,18 +101,18 @@ export function CustomerPanel() {
 
   const isMutating = busyKey !== null
 
-  // 荷主一覧を取得する
+  // {labelPrefix}一覧を取得する
   const loadCustomers = useCallback(async () => {
     setIsLoading(true)
     try {
       const data = await requestJson<Customer[]>(
         "/api/master/customers",
         undefined,
-        "荷主一覧の取得に失敗しました"
+        "一覧の取得に失敗しました"
       )
       setCustomers(data)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "荷主一覧の取得に失敗しました")
+      toast.error(e instanceof Error ? e.message : "一覧の取得に失敗しました")
     } finally {
       setIsLoading(false)
     }
@@ -139,13 +139,13 @@ export function CustomerPanel() {
               address: customerForm.address.trim(),
             }),
           },
-          "荷主の登録に失敗しました"
+          "登録に失敗しました"
         )
         setCustomerForm(initialCustomerForm)
-        toast.success("荷主を登録しました。")
+        toast.success(`${labelPrefix}を登録しました。`)
         await loadCustomers()
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "荷主の登録に失敗しました")
+        toast.error(e instanceof Error ? e.message : "登録に失敗しました")
       } finally {
         setBusyKey(null)
       }
@@ -171,13 +171,13 @@ export function CustomerPanel() {
               address: (editingCustomer.address ?? "").trim(),
             }),
           },
-          "荷主の更新に失敗しました"
+          "更新に失敗しました"
         )
         setEditingCustomer(null)
-        toast.success("荷主を更新しました。")
+        toast.success(`${labelPrefix}を更新しました。`)
         await loadCustomers()
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "荷主の更新に失敗しました")
+        toast.error(e instanceof Error ? e.message : "更新に失敗しました")
       } finally {
         setBusyKey(null)
       }
@@ -193,13 +193,13 @@ export function CustomerPanel() {
       await requestJson<{ ok: true }>(
         pendingDelete.path,
         { method: "DELETE" },
-        "荷主の削除に失敗しました"
+        "削除に失敗しました"
       )
       setPendingDelete(null)
-      toast.success("荷主を削除しました。")
+      toast.success(`${labelPrefix}を削除しました。`)
       await loadCustomers()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "荷主の削除に失敗しました")
+      toast.error(e instanceof Error ? e.message : "削除に失敗しました")
     } finally {
       setBusyKey(null)
     }
@@ -210,7 +210,7 @@ export function CustomerPanel() {
       <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Card>
           <CardHeader>
-            <CardTitle>荷主の新規登録</CardTitle>
+            <CardTitle>{labelPrefix}の新規登録</CardTitle>
             <CardDescription>
               顧客コードと名称は必須です。住所は任意で登録できます。
             </CardDescription>
@@ -262,7 +262,7 @@ export function CustomerPanel() {
                 className="w-full"
                 disabled={isLoading || isMutating}
               >
-                {busyKey === "create-customer" ? "登録中..." : "荷主を登録"}
+                {busyKey === "create-customer" ? "登録中..." : `${labelPrefix}を登録`}
               </Button>
             </form>
           </CardContent>
@@ -270,7 +270,7 @@ export function CustomerPanel() {
 
         <Card>
           <CardHeader>
-            <CardTitle>荷主一覧</CardTitle>
+            <CardTitle>{labelPrefix}一覧</CardTitle>
             <CardDescription>
               {isLoading ? "最新データを表示します。" : `${customers.length}件を表示しています。`}
             </CardDescription>
@@ -281,7 +281,7 @@ export function CustomerPanel() {
             ) : customers.length === 0 ? (
               <EmptyState
                 icon={Database}
-                description="上のフォームから最初の荷主を登録してください"
+                description={`上のフォームから最初の${labelPrefix}を登録してください`}
               />
             ) : (
               <Table>
@@ -320,7 +320,7 @@ export function CustomerPanel() {
                             onClick={() =>
                               setPendingDelete({
                                 id: customer.id,
-                                label: `荷主「${customer.name}」`,
+                                label: `${labelPrefix}「${customer.name}」`,
                                 path: `/api/master/customers/${customer.id}`,
                               })
                             }
@@ -346,7 +346,7 @@ export function CustomerPanel() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>荷主を編集</DialogTitle>
+            <DialogTitle>{labelPrefix}を編集</DialogTitle>
             <DialogDescription>顧客コード、名称、住所を更新できます。</DialogDescription>
           </DialogHeader>
           {editingCustomer ? (

@@ -11,7 +11,7 @@ export async function GET() {
 
     const { data: employee } = await supabase
       .from('employees')
-      .select('emp_id, name, role, is_active')
+      .select('emp_id, name, role, is_active, companies(custom_settings)')
       .eq('google_email', user.email!)
       .maybeSingle()
 
@@ -20,7 +20,12 @@ export async function GET() {
       return NextResponse.json({ registered: false, email: user.email }, { status: 200 })
     }
 
-    return NextResponse.json({ registered: true, ...employee })
+    // companies リレーションから custom_settings を抽出
+    const companies = employee.companies as { custom_settings: Record<string, unknown> } | { custom_settings: Record<string, unknown> }[] | null
+    const customSettings = Array.isArray(companies) ? companies[0]?.custom_settings : companies?.custom_settings
+    const { companies: _c, ...rest } = employee
+
+    return NextResponse.json({ registered: true, ...rest, custom_settings: customSettings ?? {} })
   } catch (e) {
     return apiError(e)
   }

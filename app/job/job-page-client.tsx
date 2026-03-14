@@ -1,35 +1,21 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ChevronLeft, ChevronRight, ClipboardList, Plus } from "lucide-react"
+import { Check, ChevronLeft, ChevronRight, ClipboardList, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { EmptyState } from "@/components/empty-state"
 import { StatusBadge } from "@/components/status-badge"
-import { TableSkeleton } from "@/components/table-skeleton"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { formatCurrency, getErrorMessage } from "@/lib/format"
 
-type Role = "WORKER" | "ADMIN" | "OWNER"
 type WorkType = {
   id: string
   work_code: string
@@ -54,7 +40,12 @@ type Job = {
   price_note: string | null
 }
 
-// 現在の YYYYMM を返す
+// 空のエントリ行を作る
+function emptyEntry() {
+  return { store: "", work: "", carType: "", idList: "", qty: "1", unitPrice: "", note: "" }
+}
+type Entry = ReturnType<typeof emptyEntry>
+
 function currentYm(): string {
   const d = new Date()
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`
@@ -78,44 +69,33 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return data as T
 }
 
+// ID一覧から台数を自動計算する
+function autoQtyFromIdList(idList: string): number | null {
+  if (!idList.trim()) return null
+  return idList.trim().split(/\n/).filter(Boolean).length
+}
+
+// 日報スタイルの作業実績入力画面
 export default function JobPageClient() {
   const [ym, setYm] = useState(currentYm)
   const [jobs, setJobs] = useState<Job[]>([])
   const [works, setWorks] = useState<WorkType[]>([])
   const [stores, setStores] = useState<Store[]>([])
-  const [role, setRole] = useState<Role | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
+
+  // 日報入力状態
+  const [formDate, setFormDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [entries, setEntries] = useState<Entry[]>([emptyEntry()])
   const [isSaving, setIsSaving] = useState(false)
 
-  // フォーム状態
-  const [formDate, setFormDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [formStore, setFormStore] = useState("")
-  const [formWork, setFormWork] = useState("")
-  const [formCarType, setFormCarType] = useState("")
-  const [formIdList, setFormIdList] = useState("")
-  const [formQty, setFormQty] = useState("1")
-  const [formUnitPrice, setFormUnitPrice] = useState("")
-  const [formNote, setFormNote] = useState("")
+  // 勤怠入力
+  const [clockIn, setClockIn] = useState("08:00")
+  const [clockOut, setClockOut] = useState("17:00")
+  const [breakMin, setBreakMin] = useState("60")
+  const [attendanceSaved, setAttendanceSaved] = useState(false)
 
-  const canApprove = role === "ADMIN" || role === "OWNER"
-
-  // データ取得
-  const loadData = useCallback(async (targetYm: string) => {
-    setIsLoading(true)
-    try {
-      const [jobsData, meData] = await Promise.all([
-        fetchJson<Job[]>(`/api/cleaning-job?ym=${targetYm}`),
-        fetchJson<{ role: Role }>("/api/me"),
-      ])
-      setJobs(jobsData)
-      setRole(meData.role)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "取得に失敗しました")
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  // 登録済み件数（連続入力のフィードバック）
+  const [savedCount, setSavedCount] = useState(0)
 
   // マスタ取得（初回のみ）
   useEffect(() => {
@@ -128,273 +108,275 @@ export default function JobPageClient() {
     }).catch(() => {})
   }, [])
 
-  useEffect(() => {
-    void loadData(ym)
-  }, [ym, loadData])
-
-  // 作業種別選択時に単価を自動セット
-  function handleWorkChange(workCode: string) {
-    setFormWork(workCode)
-    const work = works.find((w) => w.work_code === workCode)
-    if (work?.default_unit_price != null) {
-      setFormUnitPrice(String(work.default_unit_price))
+  // 月別データ取得
+  const loadJobs = useCallback(async (targetYm: string) => {
+    setIsLoading(true)
+    try {
+      setJobs(await fetchJson<Job[]>(`/api/cleaning-job?ym=${targetYm}`))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "取得に失敗しました")
+    } finally {
+      setIsLoading(false)
     }
+  }, [])
+
+  useEffect(() => { void loadJobs(ym) }, [ym, loadJobs])
+
+  // エントリ更新ヘルパー
+  function updateEntry(idx: number, patch: Partial<Entry>) {
+    setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, ...patch } : e))
   }
 
-  // ID一覧から台数を自動計算
-  const autoQty = useMemo(() => {
-    if (!formIdList.trim()) return null
-    const lines = formIdList.trim().split(/\n/).filter(Boolean)
-    return lines.length
-  }, [formIdList])
+  // 作業種別選択時に単価を自動セット
+  function handleWorkChange(idx: number, workCode: string) {
+    const work = works.find((w) => w.work_code === workCode)
+    updateEntry(idx, {
+      work: workCode,
+      unitPrice: work?.default_unit_price != null ? String(work.default_unit_price) : "",
+    })
+  }
 
-  // 登録
-  async function handleSubmit() {
-    const store = stores.find((s) => s.cust_id === formStore)
-    const work = works.find((w) => w.work_code === formWork)
-    if (!store || !work) {
-      toast.error("店舗と作業種別を選択してください")
-      return
-    }
-    const qty = autoQty ?? parseInt(formQty, 10)
-    const unitPrice = parseFloat(formUnitPrice)
-    if (!qty || qty <= 0 || isNaN(unitPrice)) {
-      toast.error("台数と単価を入力してください")
+  // 行追加（前の行の店舗を引き継ぎ）
+  function addEntry() {
+    const last = entries[entries.length - 1]
+    setEntries((prev) => [...prev, { ...emptyEntry(), store: last?.store ?? "" }])
+  }
+
+  // 行削除
+  function removeEntry(idx: number) {
+    if (entries.length <= 1) return
+    setEntries((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  // 作業実績を一括登録
+  async function handleSubmitJobs() {
+    const validEntries = entries.filter((e) => e.store && e.work)
+    if (validEntries.length === 0) {
+      toast.error("作業内容を1つ以上入力してください")
       return
     }
 
     setIsSaving(true)
+    let successCount = 0
+    for (const entry of validEntries) {
+      const store = stores.find((s) => s.cust_id === entry.store)
+      const work = works.find((w) => w.work_code === entry.work)
+      if (!store || !work) continue
+
+      const qty = autoQtyFromIdList(entry.idList) ?? parseInt(entry.qty, 10)
+      const unitPrice = parseFloat(entry.unitPrice)
+      if (!qty || qty <= 0 || isNaN(unitPrice)) {
+        toast.error(`${work.name}: 台数と単価を入力してください`)
+        setIsSaving(false)
+        return
+      }
+
+      try {
+        await fetchJson("/api/cleaning-job", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            work_date: formDate,
+            store_id: entry.store,
+            store_name: store.name,
+            work_code: entry.work,
+            work_name: work.name,
+            car_type_text: entry.carType || null,
+            id_list_raw: entry.idList.trim() || null,
+            qty,
+            unit_price: unitPrice,
+            price_note: entry.note || null,
+          }),
+        })
+        successCount++
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "登録に失敗しました")
+        setIsSaving(false)
+        return
+      }
+    }
+
+    setSavedCount((c) => c + successCount)
+    toast.success(`${successCount}件の作業実績を登録しました`)
+    // フォームをリセットして次の入力へ（店舗は引き継ぎ）
+    const lastStore = entries[entries.length - 1]?.store ?? ""
+    setEntries([{ ...emptyEntry(), store: lastStore }])
+    setIsSaving(false)
+    await loadJobs(ym)
+  }
+
+  // 勤怠を登録
+  async function handleSubmitAttendance() {
+    setIsSaving(true)
     try {
-      await fetchJson("/api/cleaning-job", {
+      await fetchJson("/api/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           work_date: formDate,
-          store_id: formStore,
-          store_name: store.name,
-          work_code: formWork,
-          work_name: work.name,
-          car_type_text: formCarType || null,
-          id_list_raw: formIdList.trim() || null,
-          qty,
-          unit_price: unitPrice,
-          price_note: formNote || null,
+          clock_in: `${formDate}T${clockIn}:00`,
+          clock_out: `${formDate}T${clockOut}:00`,
+          break_min: parseInt(breakMin, 10) || 0,
+          drive_min: null,
+          note: null,
         }),
       })
-      toast.success("作業実績を登録しました")
-      setShowForm(false)
-      resetForm()
-      await loadData(ym)
+      toast.success("勤怠を登録しました")
+      setAttendanceSaved(true)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "登録に失敗しました")
+      toast.error(e instanceof Error ? e.message : "勤怠の登録に失敗しました")
     } finally {
       setIsSaving(false)
     }
   }
 
-  function resetForm() {
-    setFormDate(new Date().toISOString().slice(0, 10))
-    setFormStore("")
-    setFormWork("")
-    setFormCarType("")
-    setFormIdList("")
-    setFormQty("1")
-    setFormUnitPrice("")
-    setFormNote("")
-  }
+  const totalAmount = useMemo(
+    () => jobs.filter((j) => j.status !== "VOID").reduce((sum, j) => sum + j.amount, 0),
+    [jobs]
+  )
 
-  // 承認・VOID
-  async function handleAction(id: string, action: "approve" | "void") {
-    try {
-      await fetchJson(`/api/cleaning-job/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      })
-      toast.success(action === "approve" ? "承認しました" : "VOID にしました")
-      await loadData(ym)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "操作に失敗しました")
-    }
-  }
-
-  const totalAmount = jobs
-    .filter((j) => j.status !== "VOID")
-    .reduce((sum, j) => sum + j.amount, 0)
+  const todayJobs = useMemo(
+    () => jobs.filter((j) => j.work_date === formDate && j.status !== "VOID"),
+    [jobs, formDate]
+  )
 
   return (
-    <main className="min-h-[calc(100vh-80px)] px-4 py-8 md:px-6">
-      <div className="mx-auto w-full max-w-7xl space-y-6">
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight">作業実績</h1>
-            <p className="text-sm text-muted-foreground">清掃作業の実績を登録・管理します。</p>
+    <main className="min-h-[calc(100vh-80px)] px-4 py-6 md:px-6">
+      <div className="mx-auto w-full max-w-2xl space-y-4">
+
+        {/* ヘッダー：日付選択 */}
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">日報</h1>
+          <div className="flex items-center gap-3">
+            <Label className="shrink-0 text-sm">作業日</Label>
+            <Input
+              type="date"
+              value={formDate}
+              onChange={(e) => { setFormDate(e.target.value); setAttendanceSaved(false); setSavedCount(0) }}
+              className="max-w-48"
+            />
           </div>
-          <Button onClick={() => setShowForm((v) => !v)}>
-            <Plus className="mr-1 size-4" />
-            {showForm ? "閉じる" : "新規登録"}
-          </Button>
+          {todayJobs.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              この日の登録済み: {todayJobs.length}件（{formatCurrency(todayJobs.reduce((s, j) => s + j.amount, 0))}）
+            </p>
+          ) : null}
         </div>
 
-        {/* 入力フォーム */}
-        {showForm ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>作業実績を登録</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label>作業日</Label>
-                  <Input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label>店舗</Label>
-                  <Select value={formStore} onValueChange={setFormStore}>
-                    <SelectTrigger><SelectValue placeholder="店舗を選択" /></SelectTrigger>
-                    <SelectContent>
-                      {stores.map((s) => (
-                        <SelectItem key={s.cust_id} value={s.cust_id}>{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label>作業種別</Label>
-                  <Select value={formWork} onValueChange={handleWorkChange}>
-                    <SelectTrigger><SelectValue placeholder="作業種別を選択" /></SelectTrigger>
-                    <SelectContent>
-                      {works.map((w) => (
-                        <SelectItem key={w.work_code} value={w.work_code}>
-                          {w.name}{w.default_unit_price != null ? ` (¥${w.default_unit_price.toLocaleString()})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label>車種</Label>
-                  <Input value={formCarType} onChange={(e) => setFormCarType(e.target.value)} placeholder="例: プリウス" />
-                </div>
+        {/* 勤怠セクション */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">勤怠</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {attendanceSaved ? (
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <Check className="size-4" /> 登録済み
               </div>
-
-              <div className="space-y-1">
-                <Label>車両管理番号（1行に1つ、10桁）</Label>
-                <Textarea
-                  value={formIdList}
-                  onChange={(e) => setFormIdList(e.target.value)}
-                  placeholder={"1234567890\n0987654321"}
-                  rows={4}
-                />
-                {autoQty != null ? (
-                  <p className="text-xs text-muted-foreground">{autoQty} 台検出</p>
-                ) : null}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <Label>台数</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={autoQty != null ? String(autoQty) : formQty}
-                    onChange={(e) => setFormQty(e.target.value)}
-                    disabled={autoQty != null}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>単価（円）</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={formUnitPrice}
-                    onChange={(e) => setFormUnitPrice(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>金額</Label>
-                  <div className="flex h-9 items-center rounded-md border bg-muted/30 px-3 text-sm font-medium">
-                    {formatCurrency(((autoQty !== null ? autoQty : parseInt(formQty, 10)) || 0) * (parseFloat(formUnitPrice) || 0))}
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">出勤</Label>
+                    <Input type="time" value={clockIn} onChange={(e) => setClockIn(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">退勤</Label>
+                    <Input type="time" value={clockOut} onChange={(e) => setClockOut(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">休憩(分)</Label>
+                    <Input type="number" min="0" value={breakMin} onChange={(e) => setBreakMin(e.target.value)} />
                   </div>
                 </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => void handleSubmitAttendance()}
+                  disabled={isSaving}
+                >
+                  勤怠を登録
+                </Button>
               </div>
+            )}
+          </CardContent>
+        </Card>
 
-              <div className="space-y-1">
-                <Label>備考</Label>
-                <Input value={formNote} onChange={(e) => setFormNote(e.target.value)} placeholder="任意" />
-              </div>
-
-              <Button onClick={() => void handleSubmit()} disabled={isSaving} className="w-full">
-                {isSaving ? "登録中..." : "登録する"}
-              </Button>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {/* 月切り替え + 一覧 */}
+        {/* 作業実績入力セクション */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <Button variant="outline" size="sm" onClick={() => setYm(shiftYm(ym, -1))}>
-                <ChevronLeft className="size-4" /> 前月
+              <CardTitle className="text-base">作業実績</CardTitle>
+              {savedCount > 0 ? (
+                <span className="text-xs text-green-600">{savedCount}件登録済み</span>
+              ) : null}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {entries.map((entry, idx) => (
+              <EntryRow
+                key={idx}
+                entry={entry}
+                idx={idx}
+                stores={stores}
+                works={works}
+                total={entries.length}
+                onUpdate={updateEntry}
+                onWorkChange={handleWorkChange}
+                onRemove={removeEntry}
+                disabled={isSaving}
+              />
+            ))}
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={addEntry}
+              disabled={isSaving}
+            >
+              <Plus className="mr-1 size-4" /> 行を追加
+            </Button>
+
+            <Button
+              className="w-full"
+              onClick={() => void handleSubmitJobs()}
+              disabled={isSaving || entries.every((e) => !e.store || !e.work)}
+            >
+              {isSaving ? "登録中..." : `作業実績を登録（${entries.filter((e) => e.store && e.work).length}件）`}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* 月別一覧 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <Button variant="ghost" size="sm" onClick={() => setYm(shiftYm(ym, -1))}>
+                <ChevronLeft className="size-4" />
               </Button>
               <CardTitle className="text-base">{ymLabel(ym)}</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => setYm(shiftYm(ym, 1))}>
-                次月 <ChevronRight className="size-4" />
+              <Button variant="ghost" size="sm" onClick={() => setYm(shiftYm(ym, 1))}>
+                <ChevronRight className="size-4" />
               </Button>
             </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <TableSkeleton columns={7} rows={5} />
+              <p className="py-4 text-center text-sm text-muted-foreground">読み込み中...</p>
             ) : jobs.length === 0 ? (
               <EmptyState icon={ClipboardList} description="この月の作業実績はありません" />
             ) : (
               <>
-                <div className="mb-3 text-right text-sm font-medium text-muted-foreground">
+                <div className="mb-2 text-right text-sm font-medium text-muted-foreground">
                   合計: <span className="text-foreground">{formatCurrency(totalAmount)}</span>
                 </div>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>日付</TableHead>
-                        <TableHead>店舗</TableHead>
-                        <TableHead>作業</TableHead>
-                        <TableHead className="text-right">台数</TableHead>
-                        <TableHead className="text-right">金額</TableHead>
-                        <TableHead>状態</TableHead>
-                        {canApprove ? <TableHead>操作</TableHead> : null}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {jobs.map((job) => (
-                        <TableRow key={job.id} className={job.status === "VOID" ? "opacity-50" : ""}>
-                          <TableCell className="whitespace-nowrap">{job.work_date}</TableCell>
-                          <TableCell>{job.store_name}</TableCell>
-                          <TableCell>
-                            {job.work_name}
-                            {job.car_type_text ? <span className="ml-1 text-xs text-muted-foreground">({job.car_type_text})</span> : null}
-                          </TableCell>
-                          <TableCell className="text-right">{job.qty}</TableCell>
-                          <TableCell className="text-right font-medium">{formatCurrency(job.amount)}</TableCell>
-                          <TableCell><StatusBadge status={job.status}>{job.status}</StatusBadge></TableCell>
-                          {canApprove ? (
-                            <TableCell>
-                              <div className="flex gap-1">
-                                {job.status === "REVIEW_REQUIRED" ? (
-                                  <Button size="sm" variant="outline" onClick={() => void handleAction(job.id, "approve")}>承認</Button>
-                                ) : null}
-                                {job.status !== "VOID" ? (
-                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => void handleAction(job.id, "void")}>VOID</Button>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                          ) : null}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="space-y-2">
+                  {jobs.map((job) => (
+                    <JobCard key={job.id} job={job} />
+                  ))}
                 </div>
               </>
             )}
@@ -402,5 +384,131 @@ export default function JobPageClient() {
         </Card>
       </div>
     </main>
+  )
+}
+
+// 作業実績の1行入力コンポーネント
+function EntryRow({ entry, idx, stores, works, total, onUpdate, onWorkChange, onRemove, disabled }: {
+  entry: Entry
+  idx: number
+  stores: Store[]
+  works: WorkType[]
+  total: number
+  onUpdate: (idx: number, patch: Partial<Entry>) => void
+  onWorkChange: (idx: number, workCode: string) => void
+  onRemove: (idx: number) => void
+  disabled: boolean
+}) {
+  const qty = autoQtyFromIdList(entry.idList) ?? (parseInt(entry.qty, 10) || 0)
+  const unitPrice = parseFloat(entry.unitPrice) || 0
+
+  return (
+    <div className="relative rounded-lg border bg-muted/20 p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">#{idx + 1}</span>
+        {total > 1 ? (
+          <button type="button" onClick={() => onRemove(idx)} disabled={disabled}
+            className="text-muted-foreground hover:text-destructive">
+            <Trash2 className="size-4" />
+          </button>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Select value={entry.store} onValueChange={(v) => onUpdate(idx, { store: v })} disabled={disabled}>
+          <SelectTrigger className="text-xs"><SelectValue placeholder="店舗" /></SelectTrigger>
+          <SelectContent>
+            {stores.map((s) => <SelectItem key={s.cust_id} value={s.cust_id}>{s.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={entry.work} onValueChange={(v) => onWorkChange(idx, v)} disabled={disabled}>
+          <SelectTrigger className="text-xs"><SelectValue placeholder="作業種別" /></SelectTrigger>
+          <SelectContent>
+            {works.map((w) => (
+              <SelectItem key={w.work_code} value={w.work_code}>
+                {w.name}{w.default_unit_price != null ? ` ¥${w.default_unit_price.toLocaleString()}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Input
+          value={entry.carType}
+          onChange={(e) => onUpdate(idx, { carType: e.target.value })}
+          placeholder="車種（任意）"
+          className="text-xs"
+          disabled={disabled}
+        />
+        <Textarea
+          value={entry.idList}
+          onChange={(e) => onUpdate(idx, { idList: e.target.value })}
+          placeholder="車両管理番号（1行1台、任意）"
+          rows={2}
+          className="text-xs"
+          disabled={disabled}
+        />
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <div className="space-y-0.5">
+          <Label className="text-[10px] text-muted-foreground">台数</Label>
+          <Input
+            type="number" min="1"
+            value={autoQtyFromIdList(entry.idList) != null ? String(autoQtyFromIdList(entry.idList)) : entry.qty}
+            onChange={(e) => onUpdate(idx, { qty: e.target.value })}
+            disabled={disabled || autoQtyFromIdList(entry.idList) != null}
+            className="text-xs"
+          />
+        </div>
+        <div className="space-y-0.5">
+          <Label className="text-[10px] text-muted-foreground">単価</Label>
+          <Input
+            type="number" min="0"
+            value={entry.unitPrice}
+            onChange={(e) => onUpdate(idx, { unitPrice: e.target.value })}
+            disabled={disabled}
+            className="text-xs"
+          />
+        </div>
+        <div className="space-y-0.5">
+          <Label className="text-[10px] text-muted-foreground">金額</Label>
+          <div className="flex h-9 items-center rounded-md border bg-muted/30 px-2 text-xs font-medium">
+            {formatCurrency(qty * unitPrice)}
+          </div>
+        </div>
+      </div>
+
+      <Input
+        value={entry.note}
+        onChange={(e) => onUpdate(idx, { note: e.target.value })}
+        placeholder="備考（任意）"
+        className="text-xs"
+        disabled={disabled}
+      />
+    </div>
+  )
+}
+
+// モバイル向けジョブカード表示
+function JobCard({ job }: { job: Job }) {
+  return (
+    <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${job.status === "VOID" ? "opacity-50" : ""}`}>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{job.work_name}</span>
+          <StatusBadge status={job.status}>
+            {job.status === "APPROVED" ? "承認" : job.status === "VOID" ? "無効" : "待ち"}
+          </StatusBadge>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {job.work_date} · {job.store_name}
+          {job.car_type_text ? ` · ${job.car_type_text}` : ""}
+          {` · ${job.qty}台`}
+        </div>
+      </div>
+      <div className="shrink-0 text-right font-medium">{formatCurrency(job.amount)}</div>
+    </div>
   )
 }

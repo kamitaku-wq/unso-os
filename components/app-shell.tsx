@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Bell, Menu, Truck, X } from "lucide-react"
+import { Bell, Briefcase, Menu, Truck, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -31,7 +31,7 @@ const ROLE_LABELS: Record<Role, string> = {
 function getNavigationItems(role: Role | null): NavigationItem[] {
   const commonItems: NavigationItem[] = [
     { href: "/", label: "運行実績", featureKey: "billable" },
-    { href: "/job", label: "作業実績", featureKey: "cleaning_job" },
+    { href: "/job", label: "日報", featureKey: "cleaning_job" },
     { href: "/expense", label: "経費", featureKey: "expense" },
     { href: "/attendance", label: "勤怠", featureKey: "attendance" },
     { href: "/shift", label: "シフト", featureKey: "shift" },
@@ -109,6 +109,8 @@ export function AppShell({
   }, [role, pathname])
 
   const appName = (customSettings?.app_name as string) || "運送OS"
+  const features = (customSettings?.enabled_features ?? null) as Record<string, boolean> | null
+  const AppIcon = features?.cleaning_job ? Briefcase : Truck
   const navigationItems = useMemo(
     () => filterByFeatures(getNavigationItems(role), customSettings),
     [role, customSettings]
@@ -148,7 +150,7 @@ export function AppShell({
             <div className="flex items-center gap-3">
               <Link href="/" className="flex shrink-0 items-center gap-2">
                 <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
-                  <Truck className="size-4 text-white" />
+                  <AppIcon className="size-4 text-white" />
                 </div>
                 <span className="text-base font-bold tracking-tight text-foreground">
                   {appName}

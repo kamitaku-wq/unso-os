@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 
 import { BillablePanel } from "@/components/admin/billable-panel"
+import { CleaningJobPanel } from "@/components/admin/cleaning-job-panel"
 import { ClosingPanel } from "@/components/admin/closing-panel"
 import { EmpRequestPanel } from "@/components/admin/emp-request-panel"
 import { EmployeeManagementPanel } from "@/components/admin/employee-management-panel"
@@ -11,7 +12,7 @@ import { InvitePanel } from "@/components/admin/invite-panel"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-type AdminTab = "billables" | "expenses" | "closings" | "employees" | "empRequests" | "invite"
+type AdminTab = "billables" | "cleaningJobs" | "expenses" | "closings" | "employees" | "empRequests" | "invite"
 
 type PendingCounts = {
   billables: number
@@ -19,18 +20,26 @@ type PendingCounts = {
   empRequests: number
 }
 
+type EnabledFeatures = Record<string, boolean>
+
 // クエリ文字列から初期タブを安全に決める
-function getAdminTabFromQuery(value: string | null): AdminTab {
-  if (value === "expenses") return "expenses"
-  if (value === "closings") return "closings"
-  if (value === "employees") return "employees"
-  if (value === "empRequests") return "empRequests"
-  if (value === "invite") return "invite"
-  return "billables"
+function getAdminTabFromQuery(value: string | null): AdminTab | null {
+  const map: Record<string, AdminTab> = {
+    billables: "billables",
+    cleaningJobs: "cleaningJobs",
+    expenses: "expenses",
+    closings: "closings",
+    employees: "employees",
+    empRequests: "empRequests",
+    invite: "invite",
+  }
+  return value ? map[value] ?? null : null
 }
 
-// 未承認件数が最も多いタブを返す（ない場合は billables）
-function getDefaultTab(counts: PendingCounts): AdminTab {
+// 未承認件数が最も多いタブを返す
+function getDefaultTab(counts: PendingCounts, features: EnabledFeatures | null): AdminTab {
+  if (features?.cleaning_job) return "cleaningJobs"
+
   const entries: [AdminTab, number][] = [
     ["billables", counts.billables],
     ["expenses", counts.expenses],
@@ -44,35 +53,52 @@ function getDefaultTab(counts: PendingCounts): AdminTab {
 export default function AdminPageClient() {
   const [activeTab, setActiveTab] = useState<AdminTab>("billables")
   const [pendingCounts, setPendingCounts] = useState<PendingCounts>({ billables: 0, expenses: 0, empRequests: 0 })
+  const [features, setFeatures] = useState<EnabledFeatures | null>(null)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const queryTab = params.get("tab")
+    const queryTab = getAdminTabFromQuery(params.get("tab"))
 
-    // クエリパラメータで指定があればそれを優先、なければ未承認件数が最も多いタブを自動選択
-    void fetch("/api/admin/pending-counts", { cache: "no-store" })
+    const mePromise = fetch("/api/me", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data: { custom_settings?: { enabled_features?: EnabledFeatures } }) => {
+        const f = data.custom_settings?.enabled_features ?? null
+        setFeatures(f)
+        return f
+      })
+      .catch(() => null as EnabledFeatures | null)
+
+    const countsPromise = fetch("/api/admin/pending-counts", { cache: "no-store" })
       .then((res) => res.json())
-      .then((counts: PendingCounts) => {
-        setPendingCounts(counts)
-        if (!queryTab) {
-          setActiveTab(getDefaultTab(counts))
-        } else {
-          setActiveTab(getAdminTabFromQuery(queryTab))
-        }
-      })
-      .catch(() => {
-        setActiveTab(getAdminTabFromQuery(queryTab))
-      })
+      .then((counts: PendingCounts) => { setPendingCounts(counts); return counts })
+      .catch(() => ({ billables: 0, expenses: 0, empRequests: 0 }) as PendingCounts)
+
+    void Promise.all([mePromise, countsPromise]).then(([f, counts]) => {
+      if (queryTab) {
+        setActiveTab(queryTab)
+      } else {
+        setActiveTab(getDefaultTab(counts, f))
+      }
+      setReady(true)
+    })
   }, [])
 
-  const tabConfig: { value: AdminTab; label: string; badge?: number }[] = [
-    { value: "billables", label: "運行実績", badge: pendingCounts.billables || undefined },
-    { value: "expenses", label: "経費", badge: pendingCounts.expenses || undefined },
+  type TabItem = { value: AdminTab; label: string; badge?: number; featureKey?: string }
+
+  const allTabs: TabItem[] = [
+    { value: "billables", label: "運行実績", badge: pendingCounts.billables || undefined, featureKey: "billable" },
+    { value: "cleaningJobs", label: "作業実績", featureKey: "cleaning_job" },
+    { value: "expenses", label: "経費", badge: pendingCounts.expenses || undefined, featureKey: "expense" },
     { value: "closings", label: "月次締め" },
     { value: "employees", label: "社員一覧" },
     { value: "empRequests", label: "社員申請", badge: pendingCounts.empRequests || undefined },
     { value: "invite", label: "招待リンク" },
   ]
+
+  const visibleTabs = features
+    ? allTabs.filter((t) => !t.featureKey || features[t.featureKey] !== false)
+    : allTabs
 
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-8 md:px-6">
@@ -80,7 +106,7 @@ export default function AdminPageClient() {
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">承認管理</h1>
           <p className="text-sm text-muted-foreground">
-            管理者が運行実績と経費申請の承認作業を行う画面です。
+            管理者が実績と経費申請の承認作業を行う画面です。
           </p>
         </div>
 
@@ -91,7 +117,7 @@ export default function AdminPageClient() {
               <CardDescription>画面上部のタブで承認対象を切り替えます。</CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
-              {tabConfig.map(({ value, label, badge }) => (
+              {visibleTabs.map(({ value, label, badge }) => (
                 <Button
                   key={value}
                   type="button"
@@ -110,12 +136,13 @@ export default function AdminPageClient() {
           </CardHeader>
         </Card>
 
-        {activeTab === "billables" ? <BillablePanel /> : null}
-        {activeTab === "expenses" ? <ExpensePanel /> : null}
-        {activeTab === "closings" ? <ClosingPanel /> : null}
-        {activeTab === "employees" ? <EmployeeManagementPanel /> : null}
-        {activeTab === "empRequests" ? <EmpRequestPanel /> : null}
-        {activeTab === "invite" ? <InvitePanel /> : null}
+        {ready && activeTab === "billables" ? <BillablePanel /> : null}
+        {ready && activeTab === "cleaningJobs" ? <CleaningJobPanel /> : null}
+        {ready && activeTab === "expenses" ? <ExpensePanel /> : null}
+        {ready && activeTab === "closings" ? <ClosingPanel /> : null}
+        {ready && activeTab === "employees" ? <EmployeeManagementPanel /> : null}
+        {ready && activeTab === "empRequests" ? <EmpRequestPanel /> : null}
+        {ready && activeTab === "invite" ? <InvitePanel /> : null}
       </div>
     </main>
   )
