@@ -21,27 +21,16 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient()
 
-    const { count: companyCount, error: companyCountError } = await admin
-      .from('companies')
-      .select('id', { count: 'exact', head: true })
-
-    if (companyCountError) {
-      throw new Error('会社情報の確認に失敗しました')
-    }
-
-    if ((companyCount ?? 0) > 0) {
-      return NextResponse.json({ error: '初回セットアップは完了済みです' }, { status: 409 })
-    }
-
-    // すでに同じメールで社員登録済みならエラー
-    const { data: existing } = await admin
+    // 同じユーザーが既に OWNER として登録済みの会社があればエラー
+    const { data: existingOwner } = await admin
       .from('employees')
       .select('id')
       .eq('google_email', user.email!)
+      .eq('role', 'OWNER')
       .maybeSingle()
 
-    if (existing) {
-      return NextResponse.json({ error: 'すでに登録済みです' }, { status: 409 })
+    if (existingOwner) {
+      return NextResponse.json({ error: 'すでにオーナーとして登録済みの会社があります' }, { status: 409 })
     }
 
     // 参加コード（8文字英数字）を生成
@@ -85,14 +74,16 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: '未認証' }, { status: 401 })
 
+    // このユーザーが既に OWNER の会社を持っているかを確認
     const admin = createAdminClient()
-    const { count, error } = await admin
-      .from('companies')
-      .select('id', { count: 'exact', head: true })
+    const { data: ownerEmp } = await admin
+      .from('employees')
+      .select('id')
+      .eq('google_email', user.email!)
+      .eq('role', 'OWNER')
+      .maybeSingle()
 
-    if (error) throw new Error('確認に失敗しました')
-
-    return NextResponse.json({ setup_done: (count ?? 0) > 0 })
+    return NextResponse.json({ setup_done: !!ownerEmp })
   } catch (e) {
     return apiError(e)
   }

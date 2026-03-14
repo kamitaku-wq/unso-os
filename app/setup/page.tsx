@@ -3,26 +3,30 @@ import { redirect } from "next/navigation"
 
 import { SetupForm } from "@/components/setup-form"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export const metadata: Metadata = {
-  title: "初期設定 | 運送OS",
+  title: "会社セットアップ",
 }
 
 export default async function SetupPage() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
     redirect("/login")
   }
 
-  const { count: companyCount } = await supabase
-    .from("companies")
-    .select("id", { count: "exact", head: true })
+  // このユーザーが既に OWNER の会社を持っていればリダイレクト
+  const admin = createAdminClient()
+  const { data: ownerEmp } = await admin
+    .from("employees")
+    .select("id")
+    .eq("google_email", user.email!)
+    .eq("role", "OWNER")
+    .maybeSingle()
 
-  if ((companyCount ?? 0) > 0) {
+  if (ownerEmp) {
     redirect("/auth/post-login")
   }
 

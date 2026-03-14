@@ -15,10 +15,12 @@ export async function getMyEmployee(): Promise<Employee> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('未認証')
 
+  // RLS が x-company-id ヘッダーで会社を絞り込むため、1件だけ返る
   const { data, error } = await supabase
     .from('employees')
     .select('id, emp_id, company_id, role, name')
     .eq('google_email', user.email!)
+    .limit(1)
     .single()
 
   if (error || !data) throw new Error('社員情報が見つかりません')

@@ -17,24 +17,25 @@ export async function POST() {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
 
-    // 会社を取得（is_demo フラグも含む）
+    // デモ会社を明示的に検索
     const { data: company } = await admin
       .from('companies')
-      .select('id, is_demo')
+      .select('id')
+      .eq('is_demo', true)
       .limit(1)
-      .single()
-    if (!company) return NextResponse.json({ error: '会社が未登録です' }, { status: 400 })
+      .maybeSingle()
 
-    // デモ会社でない場合は自動登録しない
-    if (!company.is_demo) {
+    // デモ会社がなければ自動登録しない
+    if (!company) {
       return NextResponse.json({ registered: false })
     }
 
-    // 既に登録済みなら何もしない
+    // 既にこのデモ会社に登録済みなら何もしない
     const { data: existing } = await admin
       .from('employees')
       .select('emp_id')
       .eq('google_email', user.email)
+      .eq('company_id', company.id)
       .maybeSingle()
     if (existing) return NextResponse.json({ registered: true, emp_id: existing.emp_id })
 

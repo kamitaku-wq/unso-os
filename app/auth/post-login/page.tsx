@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
 
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
 function getHomePath(role: "WORKER" | "ADMIN" | "OWNER") {
@@ -9,28 +10,46 @@ function getHomePath(role: "WORKER" | "ADMIN" | "OWNER") {
   return "/"
 }
 
+// ログイン後のルーティング（複数会社対応）
 export default async function PostLoginPage() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
   if (!user?.email) {
     redirect("/login")
   }
 
-  const { data: employee } = await supabase
+  // admin クライアントで全社の所属情報を取得（RLS バイパス）
+  const admin = createAdminClient()
+  const { data: employees } = await admin
     .from("employees")
-    .select("role, is_active")
+    .select("company_id, role, is_active")
     .eq("google_email", user.email)
-    .maybeSingle()
+    .eq("is_active", true)
 
-  if (employee?.is_active) {
-    redirect(getHomePath(employee.role))
+  const activeEmployees = employees ?? []
+
+  // 複数会社に所属 → 会社選択画面へ
+  if (activeEmployees.length > 1) {
+    redirect("/select-company")
   }
 
-  // 申請済みで承認待ちの場合は /pending へ
-  const { data: pendingRequest } = await supabase
+  // 1社のみ → Cookie を自動設定してホームへ
+  if (activeEmployees.length === 1) {
+    const emp = activeEmployees[0]
+    const cookieStore = await cookies()
+    cookieStore.set("x-company-id", emp.company_id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    })
+    redirect(getHomePath(emp.role))
+  }
+
+  // 未登録: 申請中なら /pending へ
+  const { data: pendingRequest } = await admin
     .from("emp_requests")
     .select("request_id")
     .eq("google_email", user.email)
@@ -42,7 +61,7 @@ export default async function PostLoginPage() {
     redirect("/pending")
   }
 
-  // 未登録ユーザー: デモ会社なら自動 WORKER 登録、通常会社なら申請ページへ
+  // 未登録: デモ会社なら自動 WORKER 登録、通常会社なら申請ページへ
   const headersList = await headers()
   const host = headersList.get("host") ?? "localhost:3000"
   const protocol = host.includes("localhost") ? "http" : "https"

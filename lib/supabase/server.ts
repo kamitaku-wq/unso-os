@@ -5,6 +5,12 @@ import { cookies } from 'next/headers'
 export async function createClient() {
   const cookieStore = await cookies()
 
+  // Cookie から選択中の会社IDを読み取り、Supabase ヘッダーとして渡す
+  const companyId = cookieStore.get('x-company-id')?.value
+  const globalHeaders: Record<string, string> = companyId
+    ? { 'x-company-id': companyId }
+    : {}
+
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -23,6 +29,7 @@ export async function createClient() {
           }
         },
       },
+      global: { headers: globalHeaders },
     }
   )
 }
