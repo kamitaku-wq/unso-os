@@ -29,6 +29,17 @@ export default async function PostLoginPage() {
 
   const activeEmployees = employees ?? []
 
+  // Cookie に会社IDが既にセットされている場合はそれを使う
+  const cookieStore = await cookies()
+  const selectedCompanyId = cookieStore.get("x-company-id")?.value
+
+  if (selectedCompanyId) {
+    const selected = activeEmployees.find((e) => e.company_id === selectedCompanyId)
+    if (selected) {
+      redirect(getHomePath(selected.role))
+    }
+  }
+
   // 複数会社に所属 → 会社選択画面へ
   if (activeEmployees.length > 1) {
     redirect("/select-company")
@@ -37,7 +48,6 @@ export default async function PostLoginPage() {
   // 1社のみ → Cookie を自動設定してホームへ
   if (activeEmployees.length === 1) {
     const emp = activeEmployees[0]
-    const cookieStore = await cookies()
     cookieStore.set("x-company-id", emp.company_id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
