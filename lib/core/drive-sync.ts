@@ -52,8 +52,7 @@ async function uploadToDrive(
 // Workload Identity Federation で Google Access Token を取得する
 // 1. Vercel OIDC トークンを Google STS に交換
 // 2. STS トークンで Service Account を impersonate して Drive 用 Access Token を取得
-async function getAccessTokenViaWIF(): Promise<string> {
-  const oidcToken = process.env.VERCEL_OIDC_TOKEN
+async function getAccessTokenViaWIF(oidcToken: string): Promise<string> {
   const provider = process.env.GCP_WORKLOAD_IDENTITY_PROVIDER
   const serviceAccountEmail = process.env.GCP_SERVICE_ACCOUNT_EMAIL
 
@@ -106,13 +105,13 @@ async function getAccessTokenViaWIF(): Promise<string> {
 }
 
 // 未転送のレシートを Google Drive に転送する
-export async function syncReceiptsToDrive(): Promise<SyncResult> {
+export async function syncReceiptsToDrive(oidcToken?: string): Promise<SyncResult> {
   // 環境変数チェック
   if (!process.env.GCP_WORKLOAD_IDENTITY_PROVIDER || !process.env.GCP_SERVICE_ACCOUNT_EMAIL) {
     return { synced: 0, errors: ['GCP_WORKLOAD_IDENTITY_PROVIDER / GCP_SERVICE_ACCOUNT_EMAIL が未設定です'] }
   }
-  if (!process.env.VERCEL_OIDC_TOKEN) {
-    return { synced: 0, errors: ['VERCEL_OIDC_TOKEN が取得できません（Vercel Pro が必要）'] }
+  if (!oidcToken) {
+    return { synced: 0, errors: ['OIDC トークンが渡されていません'] }
   }
 
   const admin = createServiceClient(
@@ -156,7 +155,7 @@ export async function syncReceiptsToDrive(): Promise<SyncResult> {
     try {
       // Access Token を遅延取得（1回だけ）
       if (!accessToken) {
-        accessToken = await getAccessTokenViaWIF()
+        accessToken = await getAccessTokenViaWIF(oidcToken)
       }
 
       // Supabase Storage からダウンロード

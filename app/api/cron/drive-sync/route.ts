@@ -1,6 +1,7 @@
 // Vercel Cron: 未転送のレシート画像を Google Drive に転送する
 // vercel.json で schedule を設定して定期実行する
 import { NextResponse } from 'next/server'
+import { getVercelOidcToken } from '@vercel/oidc'
 import { syncReceiptsToDrive } from '@/lib/core/drive-sync'
 
 export async function GET(request: Request) {
@@ -11,6 +12,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const result = await syncReceiptsToDrive()
+  // Vercel OIDC トークンを取得（リクエストハンドラー内でのみ有効）
+  let oidcToken: string | undefined
+  try {
+    oidcToken = await getVercelOidcToken()
+  } catch {
+    return NextResponse.json({ synced: 0, errors: ['OIDC トークンの取得に失敗しました'] })
+  }
+
+  const result = await syncReceiptsToDrive(oidcToken)
   return NextResponse.json(result)
 }
