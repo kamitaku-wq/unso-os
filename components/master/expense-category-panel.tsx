@@ -289,21 +289,22 @@ export function ExpenseCategoryPanel() {
                 description="上のフォームから最初の経費区分を登録してください"
               />
             ) : (
+              <div className="overflow-x-auto -mx-6 px-6">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>区分コード</TableHead>
+                    <TableHead className="hidden sm:table-cell">区分コード</TableHead>
                     <TableHead>名称</TableHead>
-                    <TableHead>備考</TableHead>
+                    <TableHead className="hidden md:table-cell">備考</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {expenseCategories.map((expenseCategory) => (
                     <TableRow key={expenseCategory.id}>
-                      <TableCell>{expenseCategory.category_id}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{expenseCategory.category_id}</TableCell>
                       <TableCell>{expenseCategory.name}</TableCell>
-                      <TableCell className="max-w-80 whitespace-normal">
+                      <TableCell className="hidden max-w-80 whitespace-normal md:table-cell">
                         {expenseCategory.note || "-"}
                       </TableCell>
                       <TableCell className="text-right">
@@ -340,6 +341,7 @@ export function ExpenseCategoryPanel() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>

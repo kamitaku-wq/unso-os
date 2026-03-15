@@ -197,21 +197,22 @@ export function WorksPanel() {
             ) : works.length === 0 ? (
               <EmptyState icon={Database} description="左のフォームから最初の作業種別を登録してください" />
             ) : (
+              <div className="overflow-x-auto -mx-6 px-6">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16">順序</TableHead>
-                    <TableHead>コード</TableHead>
+                    <TableHead className="hidden w-16 sm:table-cell">順序</TableHead>
+                    <TableHead className="hidden sm:table-cell">コード</TableHead>
                     <TableHead>名称</TableHead>
                     <TableHead className="text-right">単価</TableHead>
-                    <TableHead>状態</TableHead>
+                    <TableHead className="hidden md:table-cell">状態</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {works.map((w, idx) => (
                     <TableRow key={w.id} className={w.is_active ? "" : "opacity-50"}>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <div className="flex gap-0.5">
                           <button type="button" disabled={idx === 0 || isMutating}
                             onClick={() => void handleMove(idx, -1)}
@@ -225,10 +226,10 @@ export function WorksPanel() {
                           </button>
                         </div>
                       </TableCell>
-                      <TableCell>{w.work_code}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{w.work_code}</TableCell>
                       <TableCell>{w.name}</TableCell>
                       <TableCell className="text-right">{formatPrice(w.default_unit_price)}</TableCell>
-                      <TableCell>{w.is_active ? "有効" : "無効"}</TableCell>
+                      <TableCell className="hidden md:table-cell">{w.is_active ? "有効" : "無効"}</TableCell>
                       <TableCell className="text-right">
                         <Button type="button" size="sm" variant="outline" disabled={isMutating}
                           onClick={() => setEditing(w)}>
@@ -239,6 +240,7 @@ export function WorksPanel() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>

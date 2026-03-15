@@ -345,27 +345,28 @@ export function RoutePanel() {
                 description="上のフォームから最初のルートを登録してください"
               />
             ) : (
+              <div className="overflow-x-auto -mx-6 px-6">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ルートコード</TableHead>
+                    <TableHead className="hidden sm:table-cell">ルートコード</TableHead>
                     <TableHead>荷主</TableHead>
-                    <TableHead>積み地</TableHead>
-                    <TableHead>降ろし地</TableHead>
+                    <TableHead className="hidden md:table-cell">積み地</TableHead>
+                    <TableHead className="hidden md:table-cell">降ろし地</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {routes.map((route) => (
                     <TableRow key={route.id}>
-                      <TableCell>{route.route_id}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{route.route_id}</TableCell>
                       <TableCell>
                         {customerNameMap.get(route.cust_id)
                           ? `${customerNameMap.get(route.cust_id)} (${route.cust_id})`
                           : route.cust_id}
                       </TableCell>
-                      <TableCell>{route.pickup_default || "-"}</TableCell>
-                      <TableCell>{route.drop_default || "-"}</TableCell>
+                      <TableCell className="hidden md:table-cell">{route.pickup_default || "-"}</TableCell>
+                      <TableCell className="hidden md:table-cell">{route.drop_default || "-"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
@@ -398,6 +399,7 @@ export function RoutePanel() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>

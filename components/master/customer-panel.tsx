@@ -284,21 +284,22 @@ export function CustomerPanel({ labelPrefix = "荷主" }: { labelPrefix?: string
                 description={`上のフォームから最初の${labelPrefix}を登録してください`}
               />
             ) : (
+              <div className="overflow-x-auto -mx-6 px-6">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>顧客コード</TableHead>
+                    <TableHead className="hidden sm:table-cell">顧客コード</TableHead>
                     <TableHead>名称</TableHead>
-                    <TableHead>住所</TableHead>
+                    <TableHead className="hidden md:table-cell">住所</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {customers.map((customer) => (
                     <TableRow key={customer.id}>
-                      <TableCell>{customer.cust_id}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{customer.cust_id}</TableCell>
                       <TableCell>{customer.name}</TableCell>
-                      <TableCell className="max-w-80 whitespace-normal">
+                      <TableCell className="hidden max-w-80 whitespace-normal md:table-cell">
                         {customer.address || "-"}
                       </TableCell>
                       <TableCell className="text-right">
@@ -335,6 +336,7 @@ export function CustomerPanel({ labelPrefix = "荷主" }: { labelPrefix?: string
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>

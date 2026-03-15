@@ -291,10 +291,11 @@ export function RatecardPanel() {
                 description="上のフォームから最初の運賃を登録してください"
               />
             ) : (
+              <div className="overflow-x-auto -mx-6 px-6">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ルートコード</TableHead>
+                    <TableHead className="hidden sm:table-cell">ルートコード</TableHead>
                     <TableHead>荷主</TableHead>
                     <TableHead>基本運賃</TableHead>
                     <TableHead className="text-right">操作</TableHead>
@@ -303,7 +304,7 @@ export function RatecardPanel() {
                 <TableBody>
                   {ratecards.map((ratecard) => (
                     <TableRow key={ratecard.id}>
-                      <TableCell>{ratecard.route_id}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{ratecard.route_id}</TableCell>
                       <TableCell>
                         {customerNameMap.get(ratecard.cust_id) ?? ratecard.cust_id}
                       </TableCell>
@@ -329,6 +330,7 @@ export function RatecardPanel() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>
