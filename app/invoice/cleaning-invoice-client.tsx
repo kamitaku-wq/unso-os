@@ -207,7 +207,7 @@ table.detail tr:nth-child(even) td { background:#f7fafc; }
     w.print()
   }
 
-  // 請求書を Google Drive に保存する
+  // 請求書を Google Drive に保存する（iframe 隔離方式で lab() カラー問題を回避）
   const handleSaveToDrive = async () => {
     const content = printRef.current
     if (!content) return
@@ -216,7 +216,25 @@ table.detail tr:nth-child(even) td { background:#f7fafc; }
       const html2canvas = (await import("html2canvas")).default
       const jsPDF = (await import("jspdf")).default
 
-      const canvas = await html2canvas(content, { scale: 2, useCORS: true })
+      // iframe に印刷用HTMLだけを描画（Tailwind/shadcn の CSS を排除）
+      const iframe = document.createElement("iframe")
+      iframe.style.position = "fixed"
+      iframe.style.left = "-9999px"
+      iframe.style.width = "794px" // A4 幅 (210mm ≒ 794px at 96dpi)
+      iframe.style.height = "1123px"
+      document.body.appendChild(iframe)
+
+      const iframeDoc = iframe.contentDocument!
+      iframeDoc.open()
+      iframeDoc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>${printCSS} body{margin:0;padding:10mm 14mm;background:#fff;}</style></head><body>${content.innerHTML}</body></html>`)
+      iframeDoc.close()
+
+      // iframe のレンダリング完了を待つ
+      await new Promise(r => setTimeout(r, 500))
+
+      const canvas = await html2canvas(iframeDoc.body, { scale: 2, useCORS: true })
+      document.body.removeChild(iframe)
+
       const imgData = canvas.toDataURL("image/jpeg", 0.95)
       const pdf = new jsPDF("p", "mm", "a4")
       const pdfW = pdf.internal.pageSize.getWidth()
