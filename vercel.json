@@ -5,6 +5,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/cron/reminders",
+      "schedule": "0 8 * * *"
+    },
+    {
       "path": "/api/cron/drive-sync",
       "schedule": "0 * * * *"
     }
