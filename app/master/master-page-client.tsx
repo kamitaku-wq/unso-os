@@ -29,16 +29,17 @@ type EnabledFeatures = Record<string, boolean>
 // マスタ管理画面のタブ切り替えと各パネルのレンダリングを担当するクライアントコンポーネント
 export default function MasterPageClient() {
   const [activeTab, setActiveTab] = useState<MasterTab>("customers")
-  const [features, setFeatures] = useState<EnabledFeatures | null>(null)
+  // undefined=読み込み中, null=未設定（全表示）, object=設定あり
+  const [features, setFeatures] = useState<EnabledFeatures | null | undefined>(undefined)
 
   // enabled_features を /api/me から取得する
   useEffect(() => {
-    fetch("/api/me", { cache: "no-store" })
+    fetch("/api/me")
       .then((r) => r.json())
       .then((data: { custom_settings?: { enabled_features?: EnabledFeatures } }) => {
         setFeatures(data.custom_settings?.enabled_features ?? null)
       })
-      .catch(() => {})
+      .catch(() => setFeatures(null))
   }, [])
 
   const allTabs: TabDef[] = [
@@ -50,7 +51,7 @@ export default function MasterPageClient() {
     { value: "ratecards", label: "運賃", featureKey: "billable" },
   ]
 
-  // features 未設定 → 全表示、featureKey 未定義 → 常に表示
+  // features 未設定(null) → 全表示、featureKey 未定義 → 常に表示
   const visibleTabs = features
     ? allTabs.filter((t) => !t.featureKey || features[t.featureKey] !== false)
     : allTabs
@@ -67,35 +68,48 @@ export default function MasterPageClient() {
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
 
-        <Card>
-          <CardHeader className="gap-4">
-            <div>
-              <CardTitle>管理対象</CardTitle>
-              <CardDescription>
-                画面上部のタブで対象マスタを切り替えます。
-              </CardDescription>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {visibleTabs.map((tab) => (
-                <Button
-                  key={tab.value}
-                  type="button"
-                  variant={activeTab === tab.value ? "default" : "outline"}
-                  onClick={() => setActiveTab(tab.value)}
-                >
-                  {tab.label}
-                </Button>
-              ))}
-            </div>
-          </CardHeader>
-        </Card>
+        {features === undefined ? (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                <CardDescription>読み込み中...</CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+        ) : (
+          <>
+            <Card>
+              <CardHeader className="gap-4">
+                <div>
+                  <CardTitle>管理対象</CardTitle>
+                  <CardDescription>
+                    画面上部のタブで対象マスタを切り替えます。
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {visibleTabs.map((tab) => (
+                    <Button
+                      key={tab.value}
+                      type="button"
+                      variant={activeTab === tab.value ? "default" : "outline"}
+                      onClick={() => setActiveTab(tab.value)}
+                    >
+                      {tab.label}
+                    </Button>
+                  ))}
+                </div>
+              </CardHeader>
+            </Card>
 
-        {activeTab === "customers" ? <CustomerPanel labelPrefix={features?.cleaning_job ? "客先" : "荷主"} /> : null}
-        {activeTab === "works" ? <WorksPanel /> : null}
-        {activeTab === "routes" ? <RoutePanel /> : null}
-        {activeTab === "expenseCategories" ? <ExpenseCategoryPanel /> : null}
-        {activeTab === "vehicles" ? <VehiclePanel /> : null}
-        {activeTab === "ratecards" ? <RatecardPanel /> : null}
+            {activeTab === "customers" ? <CustomerPanel labelPrefix={features?.cleaning_job ? "客先" : "荷主"} /> : null}
+            {activeTab === "works" ? <WorksPanel /> : null}
+            {activeTab === "routes" ? <RoutePanel /> : null}
+            {activeTab === "expenseCategories" ? <ExpenseCategoryPanel /> : null}
+            {activeTab === "vehicles" ? <VehiclePanel /> : null}
+            {activeTab === "ratecards" ? <RatecardPanel /> : null}
+          </>
+        )}
       </div>
     </main>
   )

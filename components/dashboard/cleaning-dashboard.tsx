@@ -142,22 +142,24 @@ export function CleaningDashboard({
           <CardHeader><CardTitle>月別比較</CardTitle><CardDescription>売上・経費・利益概算の推移</CardDescription></CardHeader>
           <CardContent>
             {comparisonRows.length === 0 ? <EmptyState icon={Receipt} description="データがありません" /> : (
-              <Table>
-                <TableHeader><TableRow>
-                  <TableHead>月</TableHead><TableHead className="text-right">売上</TableHead>
-                  <TableHead className="text-right">経費</TableHead><TableHead className="text-right">利益概算</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {comparisonRows.map(r => (
-                    <TableRow key={r.ym}>
-                      <TableCell>{parseInt(r.ym.slice(4, 6))}月</TableCell>
-                      <TableCell className="text-right font-medium text-blue-700">{formatCurrency(r.sales)}</TableCell>
-                      <TableCell className="text-right text-orange-700">{formatCurrency(r.expenses)}</TableCell>
-                      <TableCell className={`text-right font-semibold ${r.profit >= 0 ? "text-emerald-700" : "text-red-600"}`}>{formatCurrency(r.profit)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="overflow-x-auto -mx-6 px-6">
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>月</TableHead><TableHead className="text-right">売上</TableHead>
+                    <TableHead className="text-right">経費</TableHead><TableHead className="text-right">利益概算</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {comparisonRows.map(r => (
+                      <TableRow key={r.ym}>
+                        <TableCell>{parseInt(r.ym.slice(4, 6))}月</TableCell>
+                        <TableCell className="whitespace-nowrap text-right font-medium text-blue-700">{formatCurrency(r.sales)}</TableCell>
+                        <TableCell className="whitespace-nowrap text-right text-orange-700">{formatCurrency(r.expenses)}</TableCell>
+                        <TableCell className={`whitespace-nowrap text-right font-semibold ${r.profit >= 0 ? "text-emerald-700" : "text-red-600"}`}>{formatCurrency(r.profit)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -193,27 +195,32 @@ export function CleaningDashboard({
           <CardContent>
             {isLoading ? <TableSkeleton columns={6} rows={5} /> :
               data.staffAnalysis.length === 0 ? <EmptyState icon={ClipboardCheck} description="当月の実績がありません" /> : (
-              <Table>
-                <TableHeader><TableRow>
-                  <TableHead>スタッフ</TableHead><TableHead className="text-right">件数</TableHead>
-                  <TableHead className="text-right">承認済み</TableHead><TableHead className="text-right">承認率</TableHead>
-                  <TableHead className="text-right">売上</TableHead><TableHead className="text-right">平均リードタイム</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {data.staffAnalysis.map(s => (
-                    <TableRow key={s.emp_id}>
-                      <TableCell className="font-medium">{s.name}</TableCell>
-                      <TableCell className="text-right">{s.totalJobs}</TableCell>
-                      <TableCell className="text-right">{s.approvedJobs}</TableCell>
-                      <TableCell className="text-right">{s.approvalRate}%</TableCell>
-                      <TableCell className="text-right font-semibold text-blue-700">{formatCurrency(s.amount)}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {s.avgLeadTimeHours < 24 ? `${s.avgLeadTimeHours}h` : `${Math.round(s.avgLeadTimeHours / 24 * 10) / 10}d`}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="overflow-x-auto -mx-6 px-6">
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead className="whitespace-nowrap">スタッフ</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">件数</TableHead>
+                    <TableHead className="hidden text-right sm:table-cell">承認済み</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">承認率</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">売上</TableHead>
+                    <TableHead className="hidden text-right sm:table-cell">平均リードタイム</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {data.staffAnalysis.map(s => (
+                      <TableRow key={s.emp_id}>
+                        <TableCell className="whitespace-nowrap font-medium">{s.name}</TableCell>
+                        <TableCell className="text-right">{s.totalJobs}</TableCell>
+                        <TableCell className="hidden text-right sm:table-cell">{s.approvedJobs}</TableCell>
+                        <TableCell className="text-right">{s.approvalRate}%</TableCell>
+                        <TableCell className="whitespace-nowrap text-right font-semibold text-blue-700">{formatCurrency(s.amount)}</TableCell>
+                        <TableCell className="hidden text-right text-muted-foreground sm:table-cell">
+                          {s.avgLeadTimeHours < 24 ? `${s.avgLeadTimeHours}h` : `${Math.round(s.avgLeadTimeHours / 24 * 10) / 10}d`}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

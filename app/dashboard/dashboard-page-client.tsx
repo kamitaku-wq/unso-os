@@ -76,18 +76,18 @@ export default function DashboardPageClient() {
             <h1 className="text-3xl font-bold tracking-tight">経営ダッシュボード</h1>
             <p className="text-sm text-muted-foreground">当月の経営状況をリアルタイムで確認できます。</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border bg-white px-3 py-1.5 text-sm shadow-sm">
               <input type="checkbox" checked={includeAll} onChange={e => { setIncludeAll(e.target.checked); void loadDashboard(e.target.checked) }} className="size-4 accent-orange-500" />
               <span className="text-muted-foreground">未承認を含む</span>
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-1">
               <Button type="button" size="sm" variant={periodMonths === 3 ? "default" : "outline"} onClick={() => setPeriodMonths(3)}>3ヶ月</Button>
               <Button type="button" size="sm" variant={periodMonths === 6 ? "default" : "outline"} onClick={() => setPeriodMonths(6)}>6ヶ月</Button>
               <Button type="button" size="sm" variant={periodMonths === 12 ? "default" : "outline"} onClick={() => setPeriodMonths(12)}>1年</Button>
             </div>
-            <p className="text-xs text-muted-foreground">{lastUpdatedAt ? `更新: ${new Date(lastUpdatedAt).toLocaleString("ja-JP")}` : ""}</p>
             <Button type="button" variant="outline" size="sm" onClick={() => void loadDashboard()} disabled={isLoading}>{isLoading ? "更新中..." : "再読み込み"}</Button>
+            {lastUpdatedAt ? <p className="w-full text-xs text-muted-foreground sm:w-auto">更新: {new Date(lastUpdatedAt).toLocaleString("ja-JP")}</p> : null}
           </div>
         </div>
 
@@ -212,22 +212,24 @@ function TransportDashboardView({ data, isLoading, includeAll, periodMonths }: {
           <CardHeader><CardTitle>月別比較</CardTitle><CardDescription>売上・経費・利益概算の推移</CardDescription></CardHeader>
           <CardContent>
             {comparisonRows.length === 0 ? <EmptyState icon={Receipt} description="データがありません" /> : (
-              <Table>
-                <TableHeader><TableRow>
-                  <TableHead>月</TableHead><TableHead className="text-right">売上</TableHead>
-                  <TableHead className="text-right">経費</TableHead><TableHead className="text-right">利益概算</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {comparisonRows.map(r => (
-                    <TableRow key={r.ym}>
-                      <TableCell>{parseInt(r.ym.slice(4, 6))}月</TableCell>
-                      <TableCell className="text-right font-medium text-blue-700">{formatCurrency(r.sales)}</TableCell>
-                      <TableCell className="text-right text-orange-700">{formatCurrency(r.expenses)}</TableCell>
-                      <TableCell className={`text-right font-semibold ${r.profit >= 0 ? "text-emerald-700" : "text-red-600"}`}>{formatCurrency(r.profit)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="overflow-x-auto -mx-6 px-6">
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>月</TableHead><TableHead className="text-right">売上</TableHead>
+                    <TableHead className="text-right">経費</TableHead><TableHead className="text-right">利益概算</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {comparisonRows.map(r => (
+                      <TableRow key={r.ym}>
+                        <TableCell>{parseInt(r.ym.slice(4, 6))}月</TableCell>
+                        <TableCell className="whitespace-nowrap text-right font-medium text-blue-700">{formatCurrency(r.sales)}</TableCell>
+                        <TableCell className="whitespace-nowrap text-right text-orange-700">{formatCurrency(r.expenses)}</TableCell>
+                        <TableCell className={`whitespace-nowrap text-right font-semibold ${r.profit >= 0 ? "text-emerald-700" : "text-red-600"}`}>{formatCurrency(r.profit)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

@@ -287,34 +287,23 @@ export default function ShiftPageClient() {
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const prev = new Date(monday)
-                  prev.setDate(prev.getDate() - 7)
-                  setMonday(prev)
-                }}
-              >
-                <ChevronLeft className="size-4" />
-                前の週
-              </Button>
-              <CardTitle className="text-base">
-                {mondayLabel} 〜 {sundayLabel}
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                {canEdit && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => void handleApplyRoutines()}
-                    disabled={isApplying}
-                  >
-                    <CalendarCog className="mr-1 size-4" />
-                    {isApplying ? "適用中..." : "ルーティン適用"}
-                  </Button>
-                )}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center justify-between gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const prev = new Date(monday)
+                    prev.setDate(prev.getDate() - 7)
+                    setMonday(prev)
+                  }}
+                >
+                  <ChevronLeft className="size-4" />
+                  <span className="hidden sm:inline">前の週</span>
+                </Button>
+                <CardTitle className="text-sm sm:text-base">
+                  {mondayLabel} 〜 {sundayLabel}
+                </CardTitle>
                 <Button
                   variant="outline"
                   size="sm"
@@ -324,10 +313,22 @@ export default function ShiftPageClient() {
                     setMonday(next)
                   }}
                 >
-                  次の週
+                  <span className="hidden sm:inline">次の週</span>
                   <ChevronRight className="size-4" />
                 </Button>
               </div>
+              {canEdit && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  onClick={() => void handleApplyRoutines()}
+                  disabled={isApplying}
+                >
+                  <CalendarCog className="mr-1 size-4" />
+                  {isApplying ? "適用中..." : "ルーティン適用"}
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -340,14 +341,14 @@ export default function ShiftPageClient() {
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr>
-                      <th className="sticky left-0 z-10 min-w-24 bg-muted/80 px-3 py-2 text-left font-medium text-muted-foreground">
+                      <th className="sticky left-0 z-10 min-w-20 bg-muted/80 px-2 py-2 text-left text-xs font-medium text-muted-foreground sm:min-w-24 sm:px-3 sm:text-sm">
                         社員
                       </th>
                       {weekDates.map((date, i) => (
                         <th
                           key={date}
                           className={[
-                            "min-w-24 px-2 py-2 text-center font-medium",
+                            "min-w-16 px-1 py-2 text-center text-xs font-medium sm:min-w-24 sm:px-2 sm:text-sm",
                             i >= 5 ? "text-blue-600" : "text-muted-foreground",
                           ].join(" ")}
                         >
@@ -363,7 +364,7 @@ export default function ShiftPageClient() {
                         key={emp.emp_id}
                         className={rowIdx % 2 === 0 ? "bg-white" : "bg-muted/20"}
                       >
-                        <td className="sticky left-0 z-10 border-r bg-inherit px-3 py-2 font-medium">
+                        <td className="sticky left-0 z-10 border-r bg-inherit px-2 py-2 text-xs font-medium sm:px-3 sm:text-sm">
                           <div className="flex items-center gap-1">
                             <span>{emp.name}</span>
                             {canEdit && (
