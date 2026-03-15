@@ -14,12 +14,6 @@ type Company = {
   role: string
 }
 
-function getHomePath(role: string) {
-  if (role === "OWNER") return "/dashboard"
-  if (role === "ADMIN") return "/admin"
-  return "/"
-}
-
 // 複数会社に所属するユーザー向けの会社選択画面
 export default function SelectCompanyClient() {
   const [companies, setCompanies] = useState<Company[]>([])
@@ -36,9 +30,8 @@ export default function SelectCompanyClient() {
 
   function handleSelect(company: Company) {
     setSwitching(company.id)
-    // ブラウザ直接ナビゲーション：API が Cookie 設定 + リダイレクトを1レスポンスで返す
-    const redirect = encodeURIComponent(getHomePath(company.role))
-    window.location.href = `/api/company/switch?id=${company.id}&redirect=${redirect}`
+    // Server Component ページで Cookie 設定 + リダイレクト
+    window.location.href = `/select-company/switch?id=${company.id}`
   }
 
   const roleLabel = (role: string) => {
