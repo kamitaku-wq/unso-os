@@ -215,8 +215,8 @@ table.detail tr:nth-child(even) td { background:#fafbfc; }
 
           <div className="header-row">
             <div className="client-section">
-              <div className="client-name">{clientName}　様</div>
               {clientAddress && <div className="client-address">{clientAddress}</div>}
+              <div className="client-name">{clientName}　様</div>
               <div className="client-month">{periodMonth}</div>
             </div>
             <div className="issuer-section">
