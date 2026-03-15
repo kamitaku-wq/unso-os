@@ -124,20 +124,11 @@ function InvoicePrintView({ details, invoiceId, issuer, customers }: {
 
   // 明細行を車両ID単位に展開
   const expandedRows = expandDetails(details)
-  // ページ分割（1ページ30行程度）
-  const ROWS_PER_PAGE = 30
-  const detailPages: typeof expandedRows[] = []
-  for (let i = 0; i < expandedRows.length; i += ROWS_PER_PAGE) {
-    detailPages.push(expandedRows.slice(i, i + ROWS_PER_PAGE))
-  }
-  const totalPages = 1 + detailPages.length // 表紙 + 明細ページ数
 
   const printCSS = `
 @media print { @page { margin: 10mm 14mm; size: A4; } body { padding:0; } }
 * { box-sizing:border-box; margin:0; padding:0; }
 body { font-family: "Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif; color:#2d3748; margin:0; padding:20px 24px; font-size:9pt; line-height:1.6; }
-
-.page-num { text-align:right; font-size:7.5pt; color:#a0aec0; margin-bottom:4px; letter-spacing:0.5px; }
 
 /* ── 表紙タイトル ── */
 .title-bar { background:#2c3e50; color:#fff; padding:12px 0; text-align:center; font-size:20pt; font-weight:700; letter-spacing:10px; margin-bottom:24px; }
@@ -197,6 +188,7 @@ body { font-family: "Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
 table.detail { width:100%; border-collapse:collapse; font-size:8pt; }
 table.detail th { background:#2c3e50; color:#fff; padding:6px 8px; text-align:center; font-weight:400; font-size:7.5pt; white-space:nowrap; }
 table.detail td { padding:5px 8px; border-bottom:1px solid #edf2f7; font-size:8pt; }
+table.detail tr { page-break-inside:avoid; }
 table.detail td.r { text-align:right; font-variant-numeric:tabular-nums; }
 table.detail tr:nth-child(even) td { background:#f7fafc; }
 .detail-total-row td { font-weight:700; background:#edf2f7 !important; border-top:2px solid #2c3e50 !important; }
@@ -221,9 +213,8 @@ table.detail tr:nth-child(even) td { background:#f7fafc; }
         </Button>
       </div>
       <div ref={printRef}>
-        {/* === 表紙（1/N） === */}
+        {/* === 表紙 === */}
         <div className="page">
-          <div className="page-num">1/{totalPages}</div>
           <div className="title-bar">請　求　書</div>
 
           <div className="header-row">
@@ -294,52 +285,42 @@ table.detail tr:nth-child(even) td { background:#f7fafc; }
           </div>
         </div>
 
-        {/* === 明細ページ（2/N〜） === */}
-        {detailPages.map((pageRows, pi) => {
-          const isLastPage = pi === detailPages.length - 1
-          return (
-            <div key={pi} className="page-break page">
-              <div className="page-num">{pi + 2}/{totalPages}</div>
-              <div className="detail-title">明　　細</div>
-              <div className="detail-client">{clientName}　{periodMonth}</div>
-              <table className="detail">
-                <thead>
-                  <tr>
-                    <th style={{width:"28%"}}>商品名/品目</th>
-                    <th style={{width:"14%"}}>作業項目</th>
-                    <th style={{width:"8%"}}>作業日</th>
-                    <th style={{width:"8%"}}>数量</th>
-                    <th style={{width:"10%"}}>単価</th>
-                    <th style={{width:"10%"}}>金額</th>
-                    <th style={{width:"22%"}}>備考</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageRows.map((r, ri) => (
-                    <tr key={ri}>
-                      <td>{[r.idText, r.carName].filter(Boolean).join(" ")}</td>
-                      <td>{r.workName}</td>
-                      <td>{r.workDate ? r.workDate.slice(5).replace("-", "/") : "-"}</td>
-                      <td className="r">{r.qty}</td>
-                      <td className="r">{fmtCur(r.unitPrice)}</td>
-                      <td className="r">{fmtCur(r.amount)}</td>
-                      <td>{r.note}</td>
-                    </tr>
-                  ))}
-                  {isLastPage && (
-                    <>
-                      <tr className="detail-total-row">
-                        <td>小計</td><td></td><td></td><td className="r">{expandedRows.length}</td><td></td><td className="r">{fmtCur(subtotal)}</td><td></td>
-                      </tr>
-                      <tr className="detail-tax-row"><td>消費税（10%）</td><td></td><td></td><td></td><td></td><td className="r">{fmtCur(tax)}</td><td></td></tr>
-                      <tr className="detail-total-row"><td>合計（税込）</td><td></td><td></td><td></td><td></td><td className="r">{fmtCur(total)}</td><td></td></tr>
-                    </>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )
-        })}
+        {/* === 明細 === */}
+        <div className="page-break page">
+          <div className="detail-title">明　　細</div>
+          <div className="detail-client">{clientName}　{periodMonth}</div>
+          <table className="detail">
+            <thead>
+              <tr>
+                <th style={{width:"28%"}}>商品名/品目</th>
+                <th style={{width:"14%"}}>作業項目</th>
+                <th style={{width:"8%"}}>作業日</th>
+                <th style={{width:"8%"}}>数量</th>
+                <th style={{width:"10%"}}>単価</th>
+                <th style={{width:"10%"}}>金額</th>
+                <th style={{width:"22%"}}>備考</th>
+              </tr>
+            </thead>
+            <tbody>
+              {expandedRows.map((r, ri) => (
+                <tr key={ri}>
+                  <td>{[r.idText, r.carName].filter(Boolean).join(" ")}</td>
+                  <td>{r.workName}</td>
+                  <td>{r.workDate ? r.workDate.slice(5).replace("-", "/") : "-"}</td>
+                  <td className="r">{r.qty}</td>
+                  <td className="r">{fmtCur(r.unitPrice)}</td>
+                  <td className="r">{fmtCur(r.amount)}</td>
+                  <td>{r.note}</td>
+                </tr>
+              ))}
+              <tr className="detail-total-row">
+                <td>小計</td><td></td><td></td><td className="r">{expandedRows.length}</td><td></td><td className="r">{fmtCur(subtotal)}</td><td></td>
+              </tr>
+              <tr className="detail-tax-row"><td>消費税（10%）</td><td></td><td></td><td></td><td></td><td className="r">{fmtCur(tax)}</td><td></td></tr>
+              <tr className="detail-total-row"><td>合計（税込）</td><td></td><td></td><td></td><td></td><td className="r">{fmtCur(total)}</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
