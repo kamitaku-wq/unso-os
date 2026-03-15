@@ -17,7 +17,7 @@ export async function getOrCreateSubfolder(
   // 既存フォルダを検索
   const q = `name='${folderName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
   const searchRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`,
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
   )
   if (searchRes.ok) {
@@ -26,7 +26,7 @@ export async function getOrCreateSubfolder(
   }
 
   // 存在しなければ作成
-  const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+  const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id&supportsAllDrives=true', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -80,7 +80,7 @@ export async function uploadToDrive(
   )
 
   const res = await fetch(
-    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink&supportsAllDrives=true',
     {
       method: 'POST',
       headers: {
