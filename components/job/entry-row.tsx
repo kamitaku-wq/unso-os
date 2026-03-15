@@ -46,7 +46,7 @@ export function EntryRow({ entry, idx, stores, works, total, onUpdate, onWorkCha
           <SelectContent>
             {works.map((w) => (
               <SelectItem key={w.work_code} value={w.work_code}>
-                {w.name}{w.default_unit_price != null ? ` ¥${w.default_unit_price.toLocaleString()}` : ""}
+                {w.name}{w.default_unit_price != null ? ` ${formatCurrency(w.default_unit_price)}` : ""}
               </SelectItem>
             ))}
           </SelectContent>

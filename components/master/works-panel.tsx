@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { getErrorMessage } from "@/lib/format"
+import { formatCurrency, getErrorMessage } from "@/lib/format"
 
 type Work = {
   id: string
@@ -141,7 +141,7 @@ export function WorksPanel() {
     }
   }, [works, load])
 
-  const formatPrice = (p: number | null) => p != null ? `¥${p.toLocaleString()}` : "—"
+  const formatPrice = (p: number | null) => p != null ? formatCurrency(p) : "—"
 
   return (
     <>

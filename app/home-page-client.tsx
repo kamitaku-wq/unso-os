@@ -115,7 +115,7 @@ function createInitialFormState(runDate = new Date().toISOString().slice(0, 10))
 function getStatusLabel(status: string) {
   if (status === "APPROVED") return "承認済み"
   if (status === "VOID") return "無効"
-  return "確認待ち"
+  return "承認待ち"
 }
 
 export default function HomePageClient() {
@@ -568,7 +568,7 @@ export default function HomePageClient() {
                 onClick={() => setStatusFilter("REVIEW_REQUIRED")}
                 disabled={isLoading}
               >
-                確認待ち
+                承認待ち
               </Button>
               <Button
                 type="button"

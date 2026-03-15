@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LocationPicker } from "@/components/shift/location-picker"
-import { getErrorMessage } from "@/lib/format"
+import { formatCurrency, getErrorMessage } from "@/lib/format"
 
 // --- 型定義 ---
 type Role = "WORKER" | "ADMIN" | "OWNER"
@@ -415,7 +415,7 @@ export default function ShiftPageClient() {
                                           ? `${cell.summary.clockIn}–`
                                           : null}
                                       {cell.summary.jobCount > 0 ? (
-                                        <div>¥{cell.summary.totalAmount.toLocaleString()} / {cell.summary.jobCount}件</div>
+                                        <div>{formatCurrency(cell.summary.totalAmount)} / {cell.summary.jobCount}件</div>
                                       ) : null}
                                     </div>
                                   ) : null}
