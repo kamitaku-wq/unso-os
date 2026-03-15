@@ -345,18 +345,19 @@ export default function AdminAttendancesPage() {
                     description="上の条件を見直すか、最初の勤怠を登録してください"
                   />
                 ) : (
+                  <div className="overflow-x-auto -mx-6 px-6">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>勤務日</TableHead>
-                        <TableHead>申請ID</TableHead>
-                        <TableHead>社員ID</TableHead>
-                        <TableHead>勤務時間</TableHead>
-                        <TableHead>休憩</TableHead>
-                        <TableHead>運転</TableHead>
-                        <TableHead>残業</TableHead>
-                        <TableHead>ステータス</TableHead>
-                        <TableHead>詳細</TableHead>
+                        <TableHead className="whitespace-nowrap">勤務日</TableHead>
+                        <TableHead className="hidden sm:table-cell">申請ID</TableHead>
+                        <TableHead className="hidden sm:table-cell">社員ID</TableHead>
+                        <TableHead className="hidden md:table-cell">勤務時間</TableHead>
+                        <TableHead className="hidden md:table-cell">休憩</TableHead>
+                        <TableHead className="hidden lg:table-cell">運転</TableHead>
+                        <TableHead className="hidden sm:table-cell">残業</TableHead>
+                        <TableHead className="whitespace-nowrap">ステータス</TableHead>
+                        <TableHead className="hidden lg:table-cell">詳細</TableHead>
                         <TableHead>操作</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -369,22 +370,22 @@ export default function AdminAttendancesPage() {
                         return (
                           <TableRow key={attendance.id}>
                             <TableCell>{formatDate(attendance.work_date)}</TableCell>
-                            <TableCell>{attendance.attendance_id}</TableCell>
-                            <TableCell>{attendance.emp_id}</TableCell>
-                            <TableCell>
+                            <TableCell className="hidden sm:table-cell">{attendance.attendance_id}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{attendance.emp_id}</TableCell>
+                            <TableCell className="hidden md:table-cell">
                               {attendance.clock_in && attendance.clock_out
                                 ? `${formatDateTime(attendance.clock_in)} - ${formatDateTime(attendance.clock_out)}`
                                 : "-"}
                             </TableCell>
-                            <TableCell>{formatMinutes(attendance.break_min)}</TableCell>
-                            <TableCell>{formatMinutes(attendance.drive_min)}</TableCell>
-                            <TableCell>{formatMinutes(attendance.overtime_min)}</TableCell>
+                            <TableCell className="hidden md:table-cell">{formatMinutes(attendance.break_min)}</TableCell>
+                            <TableCell className="hidden lg:table-cell">{formatMinutes(attendance.drive_min)}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{formatMinutes(attendance.overtime_min)}</TableCell>
                             <TableCell>
                               <StatusBadge status={attendance.status}>
                                 {getStatusLabel(attendance.status)}
                               </StatusBadge>
                             </TableCell>
-                            <TableCell className="max-w-80 whitespace-normal text-sm text-muted-foreground">
+                            <TableCell className="hidden max-w-80 whitespace-normal text-sm text-muted-foreground lg:table-cell">
                               <div>作成: {formatDateTime(attendance.created_at)}</div>
                               {attendance.approved_at ? (
                                 <div>
@@ -434,6 +435,7 @@ export default function AdminAttendancesPage() {
                       })}
                     </TableBody>
                   </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>

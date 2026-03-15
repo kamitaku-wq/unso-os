@@ -244,6 +244,7 @@ function TransportDashboardView({ data, isLoading, includeAll, periodMonths }: {
           <CardHeader><CardTitle>当月 社員別実績</CardTitle></CardHeader>
           <CardContent>
             {isLoading ? <TableSkeleton columns={4} rows={4} /> : employees.length === 0 ? <EmptyState icon={Truck} description="当月の実績がありません" /> : (
+              <div className="overflow-x-auto -mx-6 px-6">
               <Table>
                 <TableHeader><TableRow>
                   <TableHead>社員名</TableHead><TableHead className="text-right">件数</TableHead><TableHead className="text-right">承認済み金額</TableHead>
@@ -258,6 +259,7 @@ function TransportDashboardView({ data, isLoading, includeAll, periodMonths }: {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>
