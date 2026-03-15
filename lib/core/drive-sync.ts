@@ -1,5 +1,6 @@
 // Google Drive への画像転送ロジック
 // Supabase Storage に一時保存されたレシート画像を、各社の Google Drive フォルダへ転送する
+// 認証: Vercel OIDC + Google Workload Identity Federation（Service Account キー不要）
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 type SyncResult = {
@@ -15,12 +16,7 @@ async function uploadToDrive(
   fileBuffer: ArrayBuffer,
   mimeType: string,
 ): Promise<string> {
-  const metadata = {
-    name: fileName,
-    parents: [folderId],
-  }
-
-  // multipart upload
+  const metadata = { name: fileName, parents: [folderId] }
   const boundary = 'drive_sync_boundary'
   const metaPart = JSON.stringify(metadata)
   const body = new Uint8Array(
@@ -53,80 +49,70 @@ async function uploadToDrive(
   return data.webViewLink
 }
 
-// Service Account の JWT から Access Token を取得する
-async function getAccessToken(serviceAccountKey: string): Promise<string> {
-  const key = JSON.parse(serviceAccountKey) as {
-    client_email: string
-    private_key: string
-    token_uri: string
+// Workload Identity Federation で Google Access Token を取得する
+// 1. Vercel OIDC トークンを Google STS に交換
+// 2. STS トークンで Service Account を impersonate して Drive 用 Access Token を取得
+async function getAccessTokenViaWIF(): Promise<string> {
+  const oidcToken = process.env.VERCEL_OIDC_TOKEN
+  const provider = process.env.GCP_WORKLOAD_IDENTITY_PROVIDER
+  const serviceAccountEmail = process.env.GCP_SERVICE_ACCOUNT_EMAIL
+
+  if (!oidcToken || !provider || !serviceAccountEmail) {
+    throw new Error('Workload Identity Federation の環境変数が未設定です')
   }
 
-  // JWT ヘッダー
-  const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
-  const now = Math.floor(Date.now() / 1000)
-  const claimSet = btoa(
-    JSON.stringify({
-      iss: key.client_email,
-      scope: 'https://www.googleapis.com/auth/drive.file',
-      aud: key.token_uri,
-      exp: now + 3600,
-      iat: now,
-    })
-  )
-
-  // RS256 署名（Web Crypto API）
-  const signInput = `${header}.${claimSet}`
-  const pemBody = key.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/, '')
-    .replace(/-----END PRIVATE KEY-----/, '')
-    .replace(/\n/g, '')
-  const binaryKey = Uint8Array.from(atob(pemBody), (c) => c.charCodeAt(0))
-
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8',
-    binaryKey,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign']
-  )
-
-  const signature = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5',
-    cryptoKey,
-    new TextEncoder().encode(signInput)
-  )
-
-  const sig = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-
-  // base64url エンコードされた header と claimSet も同様に変換
-  const headerB64 = header.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-  const claimB64 = claimSet.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-
-  const jwt = `${headerB64}.${claimB64}.${sig}`
-
-  const tokenRes = await fetch(key.token_uri, {
+  // Step 1: Vercel OIDC トークンを Google STS トークンに交換
+  const stsRes = await fetch('https://sts.googleapis.com/v1/token', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+      audience: `//iam.googleapis.com/${provider}`,
+      scope: 'https://www.googleapis.com/auth/cloud-platform',
+      requested_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+      subject_token: oidcToken,
+      subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
+    }),
   })
 
-  if (!tokenRes.ok) {
-    const err = await tokenRes.text()
-    throw new Error(`Token exchange failed: ${err}`)
+  if (!stsRes.ok) {
+    const err = await stsRes.text()
+    throw new Error(`STS token exchange failed: ${err}`)
   }
 
-  const tokenData = (await tokenRes.json()) as { access_token: string }
-  return tokenData.access_token
+  const stsData = (await stsRes.json()) as { access_token: string }
+
+  // Step 2: Service Account を impersonate して Drive スコープの Access Token を取得
+  const impersonateUrl = `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${serviceAccountEmail}:generateAccessToken`
+  const impRes = await fetch(impersonateUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${stsData.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      scope: ['https://www.googleapis.com/auth/drive.file'],
+      lifetime: '3600s',
+    }),
+  })
+
+  if (!impRes.ok) {
+    const err = await impRes.text()
+    throw new Error(`Service Account impersonation failed: ${err}`)
+  }
+
+  const impData = (await impRes.json()) as { accessToken: string }
+  return impData.accessToken
 }
 
 // 未転送のレシートを Google Drive に転送する
 export async function syncReceiptsToDrive(): Promise<SyncResult> {
-  const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
-  if (!serviceAccountKey) {
-    return { synced: 0, errors: ['GOOGLE_SERVICE_ACCOUNT_KEY is not configured'] }
+  // 環境変数チェック
+  if (!process.env.GCP_WORKLOAD_IDENTITY_PROVIDER || !process.env.GCP_SERVICE_ACCOUNT_EMAIL) {
+    return { synced: 0, errors: ['GCP_WORKLOAD_IDENTITY_PROVIDER / GCP_SERVICE_ACCOUNT_EMAIL が未設定です'] }
+  }
+  if (!process.env.VERCEL_OIDC_TOKEN) {
+    return { synced: 0, errors: ['VERCEL_OIDC_TOKEN が取得できません（Vercel Pro が必要）'] }
   }
 
   const admin = createServiceClient(
@@ -134,7 +120,7 @@ export async function syncReceiptsToDrive(): Promise<SyncResult> {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
-  // 未転送のレシートを持つ経費を取得（receipt_url が設定済み & receipt_synced = false）
+  // 未転送のレシートを持つ経費を取得
   const { data: expenses, error: fetchErr } = await admin
     .from('expenses')
     .select('id, receipt_url, company_id, emp_id, expense_date')
@@ -165,15 +151,12 @@ export async function syncReceiptsToDrive(): Promise<SyncResult> {
 
   for (const expense of expenses) {
     const folderId = folderMap.get(expense.company_id)
-    if (!folderId) {
-      // この会社は Drive 未設定 → スキップ
-      continue
-    }
+    if (!folderId) continue
 
     try {
       // Access Token を遅延取得（1回だけ）
       if (!accessToken) {
-        accessToken = await getAccessToken(serviceAccountKey)
+        accessToken = await getAccessTokenViaWIF()
       }
 
       // Supabase Storage からダウンロード
