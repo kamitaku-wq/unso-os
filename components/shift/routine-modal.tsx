@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { LocationPicker } from "@/components/shift/location-picker"
 import { getErrorMessage } from "@/lib/format"
 
 type RoutineDay = {
@@ -129,21 +130,16 @@ export function RoutineModal({
                   <span className="text-xs">休み</span>
                 </label>
                 {!day.is_day_off && (
-                  <div className="flex gap-2">
-                    <div className="flex-1 space-y-1">
+                  <div className="space-y-2">
+                    <div className="space-y-1">
                       <Label className="text-xs">場所</Label>
-                      <select
+                      <LocationPicker
                         value={day.location}
-                        onChange={(e) => updateDay(idx, { location: e.target.value })}
-                        className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                      >
-                        <option value="">選択</option>
-                        {customers.map((c) => (
-                          <option key={c.cust_id} value={c.name}>{c.name}</option>
-                        ))}
-                      </select>
+                        onChange={(v) => updateDay(idx, { location: v })}
+                        customers={customers}
+                      />
                     </div>
-                    <div className="flex-1 space-y-1">
+                    <div className="space-y-1">
                       <Label className="text-xs">作業</Label>
                       <Input
                         value={day.work_type}

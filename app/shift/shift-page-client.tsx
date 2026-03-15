@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { LocationPicker } from "@/components/shift/location-picker"
 import { getErrorMessage } from "@/lib/format"
 
 // --- 型定義 ---
@@ -493,21 +494,13 @@ export default function ShiftPageClient() {
 
               {/* 配置場所 */}
               <div className="space-y-1">
-                <Label htmlFor="shift-location">配置場所</Label>
-                <select
-                  id="shift-location"
+                <Label>配置場所</Label>
+                <LocationPicker
                   value={modal.location}
-                  onChange={(e) =>
-                    setModal((prev) => prev ? { ...prev, location: e.target.value } : prev)
-                  }
+                  onChange={(v) => setModal((prev) => prev ? { ...prev, location: v } : prev)}
+                  customers={customers}
                   disabled={modal.is_day_off}
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="">選択してください</option>
-                  {customers.map((c) => (
-                    <option key={c.cust_id} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
+                />
               </div>
 
               {/* 作業内容 */}
