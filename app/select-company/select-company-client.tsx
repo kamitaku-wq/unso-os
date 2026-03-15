@@ -34,23 +34,12 @@ export default function SelectCompanyClient() {
     return "/"
   }
 
-  async function handleSelect(company: Company) {
+  function handleSelect(company: Company) {
     setSwitching(company.id)
-    try {
-      // サーバー側で Set-Cookie ヘッダーを発行（httpOnly Cookie を上書きできる唯一の方法）
-      const res = await fetch("/api/company/switch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_id: company.id }),
-        credentials: "same-origin",
-      })
-      if (!res.ok) throw new Error("切替に失敗しました")
-      // fetch のレスポンスの Set-Cookie が処理されるのを待ってからナビゲーション
-      window.location.href = getHomePath(company.role)
-    } catch {
-      toast.error("会社の切替に失敗しました")
-      setSwitching(null)
-    }
+    // ブラウザで直接 GET エンドポイントに遷移（最も確実な Cookie 設定方法）
+    // サーバーが Set-Cookie + リダイレクトを返すので、fetch の Set-Cookie 処理問題を回避
+    const redirect = encodeURIComponent(getHomePath(company.role))
+    window.location.href = `/api/company/switch?id=${company.id}&redirect=${redirect}`
   }
 
   const roleLabel = (role: string) => {

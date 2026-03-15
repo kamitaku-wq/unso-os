@@ -6,14 +6,6 @@ import { apiError } from '@/lib/api-error'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-const COOKIE_OPTIONS = {
-  httpOnly: false,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  path: '/',
-  maxAge: 60 * 60 * 24 * 365,
-}
-
 // ブラウザ直接ナビゲーション用（Cookie + リダイレクトを同一レスポンスで返す）
 export async function GET(request: Request) {
   try {
@@ -39,7 +31,10 @@ export async function GET(request: Request) {
     if (!emp) return NextResponse.redirect(new URL('/select-company', request.url))
 
     const response = NextResponse.redirect(new URL(redirectTo, request.url))
-    response.cookies.set('x-company-id', companyId, COOKIE_OPTIONS)
+    const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
+    // 古い httpOnly Cookie を削除 + 新しい non-httpOnly Cookie を設定
+    response.headers.append('Set-Cookie', `x-company-id=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`)
+    response.headers.append('Set-Cookie', `x-company-id=${companyId}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`)
     return response
   } catch (e) {
     return apiError(e)
