@@ -34,14 +34,23 @@ export default function SelectCompanyClient() {
     return "/"
   }
 
-  function handleSelect(company: Company) {
+  async function handleSelect(company: Company) {
     setSwitching(company.id)
-    // Cookie をクライアント側で直接設定してからページ遷移
-    // x-company-id は会社選択のみに使われ、実際のアクセス制御はRLSが行う
-    const maxAge = 60 * 60 * 24 * 365
-    const secure = window.location.protocol === "https:" ? "; Secure" : ""
-    document.cookie = `x-company-id=${company.id}; path=/; max-age=${maxAge}; SameSite=Lax${secure}`
-    window.location.href = getHomePath(company.role)
+    try {
+      // サーバー側で Set-Cookie ヘッダーを発行（httpOnly Cookie を上書きできる唯一の方法）
+      const res = await fetch("/api/company/switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company_id: company.id }),
+        credentials: "same-origin",
+      })
+      if (!res.ok) throw new Error("切替に失敗しました")
+      // fetch のレスポンスの Set-Cookie が処理されるのを待ってからナビゲーション
+      window.location.href = getHomePath(company.role)
+    } catch {
+      toast.error("会社の切替に失敗しました")
+      setSwitching(null)
+    }
   }
 
   const roleLabel = (role: string) => {

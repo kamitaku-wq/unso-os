@@ -68,7 +68,10 @@ export async function POST(request: Request) {
     if (!emp) return NextResponse.json({ error: 'この会社に所属していません' }, { status: 403 })
 
     const response = NextResponse.json({ ok: true })
-    response.cookies.set('x-company-id', company_id, COOKIE_OPTIONS)
+    const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
+    // 古い httpOnly Cookie を削除 + 新しい non-httpOnly Cookie を設定（2つの Set-Cookie ヘッダー）
+    response.headers.append('Set-Cookie', `x-company-id=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`)
+    response.headers.append('Set-Cookie', `x-company-id=${company_id}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`)
     return response
   } catch (e) {
     return apiError(e)
