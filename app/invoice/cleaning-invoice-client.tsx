@@ -31,7 +31,7 @@ type PreviewItem = {
 type DetailItem = {
   job_id: string; work_date: string; work_code: string | null; work_name: string | null
   car_type_text: string | null; id_list_raw: string | null
-  qty: number; unit_price: number; amount: number; emp_id: string | null
+  qty: number; unit_price: number; amount: number; price_note: string | null; emp_id: string | null
   store_name: string | null; store_id: string | null
   invoice_period_from: string | null; invoice_period_to: string | null; invoiced_at: string | null
 }
@@ -74,7 +74,28 @@ function calcRetentionUntil(invoicedAt: string): string {
   return d.toLocaleDateString("ja-JP")
 }
 
-// 印刷用 請求書ビュー（旧システム準拠）
+// 明細行を車両ID単位に展開する（1行 = 1車両）
+function expandDetails(details: DetailItem[]) {
+  const rows: { idText: string; carName: string; workName: string; workDate: string; qty: number; unitPrice: number; amount: number; note: string }[] = []
+  for (const d of details) {
+    const ids = (d.id_list_raw ?? "").split(/[\n,]/).map(s => s.trim()).filter(Boolean)
+    const carName = d.car_type_text ?? ""
+    const workName = d.work_name ?? "その他"
+    const workDate = d.work_date
+    const unitPrice = Number(d.unit_price)
+    const note = d.price_note ?? ""
+    if (ids.length <= 1) {
+      rows.push({ idText: ids[0] ?? "", carName, workName, workDate, qty: d.qty, unitPrice, amount: Number(d.amount), note })
+    } else {
+      for (const id of ids) {
+        rows.push({ idText: id, carName, workName, workDate, qty: 1, unitPrice, amount: unitPrice, note })
+      }
+    }
+  }
+  return rows
+}
+
+// 印刷用 請求書ビュー（旧システムPDF準拠）
 function InvoicePrintView({ details, invoiceId, issuer }: {
   details: DetailItem[]; invoiceId: string; issuer: IssuerInfo
 }) {
@@ -82,12 +103,14 @@ function InvoicePrintView({ details, invoiceId, issuer }: {
   if (details.length === 0) return null
 
   const storeName = details[0].store_name ?? ""
-  const periodFrom = details[0].invoice_period_from ?? ""
   const periodTo = details[0].invoice_period_to ?? ""
   const invoicedAt = details[0].invoiced_at ?? ""
   const invoicedAtStr = invoicedAt ? new Date(invoicedAt).toLocaleDateString("ja-JP") : ""
 
-  // 作業種別サマリ集計
+  // 月表示（例: "2月分"）
+  const periodMonth = periodTo ? `${Number(periodTo.slice(5, 7))}月分` : ""
+
+  // 作業種別サマリ集計（表紙用）
   const workMap = new Map<string, WorkSummary>()
   for (const d of details) {
     const key = d.work_name ?? "その他"
@@ -100,42 +123,54 @@ function InvoicePrintView({ details, invoiceId, issuer }: {
   const tax = Math.floor(subtotal * 0.1)
   const total = subtotal + tax
 
+  // 明細行を車両ID単位に展開
+  const expandedRows = expandDetails(details)
+  // ページ分割（1ページ30行程度）
+  const ROWS_PER_PAGE = 30
+  const detailPages: typeof expandedRows[] = []
+  for (let i = 0; i < expandedRows.length; i += ROWS_PER_PAGE) {
+    detailPages.push(expandedRows.slice(i, i + ROWS_PER_PAGE))
+  }
+  const totalPages = 1 + detailPages.length // 表紙 + 明細ページ数
+
   const printCSS = `
-@media print { @page { margin: 15mm; size: A4; } }
-body { font-family: "Hiragino Sans","Yu Gothic",sans-serif; color:#1a1a1a; margin:0; padding:24px; font-size:9pt; }
-.title-bar { background:#1e3a5f; color:white; padding:12px 20px; text-align:center; font-size:20pt; font-weight:bold; letter-spacing:4px; }
-.meta-row { display:flex; justify-content:space-between; margin:12px 0; font-size:9pt; }
-.meta-row .left { }
-.meta-row .right { text-align:right; }
-.client-box { background:#f5f5f5; padding:10px 16px; margin:12px 0; }
-.client-name { font-size:13pt; font-weight:bold; border-bottom:2px solid #1e3a5f; padding-bottom:4px; display:inline-block; }
-.summary-box { border:1px solid #94a3b8; margin:16px 0; }
-.summary-box .row { display:flex; border-bottom:1px solid #94a3b8; }
-.summary-box .row:last-child { border-bottom:none; }
-.summary-box .label { width:200px; padding:6px 12px; font-weight:bold; background:#f1f5f9; border-right:1px solid #94a3b8; }
-.summary-box .value { flex:1; padding:6px 12px; }
-.summary-box .value.large { font-size:18pt; font-weight:bold; }
-.tax-table { width:100%; border-collapse:collapse; margin:16px 0; font-size:9pt; }
-.tax-table th { background:#1e3a5f; color:white; padding:6px 8px; text-align:center; font-weight:normal; }
-.tax-table td { padding:6px 8px; text-align:right; border:1px solid #94a3b8; }
-.bank-section { margin:16px 0; }
-.bank-section .heading { font-size:9pt; font-weight:bold; margin-bottom:4px; }
-.bank-box { background:#f5f5f5; padding:8px 12px; font-size:9pt; border:1px solid #ddd; }
-.notes { margin:16px 0; font-size:9pt; }
-.notes .heading { font-weight:bold; margin-bottom:4px; }
-.notes p { margin:2px 0; }
+@media print { @page { margin: 12mm 15mm; size: A4; } }
+body { font-family: "Hiragino Sans","Yu Gothic","Meiryo",sans-serif; color:#1a1a1a; margin:0; padding:20px; font-size:9pt; }
+.page { position:relative; }
+.page-num { text-align:right; font-size:8pt; color:#666; margin-bottom:4px; }
+.title-bar { background:#1e3a5f; color:white; padding:10px 20px; text-align:center; font-size:18pt; font-weight:bold; letter-spacing:6px; }
+.header-row { display:flex; justify-content:space-between; margin:16px 0 8px; }
+.client-section { }
+.client-name { font-size:14pt; font-weight:bold; }
+.client-sama { font-size:10pt; }
+.client-month { font-size:12pt; font-weight:bold; margin-top:4px; }
+.issuer-section { text-align:right; font-size:9pt; }
+.issuer-section .name { font-weight:bold; font-size:10pt; }
+.amount-box { border:2px solid #1e3a5f; padding:12px 20px; margin:16px 0; display:flex; align-items:center; gap:16px; }
+.amount-box .label { font-size:10pt; font-weight:bold; white-space:nowrap; }
+.amount-box .value { font-size:22pt; font-weight:bold; }
+.cover-table { width:100%; border-collapse:collapse; margin:12px 0; font-size:9pt; }
+.cover-table th { background:#1e3a5f; color:white; padding:6px 10px; text-align:center; font-weight:normal; border:1px solid #1e3a5f; }
+.cover-table td { padding:5px 10px; border:1px solid #ccc; }
+.cover-table td.r { text-align:right; }
+.cover-table tr.total-row td { font-weight:bold; border-top:2px solid #1e3a5f; }
+.tax-line { margin:8px 0; font-size:9pt; }
+.tax-line table { width:100%; border-collapse:collapse; }
+.tax-line th { background:#e2e8f0; padding:4px 8px; text-align:center; font-size:8pt; border:1px solid #ccc; }
+.tax-line td { padding:4px 8px; text-align:right; border:1px solid #ccc; font-size:9pt; }
+.meta-info { margin:16px 0; font-size:9pt; }
+.meta-info .row { display:flex; gap:8px; margin:2px 0; }
+.meta-info .lbl { font-weight:bold; min-width:100px; }
+.bank-box { background:#f5f5f5; padding:8px 12px; margin:8px 0; font-size:9pt; border:1px solid #ddd; }
+.notes { font-size:8pt; color:#666; margin-top:12px; }
 .page-break { page-break-before:always; }
-.detail-header { background:#1e3a5f; color:white; padding:8px 16px; font-size:11pt; font-weight:bold; }
-.detail-meta { background:#dbeafe; padding:6px 12px; font-size:9pt; margin-bottom:8px; }
-.detail-meta .row { display:flex; gap:16px; padding:2px 0; }
-.detail-meta .lbl { font-weight:bold; min-width:80px; }
-table.detail { width:100%; border-collapse:collapse; font-size:9pt; }
-table.detail th { background:#1e3a5f; color:white; padding:6px 8px; text-align:left; font-weight:normal; font-size:9pt; }
-table.detail th.r { text-align:right; }
-table.detail td { padding:4px 8px; border-bottom:1px solid #ddd; font-size:9pt; }
+.detail-title { background:#1e3a5f; color:white; padding:8px 16px; font-size:14pt; font-weight:bold; text-align:center; letter-spacing:8px; }
+table.detail { width:100%; border-collapse:collapse; font-size:8pt; margin-top:8px; }
+table.detail th { background:#1e3a5f; color:white; padding:5px 6px; text-align:center; font-weight:normal; font-size:8pt; border:1px solid #1e3a5f; }
+table.detail td { padding:3px 6px; border:1px solid #ddd; font-size:8pt; }
 table.detail td.r { text-align:right; }
-table.detail tr:nth-child(odd) td { background:#f1f5f9; }
-.detail-total { text-align:right; font-size:9pt; font-weight:bold; margin-top:8px; padding:4px 8px; }
+table.detail tr:nth-child(even) td { background:#f8fafc; }
+.detail-total-row td { font-weight:bold; border-top:2px solid #1e3a5f !important; }
 `
 
   const handlePrint = () => {
@@ -156,96 +191,121 @@ table.detail tr:nth-child(odd) td { background:#f1f5f9; }
         </Button>
       </div>
       <div ref={printRef}>
-        {/* === 表紙 === */}
-        <div className="title-bar">請　求　書</div>
+        {/* === 表紙（1/N） === */}
+        <div className="page">
+          <div className="page-num">1/{totalPages}</div>
+          <div className="title-bar">請　求　書</div>
 
-        <div className="meta-row">
-          <div className="left"></div>
-          <div className="right">
-            <div>発行日: {invoicedAtStr}</div>
-            <div>請求書番号: {invoiceId}</div>
-            {issuer.tax_id && <div>登録番号: T{issuer.tax_id}</div>}
-          </div>
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div className="client-box" style={{ flex: 1 }}>
-            <div className="client-name">{storeName}　御中</div>
-            <div style={{ marginTop: 4, fontSize: "9pt" }}>下記の通り、ご請求申し上げます。</div>
-          </div>
-          {issuer.issuer_name && (
-            <div style={{ textAlign: "right", fontSize: "9pt", marginLeft: 24 }}>
-              <div style={{ fontWeight: "bold", fontSize: "10pt" }}>{issuer.issuer_name}</div>
+          <div className="header-row">
+            <div className="client-section">
+              <div><span className="client-name">{storeName}</span><span className="client-sama">　様</span></div>
+              <div className="client-month">{periodMonth}</div>
+            </div>
+            <div className="issuer-section">
+              {issuer.issuer_name && <div className="name">{issuer.issuer_name}</div>}
               {issuer.issuer_address && <div>{issuer.issuer_address}</div>}
               {issuer.issuer_tel && <div>TEL: {issuer.issuer_tel}</div>}
+              {issuer.tax_id && <div>登録番号: {issuer.tax_id}</div>}
+            </div>
+          </div>
+
+          <div className="amount-box">
+            <div className="label">請求金額</div>
+            <div className="value">{fmtCur(total)}</div>
+          </div>
+
+          <table className="cover-table">
+            <thead>
+              <tr><th>商品名/品目</th><th>数量（式）</th><th>単価</th><th>金額</th><th>備考</th></tr>
+            </thead>
+            <tbody>
+              {workSummaries.map(w => (
+                <tr key={w.work_name}>
+                  <td>{w.work_name}</td>
+                  <td className="r">{w.qty}</td>
+                  <td className="r">{w.qty > 0 ? fmtCur(Math.round(w.amount / w.qty)) : "-"}</td>
+                  <td className="r">{fmtCur(w.amount)}</td>
+                  <td></td>
+                </tr>
+              ))}
+              <tr className="total-row">
+                <td>小計</td><td></td><td></td><td className="r">{fmtCur(subtotal)}</td><td></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="tax-line">
+            <table>
+              <thead><tr><th>税率</th><th>対象額</th><th>消費税額</th></tr></thead>
+              <tbody><tr><td>10%</td><td>{fmtCur(subtotal)}</td><td>{fmtCur(tax)}</td></tr></tbody>
+            </table>
+          </div>
+
+          <div className="meta-info">
+            <div className="row"><span className="lbl">発行日</span><span>{invoicedAtStr}</span></div>
+            <div className="row"><span className="lbl">請求書番号</span><span>{invoiceId}</span></div>
+            <div className="row"><span className="lbl">お支払期限</span><span>{invoicedAt ? calcPaymentDue(invoicedAt) : "-"}</span></div>
+          </div>
+
+          {issuer.bank_info && (
+            <div>
+              <div style={{ fontWeight: "bold", fontSize: "9pt" }}>■ お振込先</div>
+              <div className="bank-box">{issuer.bank_info}</div>
             </div>
           )}
-        </div>
 
-        <div className="summary-box">
-          <div className="row"><div className="label">請　求　期　間</div><div className="value">{fmtDate(periodFrom)} 〜 {fmtDate(periodTo)}</div></div>
-          <div className="row"><div className="label">お　支　払　期　限</div><div className="value">{invoicedAt ? calcPaymentDue(invoicedAt) : "-"}</div></div>
-          <div className="row"><div className="label">ご請求金額（税込）</div><div className="value large">{fmtCur(total)}</div></div>
-        </div>
-
-        <table className="tax-table">
-          <thead><tr><th>区　分</th><th>税抜金額</th><th>消費税額（10%）</th><th>合計（税込）</th></tr></thead>
-          <tbody><tr><td>10%対象</td><td>{fmtCur(subtotal)}</td><td>{fmtCur(tax)}</td><td>{fmtCur(total)}</td></tr></tbody>
-        </table>
-
-        {issuer.bank_info && (
-          <div className="bank-section">
-            <div className="heading">■ お振込先</div>
-            <div className="bank-box">{issuer.bank_info}</div>
+          <div className="notes">
+            <p>※ お振込手数料はご負担くださいますようお願い申し上げます。</p>
+            {invoicedAt && <p>※ 本書類の保存期限: {calcRetentionUntil(invoicedAt)}</p>}
           </div>
-        )}
-
-        <div className="notes">
-          <div className="heading">■ 備考</div>
-          <p>※ 請求明細は別紙（{details.length} 件）に記載します。</p>
-          <p>※ お振込手数料はご負担くださいますようお願い申し上げます。</p>
-          {invoicedAt && <p>※ 本書類の保存期限: {calcRetentionUntil(invoicedAt)}</p>}
         </div>
 
-        {/* === 明細ページ === */}
-        <div className="page-break"></div>
-        <div className="detail-header">請求明細（別紙）</div>
-        <div className="detail-meta">
-          <div className="row"><span className="lbl">請求書ID</span><span>{invoiceId}</span></div>
-          <div className="row"><span className="lbl">請求期間</span><span>{fmtDate(periodFrom)} 〜 {fmtDate(periodTo)}</span></div>
-          <div className="row"><span className="lbl">請求先</span><span>{storeName}</span></div>
-          <div className="row"><span className="lbl">明細件数</span><span>{details.length}件　小計 {fmtCur(subtotal)}　税 {fmtCur(tax)}　税込合計 {fmtCur(total)}</span></div>
-        </div>
-
-        <table className="detail">
-          <thead>
-            <tr>
-              <th>作業日</th>
-              <th>作業種別</th>
-              <th>車種</th>
-              <th>車両管理番号</th>
-              <th className="r">数量</th>
-              <th className="r">単価</th>
-              <th className="r">金額</th>
-            </tr>
-          </thead>
-          <tbody>
-            {details.map(d => (
-              <tr key={d.job_id}>
-                <td>{fmtDate(d.work_date)}</td>
-                <td>{d.work_name ?? "-"}</td>
-                <td>{d.car_type_text ?? "-"}</td>
-                <td style={{ whiteSpace: "pre-wrap", maxWidth: 200 }}>{d.id_list_raw ?? "-"}</td>
-                <td className="r">{d.qty}</td>
-                <td className="r">{fmtCur(Number(d.unit_price))}</td>
-                <td className="r">{fmtCur(Number(d.amount))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="detail-total">
-          合計 {details.length}件　税抜 {fmtCur(subtotal)}　消費税（10%）{fmtCur(tax)}　税込合計 {fmtCur(total)}
-        </div>
+        {/* === 明細ページ（2/N〜） === */}
+        {detailPages.map((pageRows, pi) => {
+          const pageSubtotal = pageRows.reduce((s, r) => s + r.amount, 0)
+          const isLastPage = pi === detailPages.length - 1
+          return (
+            <div key={pi} className={pi === 0 ? "page-break page" : "page-break page"}>
+              <div className="page-num">{pi + 2}/{totalPages}</div>
+              <div className="detail-title">明　　細</div>
+              <table className="detail">
+                <thead>
+                  <tr>
+                    <th>商品名/品目</th>
+                    <th>作業項目</th>
+                    <th>作業日</th>
+                    <th>数量（式）</th>
+                    <th>単価</th>
+                    <th>金額</th>
+                    <th>備考</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((r, ri) => (
+                    <tr key={ri}>
+                      <td>{[r.idText, r.carName].filter(Boolean).join(" ")}</td>
+                      <td>{r.workName}</td>
+                      <td>{r.workDate ? r.workDate.slice(5).replace("-", "/") : "-"}</td>
+                      <td className="r">{r.qty}</td>
+                      <td className="r">{fmtCur(r.unitPrice)}</td>
+                      <td className="r">{fmtCur(r.amount)}</td>
+                      <td>{r.note}</td>
+                    </tr>
+                  ))}
+                  {isLastPage && (
+                    <>
+                      <tr className="detail-total-row">
+                        <td>小計</td><td></td><td></td><td className="r">{expandedRows.length}</td><td></td><td className="r">{fmtCur(subtotal)}</td><td></td>
+                      </tr>
+                      <tr><td>消費税（10%）</td><td></td><td></td><td></td><td></td><td className="r">{fmtCur(tax)}</td><td></td></tr>
+                      <tr className="detail-total-row"><td>合計（税込）</td><td></td><td></td><td></td><td></td><td className="r">{fmtCur(total)}</td><td></td></tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

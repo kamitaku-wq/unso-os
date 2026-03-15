@@ -26,8 +26,7 @@ export async function createCleaningInvoice(storeId: string, periodFrom: string,
   if (targets.length === 0) throw new Error('請求対象の実績がありません')
 
   const ym = periodTo.slice(0, 7).replace('-', '')
-  const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
-  const invoice_id = `CL-${ym}-${storeId}-${rand}`
+  const invoice_id = `${ym}-${storeId}`
   const now = new Date().toISOString()
 
   const ids = targets.map(t => t.id)
@@ -109,10 +108,10 @@ export async function getCleaningInvoiceDetail(invoiceId: string) {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('cleaning_jobs')
-    .select('job_id, work_date, work_code, work_name, car_type_text, id_list_raw, qty, unit_price, amount, emp_id, store_name, store_id, invoice_period_from, invoice_period_to, invoiced_at')
+    .select('job_id, work_date, work_code, work_name, car_type_text, id_list_raw, qty, unit_price, amount, price_note, emp_id, store_name, store_id, invoice_period_from, invoice_period_to, invoiced_at')
     .eq('invoice_id', invoiceId)
-    .order('work_date')
     .order('work_name')
+    .order('work_date')
 
   if (error) throw new Error(error.message)
   return data ?? []
