@@ -30,17 +30,23 @@ export default function SelectCompanyClient() {
       .finally(() => setIsLoading(false))
   }, [])
 
-  async function handleSelect(companyId: string) {
-    setSwitching(companyId)
+  function getHomePath(role: string) {
+    if (role === "OWNER") return "/dashboard"
+    if (role === "ADMIN") return "/admin"
+    return "/"
+  }
+
+  async function handleSelect(company: Company) {
+    setSwitching(company.id)
     try {
       const res = await fetch("/api/company/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_id: companyId }),
+        body: JSON.stringify({ company_id: company.id }),
       })
       if (!res.ok) throw new Error("切替に失敗しました")
-      // フルリロードで Cookie を確実に反映させる
-      window.location.href = "/auth/post-login"
+      // フルリロードで Cookie を確実に反映させる（post-login を経由しない）
+      window.location.href = getHomePath(company.role)
     } catch {
       toast.error("会社の切替に失敗しました")
       setSwitching(null)
@@ -70,7 +76,7 @@ export default function SelectCompanyClient() {
                 key={c.id}
                 variant="outline"
                 className="flex h-auto w-full items-center justify-start gap-3 p-4"
-                onClick={() => void handleSelect(c.id)}
+                onClick={() => void handleSelect(c)}
                 disabled={switching !== null}
               >
                 <Building2 className="size-5 shrink-0 text-muted-foreground" />
