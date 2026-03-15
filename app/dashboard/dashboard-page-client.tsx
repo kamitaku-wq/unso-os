@@ -35,7 +35,7 @@ type TransportDashboard = {
 }
 
 type DashboardResponse = TransportDashboard | CleaningDashboardData
-type PeriodMonths = 3 | 6
+type PeriodMonths = 3 | 6 | 12
 
 // ---- メインページ ----
 export default function DashboardPageClient() {
@@ -83,6 +83,7 @@ export default function DashboardPageClient() {
             <div className="flex gap-2">
               <Button type="button" size="sm" variant={periodMonths === 3 ? "default" : "outline"} onClick={() => setPeriodMonths(3)}>3ヶ月</Button>
               <Button type="button" size="sm" variant={periodMonths === 6 ? "default" : "outline"} onClick={() => setPeriodMonths(6)}>6ヶ月</Button>
+              <Button type="button" size="sm" variant={periodMonths === 12 ? "default" : "outline"} onClick={() => setPeriodMonths(12)}>1年</Button>
             </div>
             <p className="text-xs text-muted-foreground">{lastUpdatedAt ? `更新: ${new Date(lastUpdatedAt).toLocaleString("ja-JP")}` : ""}</p>
             <Button type="button" variant="outline" size="sm" onClick={() => void loadDashboard()} disabled={isLoading}>{isLoading ? "更新中..." : "再読み込み"}</Button>
@@ -136,11 +137,11 @@ function TransportDashboardView({ data, isLoading, includeAll, periodMonths }: {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">当月 KPI</h2>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard title={includeAll ? "売上（全）" : "売上（承認済み）"} value={isLoading ? "---" : formatCurrency(kpi.sales.current)}
-            subValue={isLoading ? undefined : `前月: ${formatCurrency(kpi.sales.prev)}`} change={isLoading ? null : kpi.sales.change} colorScheme="blue" />
+            subValue={isLoading ? undefined : `前月同日: ${formatCurrency(kpi.sales.prev)}`} change={isLoading ? null : kpi.sales.change} colorScheme="blue" />
           <KpiCard title={includeAll ? "経費（全）" : "経費（承認済み）"} value={isLoading ? "---" : formatCurrency(kpi.expenses.current)}
-            subValue={isLoading ? undefined : `前月: ${formatCurrency(kpi.expenses.prev)}`} change={isLoading ? null : kpi.expenses.change} inverseChange colorScheme="orange" />
+            subValue={isLoading ? undefined : `前月同日: ${formatCurrency(kpi.expenses.prev)}`} change={isLoading ? null : kpi.expenses.change} inverseChange colorScheme="orange" />
           <KpiCard title="利益概算" value={isLoading ? "---" : formatCurrency(kpi.profit.current)}
-            subValue={isLoading ? undefined : `前月: ${formatCurrency(kpi.profit.prev)}`} change={isLoading ? null : kpi.profit.change}
+            subValue={isLoading ? undefined : `前月同日: ${formatCurrency(kpi.profit.prev)}`} change={isLoading ? null : kpi.profit.change}
             badge={isLoading ? undefined : `利益率 ${kpi.profit.rate}%`} colorScheme="emerald" />
           <Link href="/invoice" className="block">
             <KpiCard title="未請求残高" value={isLoading ? "---" : formatCurrency(d.unbilledAmount.amount)}

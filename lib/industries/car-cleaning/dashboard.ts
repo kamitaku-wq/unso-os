@@ -64,7 +64,17 @@ export async function getMonthlyKpi(includeAll = false) {
   const supabase = await createClient()
   const { thisYm, prevYm } = getCurrentAndPrevYm()
   const thisRange = ymToRange(thisYm)
-  const prevRange = ymToRange(prevYm)
+  // 前月同日比: 当月の経過日数に合わせて前月の範囲を制限する
+  const today = new Date()
+  const dayOfMonth = today.getDate()
+  const prevYear = parseInt(prevYm.slice(0, 4))
+  const prevMonth = parseInt(prevYm.slice(4, 6))
+  const prevLastDay = new Date(prevYear, prevMonth, 0).getDate()
+  const prevCutoffDay = Math.min(dayOfMonth, prevLastDay)
+  const prevRange = {
+    start: `${prevYm.slice(0, 4)}-${prevYm.slice(4, 6)}-01`,
+    end: `${prevYm.slice(0, 4)}-${prevYm.slice(4, 6)}-${String(prevCutoffDay).padStart(2, '0')}`,
+  }
 
   const jobStatuses = includeAll ? ['REVIEW_REQUIRED', 'APPROVED'] : ['APPROVED']
   const expStatuses = includeAll ? ['SUBMITTED', 'APPROVED', 'PAID'] : ['APPROVED', 'PAID']
@@ -124,7 +134,7 @@ export async function getUnbilledAmount() {
 
 // 月別売上（直近6ヶ月）
 export async function getMonthlySales(includeAll = false) {
-  const ymList = getRecentYmList(6)
+  const ymList = getRecentYmList(12)
   const statuses = includeAll ? ['REVIEW_REQUIRED', 'APPROVED'] : ['APPROVED']
   type Row = { ym: string; amount: number }
   const data = await fetchAll<Row>(sb => sb.from('cleaning_jobs').select('ym, amount')
@@ -136,7 +146,7 @@ export async function getMonthlySales(includeAll = false) {
 
 // 月別経費（直近6ヶ月）
 export async function getMonthlyExpenses(includeAll = false) {
-  const ymList = getRecentYmList(6)
+  const ymList = getRecentYmList(12)
   const statuses = includeAll ? ['SUBMITTED', 'APPROVED', 'PAID'] : ['APPROVED', 'PAID']
   type Row = { ym: string; amount: number }
   const data = await fetchAll<Row>(sb => sb.from('expenses').select('ym, amount')
@@ -148,7 +158,7 @@ export async function getMonthlyExpenses(includeAll = false) {
 
 // 月別件数（棒グラフ用、売上と重ねて表示）
 export async function getMonthlyJobCounts(includeAll = false) {
-  const ymList = getRecentYmList(6)
+  const ymList = getRecentYmList(12)
   const statuses = includeAll ? ['REVIEW_REQUIRED', 'APPROVED'] : ['APPROVED']
   type Row = { ym: string }
   const data = await fetchAll<Row>(sb => sb.from('cleaning_jobs').select('ym')

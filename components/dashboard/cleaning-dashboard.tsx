@@ -66,11 +66,11 @@ export function CleaningDashboard({
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">当月 KPI</h2>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard title={includeAll ? "売上（全）" : "売上（承認済み）"} value={isLoading ? "---" : formatCurrency(kpi.sales.current)}
-            subValue={isLoading ? undefined : `前月: ${formatCurrency(kpi.sales.prev)}`} change={isLoading ? null : kpi.sales.change} colorScheme="blue" />
+            subValue={isLoading ? undefined : `前月同日: ${formatCurrency(kpi.sales.prev)}`} change={isLoading ? null : kpi.sales.change} colorScheme="blue" />
           <KpiCard title={includeAll ? "経費（全）" : "経費（承認済み）"} value={isLoading ? "---" : formatCurrency(kpi.expenses.current)}
-            subValue={isLoading ? undefined : `前月: ${formatCurrency(kpi.expenses.prev)}`} change={isLoading ? null : kpi.expenses.change} inverseChange colorScheme="orange" />
+            subValue={isLoading ? undefined : `前月同日: ${formatCurrency(kpi.expenses.prev)}`} change={isLoading ? null : kpi.expenses.change} inverseChange colorScheme="orange" />
           <KpiCard title="利益概算" value={isLoading ? "---" : formatCurrency(kpi.profit.current)}
-            subValue={isLoading ? undefined : `前月: ${formatCurrency(kpi.profit.prev)}`} change={isLoading ? null : kpi.profit.change}
+            subValue={isLoading ? undefined : `前月同日: ${formatCurrency(kpi.profit.prev)}`} change={isLoading ? null : kpi.profit.change}
             badge={isLoading ? undefined : `利益率 ${kpi.profit.rate}%`} colorScheme="emerald" />
           <Link href="/invoice" className="block">
             <KpiCard title="未請求残高" value={isLoading ? "---" : formatCurrency(data.unbilledAmount.amount)}

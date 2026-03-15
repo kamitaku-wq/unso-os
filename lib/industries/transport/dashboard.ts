@@ -47,10 +47,10 @@ export async function getPendingCounts() {
   }
 }
 
-// 月別売上を集計する（直近6ヶ月）
+// 月別売上を集計する（直近12ヶ月）
 export async function getMonthlySales(includeAll = false) {
   const supabase = await createClient()
-  const ymList = getRecentYmList(6)
+  const ymList = getRecentYmList(12)
   const ymFrom = ymList[0]
   const ymTo = ymList[ymList.length - 1]
 
@@ -79,10 +79,10 @@ export async function getMonthlySales(includeAll = false) {
   return ymList.map(ym => ({ ym, amount: totals[ym] }))
 }
 
-// 月別経費を集計する（直近6ヶ月）
+// 月別経費を集計する（直近12ヶ月）
 export async function getMonthlyExpenses(includeAll = false) {
   const supabase = await createClient()
-  const ymList = getRecentYmList(6)
+  const ymList = getRecentYmList(12)
 
   const statuses = includeAll
     ? ['SUBMITTED', 'APPROVED', 'PAID']
@@ -151,7 +151,17 @@ export async function getMonthlyKpi(includeAll = false) {
   const supabase = await createClient()
   const { thisYm, prevYm } = getCurrentAndPrevYm()
   const thisRange = ymToRange(thisYm)
-  const prevRange = ymToRange(prevYm)
+  // 前月同日比: 当月の経過日数に合わせて前月の範囲を制限する
+  const today = new Date()
+  const dayOfMonth = today.getDate()
+  const prevYear = parseInt(prevYm.slice(0, 4))
+  const prevMonth = parseInt(prevYm.slice(4, 6))
+  const prevLastDay = new Date(prevYear, prevMonth, 0).getDate()
+  const prevCutoffDay = Math.min(dayOfMonth, prevLastDay)
+  const prevRange = {
+    start: `${prevYm.slice(0, 4)}-${prevYm.slice(4, 6)}-01`,
+    end: `${prevYm.slice(0, 4)}-${prevYm.slice(4, 6)}-${String(prevCutoffDay).padStart(2, '0')}`,
+  }
 
   const billableStatuses = includeAll ? ['REVIEW_REQUIRED', 'APPROVED'] : ['APPROVED']
   const expenseStatuses = includeAll ? ['SUBMITTED', 'APPROVED', 'PAID'] : ['APPROVED', 'PAID']
