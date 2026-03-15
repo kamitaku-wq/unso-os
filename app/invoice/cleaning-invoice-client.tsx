@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Printer, Receipt } from "lucide-react"
+import { Printer, Receipt, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { EmptyState } from "@/components/empty-state"
@@ -36,8 +36,12 @@ type DetailItem = {
   invoice_period_from: string | null; invoice_period_to: string | null; invoiced_at: string | null
 }
 
-// 作業種別ごとの集計
-type WorkSummary = { work_name: string; qty: number; unit_price: number; amount: number }
+type IssuerInfo = {
+  issuer_name?: string; issuer_address?: string; issuer_tel?: string
+  tax_id?: string; bank_info?: string
+}
+
+type WorkSummary = { work_name: string; qty: number; amount: number }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: "no-store", ...init })
@@ -47,6 +51,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function fmtDate(v: string) { return v ? v.replaceAll("-", "/") : "-" }
+function fmtCur(v: number) { return `¥${Math.floor(v).toLocaleString()}` }
 
 function getLastMonthRange() {
   const now = new Date()
@@ -55,60 +60,90 @@ function getLastMonthRange() {
   return { from: first.toISOString().slice(0, 10), to: last.toISOString().slice(0, 10) }
 }
 
-// 請求書の印刷用コンポーネント
-function InvoicePrintView({ details, invoiceId }: { details: DetailItem[]; invoiceId: string }) {
-  const printRef = useRef<HTMLDivElement>(null)
+// 支払期限: 翌月末
+function calcPaymentDue(invoicedAt: string): string {
+  const d = new Date(invoicedAt)
+  const due = new Date(d.getFullYear(), d.getMonth() + 2, 0)
+  return due.toLocaleDateString("ja-JP")
+}
 
+// 保存期限: 7年後
+function calcRetentionUntil(invoicedAt: string): string {
+  const d = new Date(invoicedAt)
+  d.setFullYear(d.getFullYear() + 7)
+  return d.toLocaleDateString("ja-JP")
+}
+
+// 印刷用 請求書ビュー（旧システム準拠）
+function InvoicePrintView({ details, invoiceId, issuer }: {
+  details: DetailItem[]; invoiceId: string; issuer: IssuerInfo
+}) {
+  const printRef = useRef<HTMLDivElement>(null)
   if (details.length === 0) return null
 
   const storeName = details[0].store_name ?? ""
   const periodFrom = details[0].invoice_period_from ?? ""
   const periodTo = details[0].invoice_period_to ?? ""
-  const invoicedAt = details[0].invoiced_at ? new Date(details[0].invoiced_at).toLocaleDateString("ja-JP") : ""
+  const invoicedAt = details[0].invoiced_at ?? ""
+  const invoicedAtStr = invoicedAt ? new Date(invoicedAt).toLocaleDateString("ja-JP") : ""
 
   // 作業種別サマリ集計
-  const workSummaryMap = new Map<string, WorkSummary>()
+  const workMap = new Map<string, WorkSummary>()
   for (const d of details) {
     const key = d.work_name ?? "その他"
-    const existing = workSummaryMap.get(key)
-    if (existing) {
-      existing.qty += d.qty
-      existing.amount += Number(d.amount)
-    } else {
-      workSummaryMap.set(key, { work_name: key, qty: d.qty, unit_price: Number(d.unit_price), amount: Number(d.amount) })
-    }
+    const ex = workMap.get(key)
+    if (ex) { ex.qty += d.qty; ex.amount += Number(d.amount) }
+    else workMap.set(key, { work_name: key, qty: d.qty, amount: Number(d.amount) })
   }
-  const workSummaries = Array.from(workSummaryMap.values())
+  const workSummaries = Array.from(workMap.values())
   const subtotal = workSummaries.reduce((s, w) => s + w.amount, 0)
   const tax = Math.floor(subtotal * 0.1)
   const total = subtotal + tax
+
+  const printCSS = `
+@media print { @page { margin: 15mm; size: A4; } }
+body { font-family: "Hiragino Sans","Yu Gothic",sans-serif; color:#1a1a1a; margin:0; padding:24px; font-size:9pt; }
+.title-bar { background:#1e3a5f; color:white; padding:12px 20px; text-align:center; font-size:20pt; font-weight:bold; letter-spacing:4px; }
+.meta-row { display:flex; justify-content:space-between; margin:12px 0; font-size:9pt; }
+.meta-row .left { }
+.meta-row .right { text-align:right; }
+.client-box { background:#f5f5f5; padding:10px 16px; margin:12px 0; }
+.client-name { font-size:13pt; font-weight:bold; border-bottom:2px solid #1e3a5f; padding-bottom:4px; display:inline-block; }
+.summary-box { border:1px solid #94a3b8; margin:16px 0; }
+.summary-box .row { display:flex; border-bottom:1px solid #94a3b8; }
+.summary-box .row:last-child { border-bottom:none; }
+.summary-box .label { width:200px; padding:6px 12px; font-weight:bold; background:#f1f5f9; border-right:1px solid #94a3b8; }
+.summary-box .value { flex:1; padding:6px 12px; }
+.summary-box .value.large { font-size:18pt; font-weight:bold; }
+.tax-table { width:100%; border-collapse:collapse; margin:16px 0; font-size:9pt; }
+.tax-table th { background:#1e3a5f; color:white; padding:6px 8px; text-align:center; font-weight:normal; }
+.tax-table td { padding:6px 8px; text-align:right; border:1px solid #94a3b8; }
+.bank-section { margin:16px 0; }
+.bank-section .heading { font-size:9pt; font-weight:bold; margin-bottom:4px; }
+.bank-box { background:#f5f5f5; padding:8px 12px; font-size:9pt; border:1px solid #ddd; }
+.notes { margin:16px 0; font-size:9pt; }
+.notes .heading { font-weight:bold; margin-bottom:4px; }
+.notes p { margin:2px 0; }
+.page-break { page-break-before:always; }
+.detail-header { background:#1e3a5f; color:white; padding:8px 16px; font-size:11pt; font-weight:bold; }
+.detail-meta { background:#dbeafe; padding:6px 12px; font-size:9pt; margin-bottom:8px; }
+.detail-meta .row { display:flex; gap:16px; padding:2px 0; }
+.detail-meta .lbl { font-weight:bold; min-width:80px; }
+table.detail { width:100%; border-collapse:collapse; font-size:9pt; }
+table.detail th { background:#1e3a5f; color:white; padding:6px 8px; text-align:left; font-weight:normal; font-size:9pt; }
+table.detail th.r { text-align:right; }
+table.detail td { padding:4px 8px; border-bottom:1px solid #ddd; font-size:9pt; }
+table.detail td.r { text-align:right; }
+table.detail tr:nth-child(odd) td { background:#f1f5f9; }
+.detail-total { text-align:right; font-size:9pt; font-weight:bold; margin-top:8px; padding:4px 8px; }
+`
 
   const handlePrint = () => {
     const content = printRef.current
     if (!content) return
     const w = window.open("", "_blank")
     if (!w) { toast.error("ポップアップがブロックされました"); return }
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>請求書 ${invoiceId}</title>
-<style>
-  @media print { @page { margin: 15mm; size: A4; } }
-  body { font-family: "Hiragino Sans", "Yu Gothic", sans-serif; color: #1a1a1a; margin: 0; padding: 20px; }
-  .header { background: #1e3a5f; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
-  .header h1 { font-size: 24px; margin: 0; letter-spacing: 4px; }
-  .header .meta { text-align: right; font-size: 12px; }
-  .billing-to { background: #f5f5f5; padding: 12px 16px; margin: 16px 0; font-size: 14px; }
-  .billing-to .name { font-size: 18px; font-weight: bold; border-bottom: 2px solid #1e3a5f; padding-bottom: 4px; display: inline-block; }
-  .period { font-size: 13px; color: #555; margin: 8px 0 16px; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
-  th { background: #1e3a5f; color: white; padding: 8px; text-align: left; font-weight: normal; }
-  th.right, td.right { text-align: right; }
-  td { padding: 6px 8px; border-bottom: 1px solid #ddd; }
-  .total-section { margin-top: 16px; text-align: right; }
-  .total-section .row { display: flex; justify-content: flex-end; gap: 24px; padding: 4px 0; font-size: 14px; }
-  .total-section .grand { font-size: 20px; font-weight: bold; border-top: 2px solid #1e3a5f; padding-top: 8px; margin-top: 8px; }
-  .detail-title { font-size: 14px; font-weight: bold; margin: 24px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #ccc; }
-  .detail-table td { font-size: 11px; }
-  .page-break { page-break-before: always; }
-</style></head><body>${content.innerHTML}</body></html>`)
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>請求書 ${invoiceId}</title><style>${printCSS}</style></head><body>${content.innerHTML}</body></html>`)
     w.document.close()
     w.print()
   }
@@ -120,79 +155,97 @@ function InvoicePrintView({ details, invoiceId }: { details: DetailItem[]; invoi
           <Printer className="mr-1 size-4" />印刷 / PDF
         </Button>
       </div>
-
       <div ref={printRef}>
-        {/* 表紙：作業種別集計 */}
-        <div className="header">
-          <h1>請求書</h1>
-          <div className="meta">
+        {/* === 表紙 === */}
+        <div className="title-bar">請　求　書</div>
+
+        <div className="meta-row">
+          <div className="left"></div>
+          <div className="right">
+            <div>発行日: {invoicedAtStr}</div>
             <div>請求書番号: {invoiceId}</div>
-            <div>発行日: {invoicedAt}</div>
+            {issuer.tax_id && <div>登録番号: T{issuer.tax_id}</div>}
           </div>
         </div>
 
-        <div className="billing-to">
-          <div className="name">{storeName} 御中</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div className="client-box" style={{ flex: 1 }}>
+            <div className="client-name">{storeName}　御中</div>
+            <div style={{ marginTop: 4, fontSize: "9pt" }}>下記の通り、ご請求申し上げます。</div>
+          </div>
+          {issuer.issuer_name && (
+            <div style={{ textAlign: "right", fontSize: "9pt", marginLeft: 24 }}>
+              <div style={{ fontWeight: "bold", fontSize: "10pt" }}>{issuer.issuer_name}</div>
+              {issuer.issuer_address && <div>{issuer.issuer_address}</div>}
+              {issuer.issuer_tel && <div>TEL: {issuer.issuer_tel}</div>}
+            </div>
+          )}
         </div>
 
-        <div className="period">対象期間: {fmtDate(periodFrom)} 〜 {fmtDate(periodTo)}</div>
+        <div className="summary-box">
+          <div className="row"><div className="label">請　求　期　間</div><div className="value">{fmtDate(periodFrom)} 〜 {fmtDate(periodTo)}</div></div>
+          <div className="row"><div className="label">お　支　払　期　限</div><div className="value">{invoicedAt ? calcPaymentDue(invoicedAt) : "-"}</div></div>
+          <div className="row"><div className="label">ご請求金額（税込）</div><div className="value large">{fmtCur(total)}</div></div>
+        </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>作業種別</th>
-              <th className="right">数量</th>
-              <th className="right">単価</th>
-              <th className="right">金額</th>
-            </tr>
-          </thead>
-          <tbody>
-            {workSummaries.map((w) => (
-              <tr key={w.work_name}>
-                <td>{w.work_name}</td>
-                <td className="right">{w.qty}</td>
-                <td className="right">{formatCurrency(w.unit_price)}</td>
-                <td className="right">{formatCurrency(w.amount)}</td>
-              </tr>
-            ))}
-          </tbody>
+        <table className="tax-table">
+          <thead><tr><th>区　分</th><th>税抜金額</th><th>消費税額（10%）</th><th>合計（税込）</th></tr></thead>
+          <tbody><tr><td>10%対象</td><td>{fmtCur(subtotal)}</td><td>{fmtCur(tax)}</td><td>{fmtCur(total)}</td></tr></tbody>
         </table>
 
-        <div className="total-section">
-          <div className="row"><span>小計</span><span>{formatCurrency(subtotal)}</span></div>
-          <div className="row"><span>消費税 (10%)</span><span>{formatCurrency(tax)}</span></div>
-          <div className="row grand"><span>合計</span><span>{formatCurrency(total)}</span></div>
+        {issuer.bank_info && (
+          <div className="bank-section">
+            <div className="heading">■ お振込先</div>
+            <div className="bank-box">{issuer.bank_info}</div>
+          </div>
+        )}
+
+        <div className="notes">
+          <div className="heading">■ 備考</div>
+          <p>※ 請求明細は別紙（{details.length} 件）に記載します。</p>
+          <p>※ お振込手数料はご負担くださいますようお願い申し上げます。</p>
+          {invoicedAt && <p>※ 本書類の保存期限: {calcRetentionUntil(invoicedAt)}</p>}
         </div>
 
-        {/* 明細：車両ID別 */}
+        {/* === 明細ページ === */}
         <div className="page-break"></div>
-        <div className="detail-title">明細一覧（{details.length}件）</div>
-        <table className="detail-table">
+        <div className="detail-header">請求明細（別紙）</div>
+        <div className="detail-meta">
+          <div className="row"><span className="lbl">請求書ID</span><span>{invoiceId}</span></div>
+          <div className="row"><span className="lbl">請求期間</span><span>{fmtDate(periodFrom)} 〜 {fmtDate(periodTo)}</span></div>
+          <div className="row"><span className="lbl">請求先</span><span>{storeName}</span></div>
+          <div className="row"><span className="lbl">明細件数</span><span>{details.length}件　小計 {fmtCur(subtotal)}　税 {fmtCur(tax)}　税込合計 {fmtCur(total)}</span></div>
+        </div>
+
+        <table className="detail">
           <thead>
             <tr>
               <th>作業日</th>
               <th>作業種別</th>
               <th>車種</th>
               <th>車両管理番号</th>
-              <th className="right">数量</th>
-              <th className="right">単価</th>
-              <th className="right">金額</th>
+              <th className="r">数量</th>
+              <th className="r">単価</th>
+              <th className="r">金額</th>
             </tr>
           </thead>
           <tbody>
-            {details.map((d) => (
+            {details.map(d => (
               <tr key={d.job_id}>
                 <td>{fmtDate(d.work_date)}</td>
                 <td>{d.work_name ?? "-"}</td>
                 <td>{d.car_type_text ?? "-"}</td>
                 <td style={{ whiteSpace: "pre-wrap", maxWidth: 200 }}>{d.id_list_raw ?? "-"}</td>
-                <td className="right">{d.qty}</td>
-                <td className="right">{formatCurrency(Number(d.unit_price))}</td>
-                <td className="right">{formatCurrency(Number(d.amount))}</td>
+                <td className="r">{d.qty}</td>
+                <td className="r">{fmtCur(Number(d.unit_price))}</td>
+                <td className="r">{fmtCur(Number(d.amount))}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        <div className="detail-total">
+          合計 {details.length}件　税抜 {fmtCur(subtotal)}　消費税（10%）{fmtCur(tax)}　税込合計 {fmtCur(total)}
+        </div>
       </div>
     </div>
   )
@@ -209,22 +262,26 @@ export default function CleaningInvoiceClient() {
   const [previewResult, setPreviewResult] = useState<{ count: number; total_amount: number; items: PreviewItem[] } | null>(null)
   const [detailInvoice, setDetailInvoice] = useState<InvoiceSummary | null>(null)
   const [details, setDetails] = useState<DetailItem[]>([])
+  const [issuer, setIssuer] = useState<IssuerInfo>({})
   const [isLoading, setIsLoading] = useState(true)
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
   const [isIssuing, setIsIssuing] = useState(false)
   const [isDetailLoading, setIsDetailLoading] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const selectedCustomer = useMemo(() => customers.find(c => c.cust_id === selectedStore), [customers, selectedStore])
 
   const loadPageData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [custs, invs] = await Promise.all([
+      const [custs, invs, me] = await Promise.all([
         fetchJson<Customer[]>("/api/master/customers"),
         fetchJson<InvoiceSummary[]>("/api/cleaning-job-invoice"),
+        fetchJson<{ custom_settings?: { invoice_issuer?: IssuerInfo } }>("/api/me"),
       ])
       setCustomers(custs)
       setInvoices(invs)
+      setIssuer(me.custom_settings?.invoice_issuer ?? {})
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "読み込みに失敗しました")
     } finally {
@@ -267,6 +324,22 @@ export default function CleaningInvoiceClient() {
       setIsIssuing(false)
     }
   }, [selectedStore, periodFrom, periodTo, loadPageData])
+
+  const handleDelete = useCallback(async (inv: InvoiceSummary) => {
+    if (!confirm(`請求書 ${inv.invoice_id} を削除しますか？\n対象の作業実績は未請求状態に戻ります。`)) return
+    setIsDeleting(true)
+    try {
+      await fetchJson(`/api/cleaning-job-invoice/${inv.invoice_id}`, { method: "DELETE" })
+      toast.success(`請求書 ${inv.invoice_id} を削除しました`)
+      setDetailInvoice(null)
+      setDetails([])
+      await loadPageData()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "削除に失敗しました")
+    } finally {
+      setIsDeleting(false)
+    }
+  }, [loadPageData])
 
   const openDetail = useCallback(async (inv: InvoiceSummary) => {
     setDetailInvoice(inv)
@@ -359,7 +432,7 @@ export default function CleaningInvoiceClient() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {previewResult.items.map((item) => (
+                        {previewResult.items.map(item => (
                           <TableRow key={item.job_id}>
                             <TableCell>{fmtDate(item.work_date)}</TableCell>
                             <TableCell>{item.work_name ?? "-"}</TableCell>
@@ -390,7 +463,7 @@ export default function CleaningInvoiceClient() {
             </div>
           </CardHeader>
           <CardContent>
-            {isLoading ? <TableSkeleton columns={7} rows={4} /> : invoices.length === 0 ? (
+            {isLoading ? <TableSkeleton columns={8} rows={4} /> : invoices.length === 0 ? (
               <EmptyState icon={Receipt} description="まだ請求書がありません" />
             ) : (
               <div className="overflow-x-auto">
@@ -404,6 +477,7 @@ export default function CleaningInvoiceClient() {
                       <TableHead className="text-right">小計</TableHead>
                       <TableHead className="text-right">税込合計</TableHead>
                       <TableHead>発行日</TableHead>
+                      <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -416,6 +490,11 @@ export default function CleaningInvoiceClient() {
                         <TableCell className="text-right">{formatCurrency(inv.total_amount)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(inv.total_amount + Math.floor(inv.total_amount * 0.1))}</TableCell>
                         <TableCell>{inv.invoiced_at ? new Date(inv.invoiced_at).toLocaleDateString("ja-JP") : "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" disabled={isDeleting} onClick={(e) => { e.stopPropagation(); void handleDelete(inv) }}>
+                            <Trash2 className="size-4 text-destructive" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -427,13 +506,13 @@ export default function CleaningInvoiceClient() {
       </div>
 
       {/* 明細モーダル（印刷対応） */}
-      <Dialog open={detailInvoice !== null} onOpenChange={(open) => { if (!open) { setDetailInvoice(null); setDetails([]) } }}>
+      <Dialog open={detailInvoice !== null} onOpenChange={open => { if (!open) { setDetailInvoice(null); setDetails([]) } }}>
         <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>請求書 {detailInvoice?.invoice_id}</DialogTitle>
           </DialogHeader>
           {isDetailLoading ? <TableSkeleton columns={7} rows={4} /> : (
-            <InvoicePrintView details={details} invoiceId={detailInvoice?.invoice_id ?? ""} />
+            <InvoicePrintView details={details} invoiceId={detailInvoice?.invoice_id ?? ""} issuer={issuer} />
           )}
         </DialogContent>
       </Dialog>

@@ -91,6 +91,19 @@ export async function getCleaningInvoices() {
   return Array.from(map.values())
 }
 
+// 請求書を削除する（invoice_id を null に戻す）
+export async function deleteCleaningInvoice(invoiceId: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('cleaning_jobs')
+    .update({ invoice_id: null, invoiced_at: null, invoice_period_from: null, invoice_period_to: null })
+    .eq('invoice_id', invoiceId)
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  return { deleted: data?.length ?? 0 }
+}
+
 // 請求書明細を取得する（作業種別サマリ + 車両ID明細）
 export async function getCleaningInvoiceDetail(invoiceId: string) {
   const supabase = await createClient()
