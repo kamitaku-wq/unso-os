@@ -1,10 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ChevronLeft, ChevronRight, Users } from "lucide-react"
+import { ChevronLeft, ChevronRight, CalendarCog, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import { EmptyState } from "@/components/empty-state"
+import { DailyReportModal } from "@/components/shift/daily-report-modal"
+import { RoutineModal } from "@/components/shift/routine-modal"
 import { TableSkeleton } from "@/components/table-skeleton"
 import { Button } from "@/components/ui/button"
 import {
@@ -108,6 +110,15 @@ export default function ShiftPageClient() {
   const [modal, setModal] = useState<ModalState | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
+  // ルーティン関連
+  type RoutineRow = { emp_id: string; day_of_week: number; is_day_off: boolean; location: string | null; work_type: string | null; note: string | null }
+  const [routines, setRoutines] = useState<RoutineRow[]>([])
+  const [routineTarget, setRoutineTarget] = useState<{ empId: string; empName: string } | null>(null)
+  const [isApplying, setIsApplying] = useState(false)
+
+  // 日報詳細モーダル
+  const [reportTarget, setReportTarget] = useState<{ empId: string; empName: string; date: string } | null>(null)
+
   const weekDates = getWeekDates(monday)
   const canEdit = (shiftData.role ?? role) === "ADMIN" || (shiftData.role ?? role) === "OWNER"
 
@@ -129,9 +140,42 @@ export default function ShiftPageClient() {
     }
   }, [])
 
+  // ルーティンを取得する
+  const loadRoutines = useCallback(async () => {
+    try {
+      const data = await fetchJson<RoutineRow[]>("/api/shift/routine")
+      setRoutines(data)
+    } catch {
+      // WORKER の場合は 403 なので無視
+    }
+  }, [])
+
   useEffect(() => {
     void loadShifts(monday)
-  }, [monday, loadShifts])
+    void loadRoutines()
+  }, [monday, loadShifts, loadRoutines])
+
+  // ルーティンを現在の週に適用する
+  async function handleApplyRoutines() {
+    setIsApplying(true)
+    try {
+      const data = await fetchJson<{ applied: number }>("/api/shift/routine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "apply", monday: toISODate(monday) }),
+      })
+      if (data.applied > 0) {
+        toast.success(`ルーティンから ${data.applied} 件のシフトを生成しました`)
+        await loadShifts(monday)
+      } else {
+        toast.info("適用するシフトがありません（既に登録済み）")
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "適用に失敗しました")
+    } finally {
+      setIsApplying(false)
+    }
+  }
 
   // セルクリック時にモーダルを開く
   function openModal(emp_id: string, shift_date: string) {
@@ -245,18 +289,31 @@ export default function ShiftPageClient() {
               <CardTitle className="text-base">
                 {mondayLabel} 〜 {sundayLabel}
               </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const next = new Date(monday)
-                  next.setDate(next.getDate() + 7)
-                  setMonday(next)
-                }}
-              >
-                次の週
-                <ChevronRight className="size-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                {canEdit && routines.length > 0 && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void handleApplyRoutines()}
+                    disabled={isApplying}
+                  >
+                    <CalendarCog className="mr-1 size-4" />
+                    {isApplying ? "適用中..." : "ルーティン適用"}
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const next = new Date(monday)
+                    next.setDate(next.getDate() + 7)
+                    setMonday(next)
+                  }}
+                >
+                  次の週
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -293,7 +350,18 @@ export default function ShiftPageClient() {
                         className={rowIdx % 2 === 0 ? "bg-white" : "bg-muted/20"}
                       >
                         <td className="sticky left-0 z-10 border-r bg-inherit px-3 py-2 font-medium">
-                          {emp.name}
+                          <div className="flex items-center gap-1">
+                            <span>{emp.name}</span>
+                            {canEdit && (
+                              <button
+                                className="text-muted-foreground hover:text-foreground p-0.5"
+                                title="ルーティン設定"
+                                onClick={() => setRoutineTarget({ empId: emp.emp_id, empName: emp.name })}
+                              >
+                                <CalendarCog className="size-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                         {weekDates.map((date) => {
                           const cell = getCellContent(emp.emp_id, date)
@@ -319,7 +387,13 @@ export default function ShiftPageClient() {
                                     </span>
                                   ) : null}
                                   {cell.summary ? (
-                                    <div className="text-[10px] leading-tight text-emerald-600">
+                                    <div
+                                      className="text-[10px] leading-tight text-emerald-600 cursor-pointer hover:underline"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setReportTarget({ empId: emp.emp_id, empName: emp.name, date })
+                                      }}
+                                    >
                                       {cell.summary.clockIn && cell.summary.clockOut
                                         ? `${cell.summary.clockIn}–${cell.summary.clockOut}`
                                         : cell.summary.clockIn
@@ -348,6 +422,29 @@ export default function ShiftPageClient() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ルーティン設定モーダル */}
+      {routineTarget && (
+        <RoutineModal
+          open
+          empId={routineTarget.empId}
+          empName={routineTarget.empName}
+          allRoutines={routines}
+          onClose={() => setRoutineTarget(null)}
+          onSaved={() => { setRoutineTarget(null); void loadRoutines() }}
+        />
+      )}
+
+      {/* 日報詳細モーダル */}
+      {reportTarget && (
+        <DailyReportModal
+          open
+          empId={reportTarget.empId}
+          empName={reportTarget.empName}
+          date={reportTarget.date}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
 
       {/* 編集モーダル */}
       {modal ? (
