@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { Building2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -15,9 +14,14 @@ type Company = {
   role: string
 }
 
+function getHomePath(role: string) {
+  if (role === "OWNER") return "/dashboard"
+  if (role === "ADMIN") return "/admin"
+  return "/"
+}
+
 // 複数会社に所属するユーザー向けの会社選択画面
 export default function SelectCompanyClient() {
-  const router = useRouter()
   const [companies, setCompanies] = useState<Company[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [switching, setSwitching] = useState<string | null>(null)
@@ -30,27 +34,11 @@ export default function SelectCompanyClient() {
       .finally(() => setIsLoading(false))
   }, [])
 
-  function getHomePath(role: string) {
-    if (role === "OWNER") return "/dashboard"
-    if (role === "ADMIN") return "/admin"
-    return "/"
-  }
-
-  async function handleSelect(company: Company) {
+  function handleSelect(company: Company) {
     setSwitching(company.id)
-    try {
-      const res = await fetch("/api/company/switch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_id: company.id }),
-      })
-      if (!res.ok) throw new Error("切替に失敗しました")
-      // フルリロードで Cookie を確実に反映させる（post-login を経由しない）
-      window.location.href = getHomePath(company.role)
-    } catch {
-      toast.error("会社の切替に失敗しました")
-      setSwitching(null)
-    }
+    // ブラウザ直接ナビゲーション：API が Cookie 設定 + リダイレクトを1レスポンスで返す
+    const redirect = encodeURIComponent(getHomePath(company.role))
+    window.location.href = `/api/company/switch?id=${company.id}&redirect=${redirect}`
   }
 
   const roleLabel = (role: string) => {
@@ -76,7 +64,7 @@ export default function SelectCompanyClient() {
                 key={c.id}
                 variant="outline"
                 className="flex h-auto w-full items-center justify-start gap-3 p-4"
-                onClick={() => void handleSelect(c)}
+                onClick={() => handleSelect(c)}
                 disabled={switching !== null}
               >
                 <Building2 className="size-5 shrink-0 text-muted-foreground" />
