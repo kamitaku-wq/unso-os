@@ -145,7 +145,7 @@ export function WorksPanel() {
 
   return (
     <>
-      <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
         <Card>
           <CardHeader>
             <CardTitle>作業種別の新規登録</CardTitle>

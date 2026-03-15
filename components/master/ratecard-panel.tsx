@@ -194,7 +194,7 @@ export function RatecardPanel() {
 
   return (
     <>
-      <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
         <Card>
           <CardHeader>
             <CardTitle>運賃の登録・更新</CardTitle>
