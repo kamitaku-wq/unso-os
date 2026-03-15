@@ -535,17 +535,17 @@ export default function InvoicePageClient() {
                 description="上のフォームから最初の請求書を登録してください"
               />
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto -mx-6 px-6">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>請求書番号</TableHead>
-                      <TableHead>荷主コード</TableHead>
-                      <TableHead>対象期間</TableHead>
-                      <TableHead className="text-right">件数</TableHead>
-                      <TableHead className="text-right">合計金額</TableHead>
-                      <TableHead>発行日</TableHead>
-                      <TableHead className="text-right">操作</TableHead>
+                      <TableHead className="whitespace-nowrap">請求書番号</TableHead>
+                      <TableHead className="hidden whitespace-nowrap sm:table-cell">荷主コード</TableHead>
+                      <TableHead className="hidden whitespace-nowrap md:table-cell">対象期間</TableHead>
+                      <TableHead className="hidden text-right sm:table-cell">件数</TableHead>
+                      <TableHead className="whitespace-nowrap text-right">合計金額</TableHead>
+                      <TableHead className="hidden whitespace-nowrap md:table-cell">発行日</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -555,17 +555,17 @@ export default function InvoicePageClient() {
                         className="cursor-pointer"
                         onClick={() => void openInvoiceDetail(invoice)}
                       >
-                        <TableCell className="font-medium">{invoice.invoice_id}</TableCell>
-                        <TableCell>{invoice.cust_id || "-"}</TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap font-medium">{invoice.invoice_id}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{invoice.cust_id || "-"}</TableCell>
+                        <TableCell className="hidden whitespace-nowrap md:table-cell">
                           {formatPeriodLabel(invoice.invoice_period_from, invoice.invoice_period_to)}
                         </TableCell>
-                        <TableCell className="text-right">{invoice.count}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="hidden text-right sm:table-cell">{invoice.count}</TableCell>
+                        <TableCell className="whitespace-nowrap text-right">
                           {formatCurrency(invoice.total_amount)}
                         </TableCell>
-                        <TableCell>{formatDateTimeLabel(invoice.invoiced_at)}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="hidden whitespace-nowrap md:table-cell">{formatDateTimeLabel(invoice.invoiced_at)}</TableCell>
+                        <TableCell>
                           <Button
                             type="button"
                             size="sm"

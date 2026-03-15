@@ -401,7 +401,7 @@ export default function PayrollPageClient() {
         </div>
 
         {/* タブ切り替え */}
-        <div className="flex gap-1 rounded-xl border bg-muted/40 p-1 w-fit">
+        <div className="flex gap-1 rounded-xl border bg-muted/40 p-1 w-full sm:w-fit">
           {(["payroll", "settings"] as const).map(tab => (
             <button
               key={tab}
@@ -452,7 +452,7 @@ export default function PayrollPageClient() {
 
             {/* サマリーカード */}
             {payrolls.length > 0 && (
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-3">
                 <Card className="border-l-4 border-l-blue-400 bg-blue-50/60">
                   <CardContent className="px-5 pb-4 pt-5">
                     <p className="text-xs font-semibold uppercase tracking-wider text-blue-700">支給総額</p>
@@ -493,19 +493,19 @@ export default function PayrollPageClient() {
                     description="「一括計算」ボタンを押すと給与が自動計算されます。事前に給与設定タブで社員ごとの設定を登録してください。"
                   />
                 ) : (
-                  <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+                  <div className="overflow-x-auto -mx-6 px-6">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>社員名</TableHead>
-                          <TableHead className="text-right">勤務時間</TableHead>
-                          <TableHead className="text-right">残業時間</TableHead>
-                          <TableHead className="text-right">基本給</TableHead>
-                          <TableHead className="text-right">残業代</TableHead>
-                          <TableHead className="text-right">交通費</TableHead>
-                          <TableHead className="text-right">支給総額</TableHead>
-                          <TableHead>ステータス</TableHead>
-                          <TableHead>操作</TableHead>
+                          <TableHead className="whitespace-nowrap">社員名</TableHead>
+                          <TableHead className="hidden text-right sm:table-cell">勤務時間</TableHead>
+                          <TableHead className="hidden text-right sm:table-cell">残業時間</TableHead>
+                          <TableHead className="hidden text-right md:table-cell">基本給</TableHead>
+                          <TableHead className="hidden text-right md:table-cell">残業代</TableHead>
+                          <TableHead className="hidden text-right lg:table-cell">交通費</TableHead>
+                          <TableHead className="whitespace-nowrap text-right">支給総額</TableHead>
+                          <TableHead className="whitespace-nowrap">ステータス</TableHead>
+                          <TableHead></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -513,18 +513,18 @@ export default function PayrollPageClient() {
                           <TableRow key={p.id}>
                             <TableCell>
                               <div className="font-medium">{p.emp_name}</div>
-                              <div className="text-xs text-muted-foreground">{p.emp_id}</div>
+                              <div className="hidden text-xs text-muted-foreground sm:block">{p.emp_id}</div>
                             </TableCell>
-                            <TableCell className="text-right">{p.work_hours} h</TableCell>
-                            <TableCell className="text-right text-orange-700">{p.overtime_hours} h</TableCell>
-                            <TableCell className="text-right">{formatCurrency(p.basic_pay)}</TableCell>
-                            <TableCell className="text-right text-orange-700">
+                            <TableCell className="hidden text-right sm:table-cell">{p.work_hours} h</TableCell>
+                            <TableCell className="hidden text-right text-orange-700 sm:table-cell">{p.overtime_hours} h</TableCell>
+                            <TableCell className="hidden text-right md:table-cell">{formatCurrency(p.basic_pay)}</TableCell>
+                            <TableCell className="hidden text-right text-orange-700 md:table-cell">
                               {p.overtime_pay > 0 ? formatCurrency(p.overtime_pay) : "-"}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="hidden text-right lg:table-cell">
                               {p.transport_allowance > 0 ? formatCurrency(p.transport_allowance) : "-"}
                             </TableCell>
-                            <TableCell className="text-right font-bold text-blue-700">
+                            <TableCell className="whitespace-nowrap text-right font-bold text-blue-700">
                               {formatCurrency(p.gross_pay)}
                             </TableCell>
                             <TableCell>
@@ -594,56 +594,58 @@ export default function PayrollPageClient() {
                     description="「設定を追加」から社員ごとの給与設定を登録してください。"
                   />
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>社員名</TableHead>
-                        <TableHead>給与形態</TableHead>
-                        <TableHead className="text-right">基本給</TableHead>
-                        <TableHead className="text-right">残業率</TableHead>
-                        <TableHead className="text-right">交通費</TableHead>
-                        <TableHead>備考</TableHead>
-                        <TableHead>操作</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {settings.map((s) => (
-                        <TableRow key={s.id}>
-                          <TableCell>
-                            <div className="font-medium">{s.emp_name}</div>
-                            <div className="text-xs text-muted-foreground">{s.emp_id}</div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">
-                              {s.pay_type === "MONTHLY" ? "月給制" : "時給制"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {s.pay_type === "MONTHLY"
-                              ? formatCurrency(s.basic_monthly ?? 0)
-                              : `${(s.hourly_wage ?? 0).toLocaleString()} 円/h`}
-                          </TableCell>
-                          <TableCell className="text-right">{s.overtime_rate}×</TableCell>
-                          <TableCell className="text-right">
-                            {s.transport_allowance > 0 ? formatCurrency(s.transport_allowance) : "-"}
-                          </TableCell>
-                          <TableCell className="max-w-40 truncate text-muted-foreground">
-                            {s.note || "-"}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => { setEditTarget(s); setShowSettingDialog(true) }}
-                            >
-                              編集
-                            </Button>
-                          </TableCell>
+                  <div className="overflow-x-auto -mx-6 px-6">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="whitespace-nowrap">社員名</TableHead>
+                          <TableHead className="whitespace-nowrap">給与形態</TableHead>
+                          <TableHead className="whitespace-nowrap text-right">基本給</TableHead>
+                          <TableHead className="hidden text-right sm:table-cell">残業率</TableHead>
+                          <TableHead className="hidden text-right md:table-cell">交通費</TableHead>
+                          <TableHead className="hidden md:table-cell">備考</TableHead>
+                          <TableHead></TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {settings.map((s) => (
+                          <TableRow key={s.id}>
+                            <TableCell className="whitespace-nowrap">
+                              <div className="font-medium">{s.emp_name}</div>
+                              <div className="hidden text-xs text-muted-foreground sm:block">{s.emp_id}</div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">
+                                {s.pay_type === "MONTHLY" ? "月給" : "時給"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap text-right">
+                              {s.pay_type === "MONTHLY"
+                                ? formatCurrency(s.basic_monthly ?? 0)
+                                : `${(s.hourly_wage ?? 0).toLocaleString()} 円/h`}
+                            </TableCell>
+                            <TableCell className="hidden text-right sm:table-cell">{s.overtime_rate}×</TableCell>
+                            <TableCell className="hidden text-right md:table-cell">
+                              {s.transport_allowance > 0 ? formatCurrency(s.transport_allowance) : "-"}
+                            </TableCell>
+                            <TableCell className="hidden max-w-40 truncate text-muted-foreground md:table-cell">
+                              {s.note || "-"}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => { setEditTarget(s); setShowSettingDialog(true) }}
+                              >
+                                編集
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>

@@ -205,7 +205,7 @@ export function TodoPageClient() {
                 onKeyDown={e => e.key === 'Enter' && void handleCreatePersonal()} autoFocus />
               <div className="flex items-center gap-2">
                 <label className="whitespace-nowrap text-sm text-muted-foreground">期日（任意）</label>
-                <Input type="date" value={newDue} onChange={e => setNewDue(e.target.value)} className="w-40" />
+                <Input type="date" value={newDue} onChange={e => setNewDue(e.target.value)} className="w-full sm:w-40" />
               </div>
               <div className="flex gap-2">
                 <Button size="sm" onClick={() => void handleCreatePersonal()} disabled={submitting || !newTitle.trim()}>
@@ -225,7 +225,7 @@ export function TodoPageClient() {
               <Input placeholder="Todoの内容" value={newTitle} onChange={e => setNewTitle(e.target.value)} autoFocus />
               <div className="flex items-center gap-2">
                 <label className="whitespace-nowrap text-sm text-muted-foreground">期日（任意）</label>
-                <Input type="date" value={newDue} onChange={e => setNewDue(e.target.value)} className="w-40" />
+                <Input type="date" value={newDue} onChange={e => setNewDue(e.target.value)} className="w-full sm:w-40" />
               </div>
               <div>
                 <p className="mb-2 text-sm text-muted-foreground">送信先（複数選択可）</p>

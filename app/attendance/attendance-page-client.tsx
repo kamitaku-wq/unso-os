@@ -453,41 +453,41 @@ export default function AttendancePageClient() {
                   description="上のフォームから最初の勤怠を登録してください"
                 />
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto -mx-6 px-6">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>勤務日</TableHead>
-                        <TableHead>申請ID</TableHead>
-                        <TableHead>勤務時間</TableHead>
-                        <TableHead>休憩</TableHead>
-                        <TableHead>実働</TableHead>
-                        <TableHead>運転</TableHead>
-                        <TableHead>残業</TableHead>
-                        <TableHead>ステータス</TableHead>
-                        <TableHead>詳細</TableHead>
-                        <TableHead>操作</TableHead>
+                        <TableHead className="whitespace-nowrap">勤務日</TableHead>
+                        <TableHead className="hidden sm:table-cell">申請ID</TableHead>
+                        <TableHead className="whitespace-nowrap">勤務時間</TableHead>
+                        <TableHead className="hidden md:table-cell">休憩</TableHead>
+                        <TableHead className="whitespace-nowrap">実働</TableHead>
+                        <TableHead className="hidden md:table-cell">運転</TableHead>
+                        <TableHead className="hidden sm:table-cell">残業</TableHead>
+                        <TableHead className="whitespace-nowrap">ステータス</TableHead>
+                        <TableHead className="hidden lg:table-cell">詳細</TableHead>
+                        <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {attendances.map((attendance) => (
                         <TableRow key={attendance.id}>
-                          <TableCell>{formatDate(attendance.work_date)}</TableCell>
-                          <TableCell>{attendance.attendance_id}</TableCell>
-                          <TableCell>
+                          <TableCell className="whitespace-nowrap">{formatDate(attendance.work_date)}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{attendance.attendance_id}</TableCell>
+                          <TableCell className="whitespace-nowrap">
                             <div>{formatDateTime(attendance.clock_in)}</div>
                             <div>{formatDateTime(attendance.clock_out)}</div>
                           </TableCell>
-                          <TableCell>{formatMinutes(attendance.break_min)}</TableCell>
-                          <TableCell>{formatMinutes(attendance.work_min)}</TableCell>
-                          <TableCell>{formatMinutes(attendance.drive_min)}</TableCell>
-                          <TableCell>{formatMinutes(attendance.overtime_min)}</TableCell>
+                          <TableCell className="hidden md:table-cell">{formatMinutes(attendance.break_min)}</TableCell>
+                          <TableCell className="whitespace-nowrap">{formatMinutes(attendance.work_min)}</TableCell>
+                          <TableCell className="hidden md:table-cell">{formatMinutes(attendance.drive_min)}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{formatMinutes(attendance.overtime_min)}</TableCell>
                           <TableCell>
                             <StatusBadge status={attendance.status}>
                               {getStatusLabel(attendance.status)}
                             </StatusBadge>
                           </TableCell>
-                          <TableCell className="max-w-72 whitespace-normal text-sm text-muted-foreground">
+                          <TableCell className="hidden max-w-72 whitespace-normal text-sm text-muted-foreground lg:table-cell">
                             <div>作成: {formatDateTime(attendance.created_at)}</div>
                             {attendance.approved_at ? (
                               <div>承認: {formatDateTime(attendance.approved_at)}</div>
@@ -506,7 +506,7 @@ export default function AttendancePageClient() {
                                 onClick={() => void handleCancel(attendance)}
                                 disabled={isMutating}
                               >
-                                {busyKey === `cancel:${attendance.id}` ? "取り消し中..." : "取り消し"}
+                                {busyKey === `cancel:${attendance.id}` ? "取消中..." : "取消"}
                               </Button>
                             ) : (
                               <span className="text-sm text-muted-foreground">-</span>

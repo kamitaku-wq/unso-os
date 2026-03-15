@@ -380,33 +380,34 @@ export function VehiclePanel() {
                 description="上のフォームから最初の車両を登録してください"
               />
             ) : (
+              <div className="overflow-x-auto -mx-6 px-6">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>車両コード</TableHead>
-                    <TableHead>名称</TableHead>
-                    <TableHead>ナンバー</TableHead>
-                    <TableHead>種別</TableHead>
-                    <TableHead>積載量</TableHead>
-                    <TableHead>稼働状態</TableHead>
-                    <TableHead>メモ</TableHead>
+                    <TableHead className="hidden whitespace-nowrap sm:table-cell">車両コード</TableHead>
+                    <TableHead className="whitespace-nowrap">名称</TableHead>
+                    <TableHead className="hidden md:table-cell">ナンバー</TableHead>
+                    <TableHead className="hidden md:table-cell">種別</TableHead>
+                    <TableHead className="hidden lg:table-cell">積載量</TableHead>
+                    <TableHead className="whitespace-nowrap">稼働状態</TableHead>
+                    <TableHead className="hidden lg:table-cell">メモ</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {vehicles.map((vehicle) => (
                     <TableRow key={vehicle.id}>
-                      <TableCell>{vehicle.vehicle_id}</TableCell>
-                      <TableCell>{vehicle.name}</TableCell>
-                      <TableCell>{vehicle.plate_no || "-"}</TableCell>
-                      <TableCell>{vehicle.vehicle_type || "-"}</TableCell>
-                      <TableCell>{formatCapacity(vehicle.capacity_ton)}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{vehicle.vehicle_id}</TableCell>
+                      <TableCell className="whitespace-nowrap">{vehicle.name}</TableCell>
+                      <TableCell className="hidden md:table-cell">{vehicle.plate_no || "-"}</TableCell>
+                      <TableCell className="hidden md:table-cell">{vehicle.vehicle_type || "-"}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{formatCapacity(vehicle.capacity_ton)}</TableCell>
                       <TableCell>
                         <Badge variant={vehicle.is_active ? "default" : "outline"}>
                           {getVehicleStatusLabel(vehicle.is_active)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-72 whitespace-normal">
+                      <TableCell className="hidden max-w-72 whitespace-normal lg:table-cell">
                         {vehicle.memo || "-"}
                       </TableCell>
                       <TableCell className="text-right">
@@ -454,6 +455,7 @@ export function VehiclePanel() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>

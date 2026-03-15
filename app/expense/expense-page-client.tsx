@@ -441,7 +441,7 @@ export default function ExpensePageClient() {
 
         <ClosingBanner ym={form.expense_date.slice(0, 7).replace("-", "")} closedMonths={closedMonths} />
 
-        <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
           <Card>
             <CardHeader>
               <CardTitle>新規申請</CardTitle>
@@ -651,29 +651,30 @@ export default function ExpensePageClient() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>経費日</TableHead>
-                        <TableHead>申請ID</TableHead>
-                        <TableHead>区分</TableHead>
-                        <TableHead className="text-right">金額</TableHead>
-                        <TableHead>支払先</TableHead>
-                        <TableHead>内容</TableHead>
-                        <TableHead>ステータス</TableHead>
-                        <TableHead>レシート</TableHead>
+                        <TableHead className="whitespace-nowrap">経費日</TableHead>
+                        <TableHead className="hidden sm:table-cell">申請ID</TableHead>
+                        <TableHead className="whitespace-nowrap">区分</TableHead>
+                        <TableHead className="whitespace-nowrap text-right">金額</TableHead>
+                        <TableHead className="hidden md:table-cell">支払先</TableHead>
+                        <TableHead className="hidden lg:table-cell">内容</TableHead>
+                        <TableHead className="whitespace-nowrap">ステータス</TableHead>
+                        <TableHead className="hidden sm:table-cell">レシート</TableHead>
+                        <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {expenses.map((expense) => (
                         <TableRow key={expense.id}>
-                          <TableCell>{formatDate(expense.expense_date)}</TableCell>
-                          <TableCell>{expense.expense_id}</TableCell>
-                          <TableCell>{expense.category_name}</TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="whitespace-nowrap">{formatDate(expense.expense_date)}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{expense.expense_id}</TableCell>
+                          <TableCell className="whitespace-nowrap">{expense.category_name}</TableCell>
+                          <TableCell className="whitespace-nowrap text-right">
                             {formatCurrency(expense.amount)}
                           </TableCell>
-                          <TableCell className="max-w-48 whitespace-normal">
+                          <TableCell className="hidden max-w-48 whitespace-normal md:table-cell">
                             {expense.vendor || "-"}
                           </TableCell>
-                          <TableCell className="max-w-56 whitespace-normal">
+                          <TableCell className="hidden max-w-56 whitespace-normal lg:table-cell">
                             <div>{expense.description || "-"}</div>
                             {formatExtraFields(expense.extra_fields as Record<string, unknown> | null) ? (
                               <div className="mt-0.5 text-xs text-emerald-600">
@@ -687,7 +688,7 @@ export default function ExpensePageClient() {
                             </StatusBadge>
                             {expense.reject_reason ? (
                               <p className="mt-1 text-xs text-muted-foreground">
-                                却下理由: {expense.reject_reason}
+                                却下: {expense.reject_reason}
                               </p>
                             ) : null}
                             {expense.rework_reason ? (
@@ -696,7 +697,7 @@ export default function ExpensePageClient() {
                               </p>
                             ) : null}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden sm:table-cell">
                             <Button
                               type="button"
                               variant="outline"
@@ -720,7 +721,7 @@ export default function ExpensePageClient() {
                                 onClick={() => void handleCancel(expense)}
                                 disabled={isMutating}
                               >
-                                {busyKey === `cancel:${expense.id}` ? "取り消し中..." : "取り消し"}
+                                {busyKey === `cancel:${expense.id}` ? "取消中..." : "取消"}
                               </Button>
                             ) : (
                               <span className="text-sm text-muted-foreground">-</span>
