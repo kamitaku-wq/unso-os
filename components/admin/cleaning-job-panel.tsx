@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -61,6 +62,8 @@ export function CleaningJobPanel() {
   const [isLoading, setIsLoading] = useState(true)
   const [processingKey, setProcessingKey] = useState("")
   const [jobToVoid, setJobToVoid] = useState<CleaningJob | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [batchProcessing, setBatchProcessing] = useState(false)
 
   const load = useCallback(async (targetYm: string) => {
     setIsLoading(true)
@@ -81,6 +84,28 @@ export function CleaningJobPanel() {
     () => statusFilter === "ALL" ? jobs : jobs.filter((j) => j.status === statusFilter),
     [jobs, statusFilter]
   )
+
+  // 承認待ちの項目だけ（チェックボックス対象）
+  const reviewIds = useMemo(() => filtered.filter((j) => j.status === "REVIEW_REQUIRED").map((j) => j.id), [filtered])
+  const allChecked = reviewIds.length > 0 && reviewIds.every((id) => selected.has(id))
+  const someChecked = reviewIds.some((id) => selected.has(id))
+
+  const toggleAll = useCallback(() => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allChecked) { reviewIds.forEach((id) => next.delete(id)) }
+      else { reviewIds.forEach((id) => next.add(id)) }
+      return next
+    })
+  }, [allChecked, reviewIds])
+
+  const toggleOne = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [])
 
   const handleApprove = useCallback(async (job: CleaningJob) => {
     setProcessingKey(job.id)
@@ -135,6 +160,30 @@ export function CleaningJobPanel() {
     }
   }, [ym, load])
 
+  // 一括承認を実行する
+  const handleBatchApprove = useCallback(async () => {
+    const ids = [...selected]
+    if (ids.length === 0) { toast.error("承認対象を選択してください"); return }
+    setBatchProcessing(true)
+    try {
+      const res = await fetch("/api/admin/batch-approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "cleaning_job", ids }),
+      })
+      if (!res.ok) throw new Error(getErrorMessage(await res.json(), "一括承認に失敗しました"))
+      const result = await res.json() as { approved: number; errors: string[] }
+      toast.success(`${result.approved}件を承認しました`)
+      if (result.errors.length > 0) toast.error(`${result.errors.length}件でエラー`)
+      setSelected(new Set())
+      await load(ym)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "一括承認に失敗しました")
+    } finally {
+      setBatchProcessing(false)
+    }
+  }, [selected, ym, load])
+
   // 月選択用の入力値（YYYY-MM 形式に変換）
   const ymInputValue = `${ym.slice(0, 4)}-${ym.slice(4, 6)}`
 
@@ -169,8 +218,17 @@ export function CleaningJobPanel() {
 
       <Card>
         <CardHeader>
-          <CardTitle>作業実績一覧</CardTitle>
-          <CardDescription>{isLoading ? "読み込み中..." : `${filtered.length}件を表示`}</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>作業実績一覧</CardTitle>
+              <CardDescription>{isLoading ? "読み込み中..." : `${filtered.length}件を表示`}</CardDescription>
+            </div>
+            {selected.size > 0 && (
+              <Button onClick={() => void handleBatchApprove()} disabled={batchProcessing}>
+                {batchProcessing ? "承認中..." : `${selected.size}件を一括承認`}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -182,6 +240,13 @@ export function CleaningJobPanel() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={allChecked ? true : someChecked ? "indeterminate" : false}
+                        onCheckedChange={toggleAll}
+                        aria-label="全選択"
+                      />
+                    </TableHead>
                     <TableHead>作業日</TableHead>
                     <TableHead>社員ID</TableHead>
                     <TableHead>店舗</TableHead>
@@ -200,6 +265,15 @@ export function CleaningJobPanel() {
                     const busy = processingKey === j.id
                     return (
                       <TableRow key={j.id}>
+                        <TableCell>
+                          {isReview && (
+                            <Checkbox
+                              checked={selected.has(j.id)}
+                              onCheckedChange={() => toggleOne(j.id)}
+                              aria-label={`${j.job_id} を選択`}
+                            />
+                          )}
+                        </TableCell>
                         <TableCell>{formatDate(j.work_date)}</TableCell>
                         <TableCell>{j.emp_id}</TableCell>
                         <TableCell>{j.store_name}</TableCell>

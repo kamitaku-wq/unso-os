@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Receipt } from "lucide-react"
 import { toast } from "sonner"
 
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -121,6 +122,8 @@ export function ExpensePanel() {
   const [isExpenseReasonDialogOpen, setIsExpenseReasonDialogOpen] = useState(false)
   const [isExpenseRejectDialogOpen, setIsExpenseRejectDialogOpen] = useState(false)
   const [expenseExportMonth, setExpenseExportMonth] = useState(() => formatMonthInputValue(new Date()))
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [batchProcessing, setBatchProcessing] = useState(false)
 
   // ステータス条件に応じた経費一覧を取得する
   const loadExpenses = useCallback(async (filter: ExpenseStatusFilter) => {
@@ -240,6 +243,52 @@ export function ExpensePanel() {
     [expenseStatusFilter, loadExpenses]
   )
 
+  // チェックボックス用（SUBMITTED の経費のみ対象）
+  const submittedIds = useMemo(() => expenses.filter((e) => e.status === "SUBMITTED").map((e) => e.id), [expenses])
+  const allChecked = submittedIds.length > 0 && submittedIds.every((id) => selected.has(id))
+  const someChecked = submittedIds.some((id) => selected.has(id))
+
+  const toggleAll = useCallback(() => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allChecked) { submittedIds.forEach((id) => next.delete(id)) }
+      else { submittedIds.forEach((id) => next.add(id)) }
+      return next
+    })
+  }, [allChecked, submittedIds])
+
+  const toggleOne = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [])
+
+  // 一括承認を実行する
+  const handleBatchApprove = useCallback(async () => {
+    const ids = [...selected]
+    if (ids.length === 0) { toast.error("承認対象を選択してください"); return }
+    setBatchProcessing(true)
+    try {
+      const res = await fetch("/api/admin/batch-approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "expense", ids }),
+      })
+      if (!res.ok) throw new Error(getErrorMessage(await res.json(), "一括承認に失敗しました"))
+      const result = await res.json() as { approved: number; errors: string[] }
+      toast.success(`${result.approved}件を承認しました`)
+      if (result.errors.length > 0) toast.error(`${result.errors.length}件でエラー`)
+      setSelected(new Set())
+      await loadExpenses(expenseStatusFilter)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "一括承認に失敗しました")
+    } finally {
+      setBatchProcessing(false)
+    }
+  }, [selected, expenseStatusFilter, loadExpenses])
+
   // 経費 CSV を指定年月でダウンロードする
   const handleExpenseCsvDownload = useCallback(() => {
     const params = new URLSearchParams()
@@ -296,8 +345,17 @@ export function ExpensePanel() {
 
       <Card>
         <CardHeader>
-          <CardTitle>経費申請一覧</CardTitle>
-          <CardDescription>最新 200 件を表示します。</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>経費申請一覧</CardTitle>
+              <CardDescription>最新 200 件を表示します。</CardDescription>
+            </div>
+            {selected.size > 0 && (
+              <Button onClick={() => void handleBatchApprove()} disabled={batchProcessing}>
+                {batchProcessing ? "承認中..." : `${selected.size}件を一括承認`}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {isExpenseListLoading ? (
@@ -309,6 +367,13 @@ export function ExpensePanel() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={allChecked ? true : someChecked ? "indeterminate" : false}
+                        onCheckedChange={toggleAll}
+                        aria-label="全選択"
+                      />
+                    </TableHead>
                     <TableHead>経費日</TableHead>
                     <TableHead>申請ID</TableHead>
                     <TableHead>社員ID</TableHead>
@@ -329,6 +394,15 @@ export function ExpensePanel() {
                     const isRejected = expense.status === "REJECTED"
                     return (
                       <TableRow key={expense.id}>
+                        <TableCell>
+                          {canApprove && (
+                            <Checkbox
+                              checked={selected.has(expense.id)}
+                              onCheckedChange={() => toggleOne(expense.id)}
+                              aria-label={`${expense.expense_id} を選択`}
+                            />
+                          )}
+                        </TableCell>
                         <TableCell>{formatDate(expense.expense_date)}</TableCell>
                         <TableCell>{expense.expense_id}</TableCell>
                         <TableCell>{expense.emp_id ?? "-"}</TableCell>

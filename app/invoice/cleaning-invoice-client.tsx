@@ -207,59 +207,31 @@ table.detail tr:nth-child(even) td { background:#f7fafc; }
     w.print()
   }
 
-  // 請求書を Google Drive に保存する（iframe 隔離方式で lab() カラー問題を回避）
-  const handleSaveToDrive = async () => {
-    const content = printRef.current
-    if (!content) return
+  // 請求書PDFを Google Drive に保存する（ファイルアップロード方式）
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleSaveToDrive = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // 選択後にリセット（同じファイルを再選択可能に）
+    e.target.value = ""
+
+    if (file.type !== "application/pdf") {
+      toast.error("PDF ファイルを選択してください")
+      return
+    }
+
     setSaving(true)
     try {
-      const html2canvas = (await import("html2canvas")).default
-      const jsPDF = (await import("jspdf")).default
-
-      // iframe に印刷用HTMLだけを描画（Tailwind/shadcn の CSS を排除）
-      const iframe = document.createElement("iframe")
-      iframe.style.position = "fixed"
-      iframe.style.left = "-9999px"
-      iframe.style.width = "794px" // A4 幅 (210mm ≒ 794px at 96dpi)
-      iframe.style.height = "1123px"
-      document.body.appendChild(iframe)
-
-      const iframeDoc = iframe.contentDocument!
-      iframeDoc.open()
-      iframeDoc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>${printCSS} body{margin:0;padding:10mm 14mm;background:#fff;}</style></head><body>${content.innerHTML}</body></html>`)
-      iframeDoc.close()
-
-      // iframe のレンダリング完了を待つ
-      await new Promise(r => setTimeout(r, 500))
-
-      const canvas = await html2canvas(iframeDoc.body, { scale: 1.5, useCORS: true })
-      document.body.removeChild(iframe)
-
-      const imgData = canvas.toDataURL("image/jpeg", 0.8)
-      const pdf = new jsPDF("p", "mm", "a4")
-      const pdfW = pdf.internal.pageSize.getWidth()
-      const pdfH = pdf.internal.pageSize.getHeight()
-      const imgW = canvas.width
-      const imgH = canvas.height
-      const ratio = pdfW / imgW
-      let heightLeft = imgH * ratio
-      let position = 0
-
-      pdf.addImage(imgData, "JPEG", 0, position, pdfW, imgH * ratio)
-      heightLeft -= pdfH
-      while (heightLeft > 0) {
-        position -= pdfH
-        pdf.addPage()
-        pdf.addImage(imgData, "JPEG", 0, position, pdfW, imgH * ratio)
-        heightLeft -= pdfH
-      }
-
-      const blob = pdf.output("blob")
       const ym = periodTo.replace(/-/g, "").slice(0, 6)
       const pdfFileName = `請求書_${clientName}_${ym}.pdf`
 
       const formData = new FormData()
-      formData.append("file", blob, pdfFileName)
+      formData.append("file", file, pdfFileName)
       formData.append("ym", ym)
       formData.append("fileName", pdfFileName)
 
@@ -280,6 +252,13 @@ table.detail tr:nth-child(even) td { background:#f7fafc; }
 
   return (
     <div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
       <div className="flex justify-end mb-4 gap-2">
         <Button onClick={handleSaveToDrive} variant="outline" size="sm" disabled={saving}>
           {saving ? <Loader2 className="mr-1 size-4 animate-spin" /> : <HardDrive className="mr-1 size-4" />}
