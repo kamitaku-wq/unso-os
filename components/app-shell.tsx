@@ -83,6 +83,7 @@ export function AppShell({
   role,
   isDemo,
   customSettings = null,
+  hasMultipleCompanies = false,
 }: {
   children: React.ReactNode
   userEmail: string | null
@@ -90,6 +91,7 @@ export function AppShell({
   role: Role | null
   isDemo: boolean
   customSettings?: CustomSettings
+  hasMultipleCompanies?: boolean
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -148,7 +150,7 @@ export function AppShell({
           <div className="flex h-14 items-center justify-between gap-4">
             {/* ロゴ + ユーザー情報 */}
             <div className="flex items-center gap-3">
-              <Link href="/" className="flex shrink-0 items-center gap-2">
+              <Link href={hasMultipleCompanies ? "/select-company" : "/"} className="flex shrink-0 items-center gap-2">
                 <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
                   <AppIcon className="size-4 text-white" />
                 </div>
