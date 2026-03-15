@@ -119,6 +119,10 @@ export default function ShiftPageClient() {
   // 日報詳細モーダル
   const [reportTarget, setReportTarget] = useState<{ empId: string; empName: string; date: string } | null>(null)
 
+  // 客先マスタ（場所プルダウン用）
+  type CustomerOption = { cust_id: string; name: string }
+  const [customers, setCustomers] = useState<CustomerOption[]>([])
+
   const weekDates = getWeekDates(monday)
   const canEdit = (shiftData.role ?? role) === "ADMIN" || (shiftData.role ?? role) === "OWNER"
 
@@ -150,10 +154,19 @@ export default function ShiftPageClient() {
     }
   }, [])
 
+  // 客先マスタを取得する
+  const loadCustomers = useCallback(async () => {
+    try {
+      const data = await fetchJson<CustomerOption[]>("/api/master/customers")
+      setCustomers(data)
+    } catch { /* ignore */ }
+  }, [])
+
   useEffect(() => {
     void loadShifts(monday)
     void loadRoutines()
-  }, [monday, loadShifts, loadRoutines])
+    void loadCustomers()
+  }, [monday, loadShifts, loadRoutines, loadCustomers])
 
   // ルーティンを現在の週に適用する
   async function handleApplyRoutines() {
@@ -290,7 +303,7 @@ export default function ShiftPageClient() {
                 {mondayLabel} 〜 {sundayLabel}
               </CardTitle>
               <div className="flex items-center gap-2">
-                {canEdit && routines.length > 0 && (
+                {canEdit && (
                   <Button
                     variant="secondary"
                     size="sm"
@@ -430,6 +443,7 @@ export default function ShiftPageClient() {
           empId={routineTarget.empId}
           empName={routineTarget.empName}
           allRoutines={routines}
+          customers={customers}
           onClose={() => setRoutineTarget(null)}
           onSaved={() => { setRoutineTarget(null); void loadRoutines() }}
         />
@@ -480,15 +494,20 @@ export default function ShiftPageClient() {
               {/* 配置場所 */}
               <div className="space-y-1">
                 <Label htmlFor="shift-location">配置場所</Label>
-                <Input
+                <select
                   id="shift-location"
                   value={modal.location}
                   onChange={(e) =>
                     setModal((prev) => prev ? { ...prev, location: e.target.value } : prev)
                   }
                   disabled={modal.is_day_off}
-                  placeholder="例: 本社、A現場"
-                />
+                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">選択してください</option>
+                  {customers.map((c) => (
+                    <option key={c.cust_id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
               </div>
 
               {/* 作業内容 */}
