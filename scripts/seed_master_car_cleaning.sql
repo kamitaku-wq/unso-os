@@ -22,9 +22,9 @@ BEGIN
     (v_cid, 'GS-KS', '株式会社グッドスピード春日井店',        NULL),
     (v_cid, 'GS-TI', '株式会社グッドスピード知立店',          NULL),
     (v_cid, 'GS-OG', '株式会社グッドスピード大垣店',          NULL),
-    (v_cid, 'GS-ND', '株式会社グッドスピード名東店',          NULL),
+    (v_cid, 'GS-MT', '株式会社グッドスピード名東店',          NULL),
     (v_cid, 'GS-KM', '株式会社グッドスピード小牧店',          NULL),
-    (v_cid, 'GS-VK', '株式会社グッドスピードVANLIFE春日井店', NULL)
+    (v_cid, 'GS-BN', '株式会社グッドスピードVANLIFE春日井店', NULL)
   ON CONFLICT (company_id, cust_id) DO UPDATE SET name = EXCLUDED.name;
 
   -- ================================================================
