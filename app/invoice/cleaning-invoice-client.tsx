@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Printer, Receipt, Trash2 } from "lucide-react"
+import { HardDrive, Loader2, Printer, Receipt, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { EmptyState } from "@/components/empty-state"
@@ -195,6 +195,8 @@ table.detail tr:nth-child(even) td { background:#f7fafc; }
 .detail-tax-row td { color:#718096; border-top:none !important; }
 `
 
+  const [saving, setSaving] = useState(false)
+
   const handlePrint = () => {
     const content = printRef.current
     if (!content) return
@@ -205,9 +207,62 @@ table.detail tr:nth-child(even) td { background:#f7fafc; }
     w.print()
   }
 
+  // 請求書を Google Drive に保存する
+  const handleSaveToDrive = async () => {
+    const content = printRef.current
+    if (!content) return
+    setSaving(true)
+    try {
+      const html2canvas = (await import("html2canvas")).default
+      const jsPDF = (await import("jspdf")).default
+
+      const canvas = await html2canvas(content, { scale: 2, useCORS: true })
+      const imgData = canvas.toDataURL("image/jpeg", 0.95)
+      const pdf = new jsPDF("p", "mm", "a4")
+      const pdfW = pdf.internal.pageSize.getWidth()
+      const pdfH = pdf.internal.pageSize.getHeight()
+      const imgW = canvas.width
+      const imgH = canvas.height
+      const ratio = pdfW / imgW
+      let heightLeft = imgH * ratio
+      let position = 0
+
+      pdf.addImage(imgData, "JPEG", 0, position, pdfW, imgH * ratio)
+      heightLeft -= pdfH
+      while (heightLeft > 0) {
+        position -= pdfH
+        pdf.addPage()
+        pdf.addImage(imgData, "JPEG", 0, position, pdfW, imgH * ratio)
+        heightLeft -= pdfH
+      }
+
+      const blob = pdf.output("blob")
+      const ym = periodTo.replace(/-/g, "").slice(0, 6)
+      const pdfFileName = `請求書_${clientName}_${ym}.pdf`
+
+      const formData = new FormData()
+      formData.append("file", blob, pdfFileName)
+      formData.append("ym", ym)
+      formData.append("fileName", pdfFileName)
+
+      const res = await fetch("/api/invoice/save-to-drive", { method: "POST", body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "保存に失敗しました")
+      toast.success("Google Drive に保存しました")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Drive 保存に失敗しました")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div>
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-end mb-4 gap-2">
+        <Button onClick={handleSaveToDrive} variant="outline" size="sm" disabled={saving}>
+          {saving ? <Loader2 className="mr-1 size-4 animate-spin" /> : <HardDrive className="mr-1 size-4" />}
+          Drive に保存
+        </Button>
         <Button onClick={handlePrint} variant="outline" size="sm">
           <Printer className="mr-1 size-4" />印刷 / PDF
         </Button>

@@ -87,7 +87,7 @@ export async function summarizeMonth(ym: string): Promise<ClosingSummary> {
 }
 
 // 月次締めを実行する（サマリも返す）
-export async function closeMonth(ym: string, closedBy: string, note?: string) {
+export async function closeMonth(ym: string, closedBy: string, note?: string, oidcToken?: string) {
   const supabase = await createClient()
 
   const already = await isMonthClosed(ym)
@@ -110,6 +110,16 @@ export async function closeMonth(ym: string, closedBy: string, note?: string) {
     note: note ?? null,
   })
   if (error) throw new Error(error.message)
+
+  // Google Drive にデータバックアップ（失敗しても締め自体は成功扱い）
+  if (oidcToken) {
+    try {
+      const { backupMonthlyData } = await import('./drive-backup')
+      await backupMonthlyData(oidcToken, myInfo.company_id, ym)
+    } catch (e) {
+      console.error('Drive backup failed:', e)
+    }
+  }
 
   return summary
 }

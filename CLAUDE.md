@@ -73,10 +73,11 @@ unso-os/
 │       ├── billable/[id]/      # 実績個別（承認・却下・VOID・削除）
 │       ├── cleaning-job/       # 清掃作業実績（一覧+登録）
 │       ├── cleaning-job/[id]/  # 清掃作業個別（承認・VOID・削除）
-│       ├── cron/drive-sync/    # Google Drive 画像転送 Cron
+│       ├── cron/drive-sync/    # Google Drive レシート転送 Cron（毎日2時）
 │       ├── demo-register/      # デモ会社への自動登録（is_demo=true の場合のみ）
 │       ├── expense/[id]/       # 経費個別（承認・却下・取り消し・削除）
 │       ├── export/             # CSV エクスポート（attendances・billables・expenses）
+│       ├── invoice/save-to-drive/ # 請求書PDFをGoogle Driveに保存
 │       ├── invite/             # 招待トークン経由の申請受付（公開エンドポイント）
 │       ├── master/             # マスタデータ（customers・routes・ratecards・vehicles・expense-categories・works）
 │       ├── me/                 # ログイン中社員情報取得
@@ -94,6 +95,8 @@ unso-os/
 │   │   ├── closing.ts          # 月次締め（isMonthClosed / closeMonth / reopenMonth）
 │   │   ├── employee.ts         # 社員管理・申請承認
 │   │   ├── expense.ts          # 経費（申請・承認・却下・取り消し・削除）
+│   │   ├── drive-sync.ts       # Google Drive レシート転送（WIF認証・サブフォルダ自動作成）
+│   │   ├── drive-backup.ts     # Google Drive バックアップ（月次CSV・請求書PDF保存）
 │   │   ├── export.ts           # CSV エクスポート（社員名カラム含む）
 │   │   ├── invite.ts           # 招待トークン（発行・一覧・失効・使用）
 │   │   └── shift.ts            # シフト（取得・登録・削除）
@@ -237,7 +240,9 @@ Google OAuth
 | 機能表示制御 | ✅ 完成 | custom_settings.enabled_features でナビ項目を会社別に表示/非表示 |
 | アプリ名カスタマイズ | ✅ 完成 | custom_settings.app_name でヘッダー表示名を変更 |
 | 清掃作業実績（car-cleaning） | ✅ 完成 | 作業種別・店舗・車両ID管理・承認フロー |
-| Google Drive 画像転送 | ✅ 完成 | Supabase Storage → Vercel Cron → 各社 Google Drive |
+| Google Drive レシート転送 | ✅ 完成 | 毎日2時 Cron → receipts/{月}/{区分}/ に自動転送 |
+| Google Drive データバックアップ | ✅ 完成 | 月次締め時にCSV自動バックアップ → backup/{月}/ |
+| Google Drive 請求書保存 | ✅ 完成 | 請求書画面「Driveに保存」ボタン → invoices/{月}/ |
 | デモモード | 🔶 部分実装 | is_demo フラグで分岐するが、デモデータは未投入 |
 
 ---

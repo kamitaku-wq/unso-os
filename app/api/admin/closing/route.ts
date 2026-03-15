@@ -30,7 +30,14 @@ export async function POST(request: Request) {
       return NextResponse.json(preview)
     }
 
-    const result = await closeMonth(body.ym, employee.name, body.note ?? undefined)
+    // Drive バックアップ用の OIDC トークンを取得（Vercel 環境のみ）
+    let oidcToken: string | undefined
+    try {
+      const { getVercelOidcToken } = await import('@vercel/oidc')
+      oidcToken = await getVercelOidcToken()
+    } catch { /* ローカル環境ではスキップ */ }
+
+    const result = await closeMonth(body.ym, employee.name, body.note ?? undefined, oidcToken)
     return NextResponse.json(result, { status: 201 })
   } catch (e) {
     return apiError(e)
