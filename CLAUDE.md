@@ -68,7 +68,7 @@ unso-os/
 │   ├── invoice/page.tsx        # 請求書
 │   ├── payroll/page.tsx        # 給与計算・設定
 │   └── api/                    # Route Handlers
-│       ├── admin/              # 管理者用API（attendances, billables, employees, emp-requests, expenses, invite）
+│       ├── admin/              # 管理者用API（attendances, billables, employees, emp-requests, expenses, invite, batch-approve, kpi-summary）
 │       ├── attendance/[id]/    # 勤怠個別（承認・却下・取り消し・削除）
 │       ├── billable/[id]/      # 実績個別（承認・却下・VOID・削除）
 │       ├── cleaning-job/       # 清掃作業実績（一覧+登録）
@@ -85,7 +85,9 @@ unso-os/
 │       └── payroll/            # 給与計算・設定
 ├── components/
 │   ├── ui/                     # shadcn/ui コンポーネント
-│   ├── admin/                  # 管理画面用コンポーネント（emp-request-panel, invite-panel）
+│   ├── admin/                  # 管理画面用コンポーネント（emp-request-panel, invite-panel, kpi-summary-bar）
+│   ├── job/                    # 日報ページ用コンポーネント（entry-row, job-card, attendance-form, types）
+│   ├── dashboard/              # ダッシュボード用コンポーネント（charts, kpi-card, cleaning-dashboard, closing-alert）
 │   └── （共通コンポーネント）   # app-shell, status-badge, empty-state, table-skeleton 等
 ├── lib/
 │   ├── supabase/               # Supabase クライアント設定（browser.ts / server.ts）
@@ -99,7 +101,8 @@ unso-os/
 │   │   ├── drive-backup.ts     # Google Drive バックアップ（月次CSV・請求書PDF保存）
 │   │   ├── export.ts           # CSV エクスポート（社員名カラム含む）
 │   │   ├── invite.ts           # 招待トークン（発行・一覧・失効・使用）
-│   │   └── shift.ts            # シフト（取得・登録・削除）
+│   │   ├── shift.ts            # シフト（取得・登録・削除）
+│   │   └── date-utils.ts       # 日付ユーティリティ（ymToRange / getPrevMonthSameDayRange）
 │   ├── industries/
 │   │   ├── transport/          # 運送業固有のビジネスロジック
 │   │   │   ├── billable.ts     # 運行実績（申請・承認・却下・VOID・削除）
@@ -176,6 +179,7 @@ is_demo        boolean DEFAULT false      -- デモ会社フラグ（true=自動
 | `013_rename_driver_to_worker.sql` | DRIVER → WORKER ロール名変更 |
 | `014_receipt_sync.sql` | expenses に receipt_synced カラム追加 |
 | `015_car_cleaning.sql` | cleaning_jobs・works テーブル + RLS |
+| `024_add_performance_indexes.sql` | パフォーマンス向上用複合インデックス |
 
 ---
 
@@ -243,6 +247,10 @@ Google OAuth
 | Google Drive レシート転送 | ✅ 完成 | 毎日2時 Cron → receipts/{月}/{区分}/ に自動転送 |
 | Google Drive データバックアップ | ✅ 完成 | 月次締め時にCSV自動バックアップ → backup/{月}/ |
 | Google Drive 請求書保存 | ✅ 完成 | 請求書画面「Driveに保存」ボタン → invoices/{月}/ |
+| 一括承認（バッチ） | ✅ 完成 | チェックボックス選択→バルクSQL実行（cleaning_job/expense） |
+| オフラインキューイング | ✅ 完成 | SW が POST 失敗時に IndexedDB に保存、復帰時に自動再送 |
+| 管理画面 KPI サマリー | ✅ 完成 | OWNER 向け。売上・経費・利益・未承認件数を管理画面上部に表示 |
+| 月次締め期限アラート | ✅ 完成 | 月末5日前からダッシュボードに警告バナー表示 |
 | デモモード | 🔶 部分実装 | is_demo フラグで分岐するが、デモデータは未投入 |
 
 ---
@@ -276,7 +284,7 @@ Google OAuth
 - **1関数30行以内**を目安にする
 - コアと業種固有のロジックを混在させない（`lib/core/` と `lib/industries/` を使い分ける）
 - 新しいテーブルや機能を追加したら必ずこの CLAUDE.md を更新する
-- **既知の違反**: `admin-page-client.tsx`・`master-page-client.tsx` が 200 行超。将来的に分割する
+- **既知の違反**: `master-page-client.tsx` が 200 行超。将来的に分割する
 
 ---
 

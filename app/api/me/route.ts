@@ -25,7 +25,10 @@ export async function GET() {
     const customSettings = Array.isArray(companies) ? companies[0]?.custom_settings : companies?.custom_settings
     const { companies: _c, ...rest } = employee
 
-    return NextResponse.json({ registered: true, ...rest, custom_settings: customSettings ?? {} })
+    return NextResponse.json(
+      { registered: true, ...rest, custom_settings: customSettings ?? {} },
+      { headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' } }
+    )
   } catch (e) {
     return apiError(e)
   }

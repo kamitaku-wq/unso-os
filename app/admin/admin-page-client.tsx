@@ -10,6 +10,7 @@ import { EmployeeManagementPanel } from "@/components/admin/employee-management-
 import { ExpenseClosingPanel } from "@/components/admin/expense-closing-panel"
 import { ExpensePanel } from "@/components/admin/expense-panel"
 import { InvitePanel } from "@/components/admin/invite-panel"
+import { KpiSummaryBar } from "@/components/admin/kpi-summary-bar"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -58,16 +59,18 @@ export default function AdminPageClient() {
   const [ready, setReady] = useState(false)
   const [expenseMode, setExpenseMode] = useState<"closing" | "list">("closing")
   const [empNames, setEmpNames] = useState<Record<string, string>>({})
+  const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const queryTab = getAdminTabFromQuery(params.get("tab"))
 
-    const mePromise = fetch("/api/me", { cache: "no-store" })
+    const mePromise = fetch("/api/me")
       .then((r) => r.json())
-      .then((data: { custom_settings?: { enabled_features?: EnabledFeatures } }) => {
+      .then((data: { role?: string; custom_settings?: { enabled_features?: EnabledFeatures } }) => {
         const f = data.custom_settings?.enabled_features ?? null
         setFeatures(f)
+        if (data.role) setRole(data.role)
         return f
       })
       .catch(() => null as EnabledFeatures | null)
@@ -78,7 +81,7 @@ export default function AdminPageClient() {
       .catch(() => ({ billables: 0, expenses: 0, empRequests: 0 }) as PendingCounts)
 
     // 社員名マップを取得する
-    const empPromise = fetch("/api/admin/employees", { cache: "no-store" })
+    const empPromise = fetch("/api/admin/employees")
       .then((r) => r.json())
       .then((data: { emp_id: string; name: string }[]) => {
         const map: Record<string, string> = {}
@@ -88,7 +91,19 @@ export default function AdminPageClient() {
       .catch(() => {})
 
     void Promise.all([mePromise, countsPromise, empPromise]).then(([f, counts]) => {
-      if (queryTab) {
+      // URLパラメータのタブが現在の会社で有効な機能かチェック
+      const isTabVisible = (tab: AdminTab) => {
+        const featureMap: Partial<Record<AdminTab, string>> = {
+          billables: "billable",
+          cleaningJobs: "cleaning_job",
+          expenses: "expense",
+        }
+        const key = featureMap[tab]
+        if (!key || !f) return true
+        return f[key] !== false
+      }
+
+      if (queryTab && isTabVisible(queryTab)) {
         setActiveTab(queryTab)
       } else {
         setActiveTab(getDefaultTab(counts, f))
@@ -123,51 +138,66 @@ export default function AdminPageClient() {
           </p>
         </div>
 
-        <Card>
-          <CardHeader className="gap-4">
-            <div>
-              <CardTitle>管理対象</CardTitle>
-              <CardDescription>画面上部のタブで承認対象を切り替えます。</CardDescription>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {visibleTabs.map(({ value, label, badge }) => (
-                <Button
-                  key={value}
-                  type="button"
-                  variant={activeTab === value ? "default" : "outline"}
-                  onClick={() => setActiveTab(value)}
-                >
-                  {label}
-                  {badge !== undefined && badge > 0 && (
-                    <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-                      {badge}
-                    </span>
-                  )}
-                </Button>
-              ))}
-            </div>
-          </CardHeader>
-        </Card>
+        <KpiSummaryBar role={role} />
 
-        {ready && activeTab === "billables" ? <BillablePanel /> : null}
-        {ready && activeTab === "cleaningJobs" ? <CleaningJobPanel /> : null}
-        {ready && activeTab === "expenses" ? (
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <Button size="sm" variant={expenseMode === "closing" ? "default" : "outline"} onClick={() => setExpenseMode("closing")}>
-                締め期間ビュー
-              </Button>
-              <Button size="sm" variant={expenseMode === "list" ? "default" : "outline"} onClick={() => setExpenseMode("list")}>
-                一覧ビュー
-              </Button>
-            </div>
-            {expenseMode === "closing" ? <ExpenseClosingPanel empNames={empNames} /> : <ExpensePanel />}
-          </div>
-        ) : null}
-        {ready && activeTab === "closings" ? <ClosingPanel /> : null}
-        {ready && activeTab === "employees" ? <EmployeeManagementPanel /> : null}
-        {ready && activeTab === "empRequests" ? <EmpRequestPanel /> : null}
-        {ready && activeTab === "invite" ? <InvitePanel /> : null}
+        {!ready ? (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                <CardDescription>読み込み中...</CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+        ) : (
+          <>
+            <Card>
+              <CardHeader className="gap-4">
+                <div>
+                  <CardTitle>管理対象</CardTitle>
+                  <CardDescription>画面上部のタブで承認対象を切り替えます。</CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {visibleTabs.map(({ value, label, badge }) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant={activeTab === value ? "default" : "outline"}
+                      onClick={() => setActiveTab(value)}
+                    >
+                      {label}
+                      {badge !== undefined && badge > 0 && (
+                        <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                          {badge}
+                        </span>
+                      )}
+                    </Button>
+                  ))}
+                </div>
+              </CardHeader>
+            </Card>
+
+            {activeTab === "billables" ? <BillablePanel /> : null}
+            {activeTab === "cleaningJobs" ? <CleaningJobPanel /> : null}
+            {activeTab === "expenses" ? (
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Button size="sm" variant={expenseMode === "closing" ? "default" : "outline"} onClick={() => setExpenseMode("closing")}>
+                    締め期間ビュー
+                  </Button>
+                  <Button size="sm" variant={expenseMode === "list" ? "default" : "outline"} onClick={() => setExpenseMode("list")}>
+                    一覧ビュー
+                  </Button>
+                </div>
+                {expenseMode === "closing" ? <ExpenseClosingPanel empNames={empNames} /> : <ExpensePanel />}
+              </div>
+            ) : null}
+            {activeTab === "closings" ? <ClosingPanel /> : null}
+            {activeTab === "employees" ? <EmployeeManagementPanel /> : null}
+            {activeTab === "empRequests" ? <EmpRequestPanel /> : null}
+            {activeTab === "invite" ? <InvitePanel /> : null}
+          </>
+        )}
       </div>
     </main>
   )

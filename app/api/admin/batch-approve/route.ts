@@ -2,8 +2,8 @@
 import { NextResponse } from 'next/server'
 import { requireRole } from '@/lib/core/auth'
 import { apiError } from '@/lib/api-error'
-import { approveCleaningJob } from '@/lib/industries/car-cleaning/job'
-import { approveExpense } from '@/lib/core/expense'
+import { bulkApproveCleaningJobs } from '@/lib/industries/car-cleaning/job'
+import { bulkApproveExpenses } from '@/lib/core/expense'
 
 export async function POST(request: Request) {
   try {
@@ -17,25 +17,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '一度に承認できるのは100件までです' }, { status: 400 })
     }
 
-    const results = { approved: 0, errors: [] as string[] }
-
-    for (const id of body.ids) {
-      try {
-        if (body.type === 'cleaning_job') {
-          await approveCleaningJob(id)
-        } else if (body.type === 'expense') {
-          await approveExpense(id, employee.name)
-        } else {
-          results.errors.push(`${id}: 不明な種別です`)
-          continue
-        }
-        results.approved++
-      } catch (e) {
-        results.errors.push(`${id}: ${e instanceof Error ? e.message : 'unknown'}`)
-      }
+    let approved: number
+    if (body.type === 'cleaning_job') {
+      approved = await bulkApproveCleaningJobs(body.ids, employee.emp_id)
+    } else if (body.type === 'expense') {
+      approved = await bulkApproveExpenses(body.ids, employee.name)
+    } else {
+      return NextResponse.json({ error: '不明な種別です' }, { status: 400 })
     }
 
-    return NextResponse.json(results)
+    return NextResponse.json({ approved, errors: [] })
   } catch (e) {
     return apiError(e)
   }

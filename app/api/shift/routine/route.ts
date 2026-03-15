@@ -16,6 +16,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await requireRole(['ADMIN', 'OWNER'])
     const body = await request.json()
     if (body.action === 'apply') {
       const count = await applyRoutinesToWeek(body.monday)

@@ -16,6 +16,7 @@ import { formatCurrency, getErrorMessage } from "@/lib/format"
 import { HorizontalBarChart, MonthlyBarChart } from "@/components/dashboard/charts"
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { CleaningDashboard, type CleaningDashboardData } from "@/components/dashboard/cleaning-dashboard"
+import { ClosingAlert } from "@/components/dashboard/closing-alert"
 
 // ---- 運送業用の型定義 ----
 type TransportDashboard = {
@@ -89,6 +90,8 @@ export default function DashboardPageClient() {
             <Button type="button" variant="outline" size="sm" onClick={() => void loadDashboard()} disabled={isLoading}>{isLoading ? "更新中..." : "再読み込み"}</Button>
           </div>
         </div>
+
+        <ClosingAlert />
 
         {hasNoPermission ? (
           <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">この画面を表示する権限がありません。</p></CardContent></Card>

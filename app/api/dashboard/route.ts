@@ -44,7 +44,7 @@ export async function GET(request: Request) {
         pendingCounts, monthlyKpi, unbilledAmount, monthlySales, monthlyExpenses,
         monthlyJobCounts, storeBreakdown, workTypeBreakdown,
         expenseCategoryBreakdown, staffAnalysis, attendanceSummary,
-      })
+      }, { headers: { 'Cache-Control': 'private, max-age=10, stale-while-revalidate=30' } })
     }
 
     // デフォルト: 運送業
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
       industry: 'transport',
       pendingCounts, monthlySales, monthlyExpenses, currentMonthByEmployee,
       monthlyKpi, unbilledAmount, expenseCategoryBreakdown, attendanceSummary,
-    })
+    }, { headers: { 'Cache-Control': 'private, max-age=10, stale-while-revalidate=30' } })
   } catch (e) {
     return apiError(e)
   }

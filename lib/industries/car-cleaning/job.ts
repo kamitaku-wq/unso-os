@@ -114,6 +114,19 @@ export async function approveCleaningJob(id: string) {
   if (error) throw new Error(error.message)
 }
 
+// 作業実績を一括承認する（ADMIN/OWNER 用）
+export async function bulkApproveCleaningJobs(ids: string[], approvedBy: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('cleaning_jobs')
+    .update({ status: 'APPROVED', approved_at: new Date().toISOString(), approved_by: approvedBy })
+    .in('id', ids)
+    .eq('status', 'REVIEW_REQUIRED')
+    .select('id')
+  if (error) throw new Error(error.message)
+  return data?.length ?? 0
+}
+
 // 作業実績を VOID にする（ADMIN/OWNER のみ）
 export async function voidCleaningJob(id: string) {
   const employee = await requireRole(['ADMIN', 'OWNER'])

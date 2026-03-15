@@ -1,6 +1,6 @@
 "use client"
 
-// 承認待ち画面のポーリング: 3秒ごとに認証状態を確認し、承認されたら自動リダイレクト
+// 承認待ち画面のポーリング: 10秒ごとに認証状態を確認し、承認されたら自動リダイレクト
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 
@@ -26,7 +26,7 @@ export function PendingPolling() {
       } catch {
         // ネットワークエラーは無視して次のポーリングを待つ
       }
-    }, 3000)
+    }, 10000)
 
     return () => clearInterval(interval)
   }, [router])

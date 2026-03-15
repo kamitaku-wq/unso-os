@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-error'
 import { createClient } from '@/lib/supabase/server'
-import { getMyEmployee } from '@/lib/core/auth'
+import { getMyEmployee, requireRole } from '@/lib/core/auth'
 import { getShifts, upsertShift, getEmployeesForShift } from '@/lib/core/shift'
 
 // 日報サマリーを取得する（シフト表に表示用）
@@ -69,6 +69,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await requireRole(['ADMIN', 'OWNER'])
     const body = await request.json()
     await upsertShift({
       emp_id: body.emp_id,

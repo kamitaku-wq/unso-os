@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCheckboxSelection } from "@/lib/hooks/use-checkbox-selection"
 import { Receipt } from "lucide-react"
 import { toast } from "sonner"
 
@@ -122,7 +123,6 @@ export function ExpensePanel() {
   const [isExpenseReasonDialogOpen, setIsExpenseReasonDialogOpen] = useState(false)
   const [isExpenseRejectDialogOpen, setIsExpenseRejectDialogOpen] = useState(false)
   const [expenseExportMonth, setExpenseExportMonth] = useState(() => formatMonthInputValue(new Date()))
-  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [batchProcessing, setBatchProcessing] = useState(false)
 
   // ステータス条件に応じた経費一覧を取得する
@@ -245,25 +245,7 @@ export function ExpensePanel() {
 
   // チェックボックス用（SUBMITTED の経費のみ対象）
   const submittedIds = useMemo(() => expenses.filter((e) => e.status === "SUBMITTED").map((e) => e.id), [expenses])
-  const allChecked = submittedIds.length > 0 && submittedIds.every((id) => selected.has(id))
-  const someChecked = submittedIds.some((id) => selected.has(id))
-
-  const toggleAll = useCallback(() => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (allChecked) { submittedIds.forEach((id) => next.delete(id)) }
-      else { submittedIds.forEach((id) => next.add(id)) }
-      return next
-    })
-  }, [allChecked, submittedIds])
-
-  const toggleOne = useCallback((id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
-  }, [])
+  const { selected, allChecked, someChecked, toggleAll, toggleOne, clearSelection } = useCheckboxSelection(submittedIds)
 
   // 一括承認を実行する
   const handleBatchApprove = useCallback(async () => {
@@ -280,7 +262,7 @@ export function ExpensePanel() {
       const result = await res.json() as { approved: number; errors: string[] }
       toast.success(`${result.approved}件を承認しました`)
       if (result.errors.length > 0) toast.error(`${result.errors.length}件でエラー`)
-      setSelected(new Set())
+      clearSelection()
       await loadExpenses(expenseStatusFilter)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "一括承認に失敗しました")

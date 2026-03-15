@@ -1,6 +1,7 @@
 // 清掃業務ダッシュボード集計ロジック
 import { createClient } from '@/lib/supabase/server'
 import { SupabaseClient } from '@supabase/supabase-js'
+import { getPrevMonthSameDayRange, ymToRange } from '@/lib/core/date-utils'
 
 // 直近 N ヶ月分の ym リストを生成する
 function getRecentYmList(n: number): string[] {
@@ -20,13 +21,6 @@ function getCurrentAndPrevYm() {
   const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const prevYm = `${prev.getFullYear()}${String(prev.getMonth() + 1).padStart(2, '0')}`
   return { thisYm, prevYm }
-}
-
-function ymToRange(ym: string) {
-  const y = parseInt(ym.slice(0, 4), 10)
-  const m = parseInt(ym.slice(4, 6), 10)
-  const lastDay = new Date(y, m, 0).getDate()
-  return { start: `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`, end: `${ym.slice(0, 4)}-${ym.slice(4, 6)}-${String(lastDay).padStart(2, '0')}` }
 }
 
 // Supabase の 1000 行制限を回避して全行を取得するヘルパー
@@ -64,17 +58,7 @@ export async function getMonthlyKpi(includeAll = false) {
   const supabase = await createClient()
   const { thisYm, prevYm } = getCurrentAndPrevYm()
   const thisRange = ymToRange(thisYm)
-  // 前月同日比: 当月の経過日数に合わせて前月の範囲を制限する
-  const today = new Date()
-  const dayOfMonth = today.getDate()
-  const prevYear = parseInt(prevYm.slice(0, 4))
-  const prevMonth = parseInt(prevYm.slice(4, 6))
-  const prevLastDay = new Date(prevYear, prevMonth, 0).getDate()
-  const prevCutoffDay = Math.min(dayOfMonth, prevLastDay)
-  const prevRange = {
-    start: `${prevYm.slice(0, 4)}-${prevYm.slice(4, 6)}-01`,
-    end: `${prevYm.slice(0, 4)}-${prevYm.slice(4, 6)}-${String(prevCutoffDay).padStart(2, '0')}`,
-  }
+  const prevRange = getPrevMonthSameDayRange(prevYm)
 
   const jobStatuses = includeAll ? ['REVIEW_REQUIRED', 'APPROVED'] : ['APPROVED']
   const expStatuses = includeAll ? ['SUBMITTED', 'APPROVED', 'PAID'] : ['APPROVED', 'PAID']

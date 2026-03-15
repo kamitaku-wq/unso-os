@@ -53,6 +53,13 @@ export function PushSetup() {
     }
 
     void setup()
+
+    // オンライン復帰時にオフラインキューを再送する
+    function handleOnline() {
+      navigator.serviceWorker.controller?.postMessage('drain-queue')
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
   }, [])
 
   return null

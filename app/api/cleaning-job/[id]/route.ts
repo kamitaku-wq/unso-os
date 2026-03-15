@@ -1,6 +1,7 @@
 // 清掃作業実績 個別操作 API（承認・VOID・削除）
 import { NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-error'
+import { requireRole } from '@/lib/core/auth'
 import { approveCleaningJob, voidCleaningJob, deleteCleaningJob } from '@/lib/industries/car-cleaning/job'
 
 type Params = { params: Promise<{ id: string }> }
@@ -8,6 +9,7 @@ type Params = { params: Promise<{ id: string }> }
 // 承認
 export async function PATCH(_request: Request, { params }: Params) {
   try {
+    await requireRole(['ADMIN', 'OWNER'])
     const { id } = await params
     const body = await _request.json()
 
@@ -28,6 +30,7 @@ export async function PATCH(_request: Request, { params }: Params) {
 // 削除（VOID のみ）
 export async function DELETE(_request: Request, { params }: Params) {
   try {
+    await requireRole(['ADMIN', 'OWNER'])
     const { id } = await params
     await deleteCleaningJob(id)
     return NextResponse.json({ ok: true })
