@@ -23,7 +23,10 @@ function getCurrentAndPrevYm() {
 }
 
 function ymToRange(ym: string) {
-  return { start: `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`, end: `${ym.slice(0, 4)}-${ym.slice(4, 6)}-31` }
+  const y = parseInt(ym.slice(0, 4), 10)
+  const m = parseInt(ym.slice(4, 6), 10)
+  const lastDay = new Date(y, m, 0).getDate()
+  return { start: `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`, end: `${ym.slice(0, 4)}-${ym.slice(4, 6)}-${String(lastDay).padStart(2, '0')}` }
 }
 
 // Supabase の 1000 行制限を回避して全行を取得するヘルパー
