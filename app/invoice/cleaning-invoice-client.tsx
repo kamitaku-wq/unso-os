@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatCurrency, getErrorMessage } from "@/lib/format"
 
-type Customer = { id: string; cust_id: string; name: string }
+type Customer = { id: string; cust_id: string; name: string; address?: string }
 
 type InvoiceSummary = {
   invoice_id: string; store_id: string; store_name: string
@@ -64,14 +64,7 @@ function getLastMonthRange() {
 function calcPaymentDue(invoicedAt: string): string {
   const d = new Date(invoicedAt)
   const due = new Date(d.getFullYear(), d.getMonth() + 2, 0)
-  return due.toLocaleDateString("ja-JP")
-}
-
-// 保存期限: 7年後
-function calcRetentionUntil(invoicedAt: string): string {
-  const d = new Date(invoicedAt)
-  d.setFullYear(d.getFullYear() + 7)
-  return d.toLocaleDateString("ja-JP")
+  return `${due.getFullYear()}年${due.getMonth() + 1}月${due.getDate()}日`
 }
 
 // 明細行を車両ID単位に展開する（1行 = 1車両）
@@ -96,16 +89,22 @@ function expandDetails(details: DetailItem[]) {
 }
 
 // 印刷用 請求書ビュー（旧システムPDF準拠）
-function InvoicePrintView({ details, invoiceId, issuer }: {
-  details: DetailItem[]; invoiceId: string; issuer: IssuerInfo
+function InvoicePrintView({ details, invoiceId, issuer, customers }: {
+  details: DetailItem[]; invoiceId: string; issuer: IssuerInfo; customers: Customer[]
 }) {
   const printRef = useRef<HTMLDivElement>(null)
   if (details.length === 0) return null
 
-  const storeName = details[0].store_name ?? ""
+  const storeId = details[0].store_id ?? ""
   const periodTo = details[0].invoice_period_to ?? ""
   const invoicedAt = details[0].invoiced_at ?? ""
-  const invoicedAtStr = invoicedAt ? new Date(invoicedAt).toLocaleDateString("ja-JP") : ""
+  const invoicedAtFmt = (v: string) => { const d = new Date(v); return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日` }
+  const invoicedAtStr = invoicedAt ? invoicedAtFmt(invoicedAt) : ""
+
+  // 顧客マスタから正式名称・住所を取得
+  const customer = customers.find(c => c.cust_id === storeId)
+  const clientName = customer?.name ?? details[0].store_name ?? storeId
+  const clientAddress = customer?.address ?? ""
 
   // 月表示（例: "2月分"）
   const periodMonth = periodTo ? `${Number(periodTo.slice(5, 7))}月分` : ""
@@ -133,44 +132,62 @@ function InvoicePrintView({ details, invoiceId, issuer }: {
   }
   const totalPages = 1 + detailPages.length // 表紙 + 明細ページ数
 
+  const C = "#1e3a5f" // メインカラー
   const printCSS = `
-@media print { @page { margin: 12mm 15mm; size: A4; } }
-body { font-family: "Hiragino Sans","Yu Gothic","Meiryo",sans-serif; color:#1a1a1a; margin:0; padding:20px; font-size:9pt; }
-.page { position:relative; }
-.page-num { text-align:right; font-size:8pt; color:#666; margin-bottom:4px; }
-.title-bar { background:#1e3a5f; color:white; padding:10px 20px; text-align:center; font-size:18pt; font-weight:bold; letter-spacing:6px; }
-.header-row { display:flex; justify-content:space-between; margin:16px 0 8px; }
-.client-section { }
-.client-name { font-size:14pt; font-weight:bold; }
-.client-sama { font-size:10pt; }
-.client-month { font-size:12pt; font-weight:bold; margin-top:4px; }
-.issuer-section { text-align:right; font-size:9pt; }
-.issuer-section .name { font-weight:bold; font-size:10pt; }
-.amount-box { border:2px solid #1e3a5f; padding:12px 20px; margin:16px 0; display:flex; align-items:center; gap:16px; }
-.amount-box .label { font-size:10pt; font-weight:bold; white-space:nowrap; }
-.amount-box .value { font-size:22pt; font-weight:bold; }
-.cover-table { width:100%; border-collapse:collapse; margin:12px 0; font-size:9pt; }
-.cover-table th { background:#1e3a5f; color:white; padding:6px 10px; text-align:center; font-weight:normal; border:1px solid #1e3a5f; }
-.cover-table td { padding:5px 10px; border:1px solid #ccc; }
-.cover-table td.r { text-align:right; }
-.cover-table tr.total-row td { font-weight:bold; border-top:2px solid #1e3a5f; }
-.tax-line { margin:8px 0; font-size:9pt; }
-.tax-line table { width:100%; border-collapse:collapse; }
-.tax-line th { background:#e2e8f0; padding:4px 8px; text-align:center; font-size:8pt; border:1px solid #ccc; }
-.tax-line td { padding:4px 8px; text-align:right; border:1px solid #ccc; font-size:9pt; }
-.meta-info { margin:16px 0; font-size:9pt; }
-.meta-info .row { display:flex; gap:8px; margin:2px 0; }
-.meta-info .lbl { font-weight:bold; min-width:100px; }
-.bank-box { background:#f5f5f5; padding:8px 12px; margin:8px 0; font-size:9pt; border:1px solid #ddd; }
-.notes { font-size:8pt; color:#666; margin-top:12px; }
+@media print { @page { margin: 10mm 12mm; size: A4; } body { padding:0; } }
+* { box-sizing:border-box; }
+body { font-family: "Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif; color:#222; margin:0; padding:16px; font-size:9pt; line-height:1.5; }
+.page { position:relative; min-height:auto; }
+.page-num { text-align:right; font-size:7.5pt; color:#888; margin-bottom:2px; }
+
+/* 表紙 */
+.title-bar { background:${C}; color:#fff; padding:10px 0; text-align:center; font-size:20pt; font-weight:700; letter-spacing:8px; margin-bottom:20px; }
+.header-row { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; }
+.client-section { flex:1; }
+.client-name { font-size:15pt; font-weight:700; border-bottom:3px solid ${C}; padding-bottom:4px; display:inline-block; }
+.client-address { font-size:8.5pt; color:#555; margin-top:4px; }
+.client-month { font-size:11pt; font-weight:700; margin-top:8px; color:${C}; }
+.issuer-section { text-align:right; font-size:8.5pt; line-height:1.6; color:#444; min-width:200px; }
+.issuer-section .name { font-weight:700; font-size:11pt; color:#222; }
+
+.amount-box { border:3px solid ${C}; margin:16px 0; display:flex; align-items:center; }
+.amount-box .label { background:${C}; color:#fff; padding:14px 20px; font-size:11pt; font-weight:700; white-space:nowrap; }
+.amount-box .value { padding:14px 24px; font-size:24pt; font-weight:700; letter-spacing:1px; }
+
+.cover-table { width:100%; border-collapse:collapse; margin:16px 0; font-size:9pt; }
+.cover-table th { background:${C}; color:#fff; padding:7px 12px; text-align:center; font-weight:400; font-size:8.5pt; border:1px solid ${C}; }
+.cover-table td { padding:6px 12px; border:1px solid #d1d5db; vertical-align:middle; }
+.cover-table td.r { text-align:right; font-variant-numeric:tabular-nums; }
+.cover-table tr.total-row td { font-weight:700; background:#f0f4f8; border-top:2px solid ${C}; }
+
+.tax-section { margin:12px 0; }
+.tax-section table { width:50%; border-collapse:collapse; font-size:8.5pt; }
+.tax-section th { background:#e8ecf1; padding:5px 10px; text-align:center; font-weight:400; border:1px solid #d1d5db; }
+.tax-section td { padding:5px 10px; text-align:right; border:1px solid #d1d5db; font-variant-numeric:tabular-nums; }
+
+.meta-grid { display:grid; grid-template-columns:100px 1fr; gap:2px 12px; margin:16px 0; font-size:9pt; }
+.meta-grid .lbl { font-weight:700; color:#555; }
+.meta-grid .val { color:#222; }
+
+.bank-section { margin:16px 0; }
+.bank-label { font-size:9pt; font-weight:700; margin-bottom:4px; color:${C}; }
+.bank-box { background:#f8f9fb; padding:10px 14px; font-size:9pt; border:1px solid #d1d5db; border-radius:2px; line-height:1.6; }
+
+.notes { font-size:8pt; color:#888; margin-top:16px; line-height:1.6; }
+.notes p { margin:1px 0; }
+
+/* 明細 */
 .page-break { page-break-before:always; }
-.detail-title { background:#1e3a5f; color:white; padding:8px 16px; font-size:14pt; font-weight:bold; text-align:center; letter-spacing:8px; }
-table.detail { width:100%; border-collapse:collapse; font-size:8pt; margin-top:8px; }
-table.detail th { background:#1e3a5f; color:white; padding:5px 6px; text-align:center; font-weight:normal; font-size:8pt; border:1px solid #1e3a5f; }
-table.detail td { padding:3px 6px; border:1px solid #ddd; font-size:8pt; }
-table.detail td.r { text-align:right; }
-table.detail tr:nth-child(even) td { background:#f8fafc; }
-.detail-total-row td { font-weight:bold; border-top:2px solid #1e3a5f !important; }
+.detail-title { background:${C}; color:#fff; padding:10px 0; font-size:16pt; font-weight:700; text-align:center; letter-spacing:10px; margin-bottom:8px; }
+.detail-client { font-size:9pt; color:#555; margin-bottom:8px; padding:4px 0; border-bottom:1px solid #e5e7eb; }
+
+table.detail { width:100%; border-collapse:collapse; font-size:8pt; }
+table.detail th { background:${C}; color:#fff; padding:5px 8px; text-align:center; font-weight:400; font-size:7.5pt; border:1px solid ${C}; white-space:nowrap; }
+table.detail td { padding:4px 8px; border:1px solid #e5e7eb; font-size:8pt; }
+table.detail td.r { text-align:right; font-variant-numeric:tabular-nums; }
+table.detail tr:nth-child(even) td { background:#fafbfc; }
+.detail-total-row td { font-weight:700; background:#f0f4f8 !important; border-top:2px solid ${C} !important; }
+.detail-tax-row td { color:#555; border-top:none !important; }
 `
 
   const handlePrint = () => {
@@ -198,7 +215,8 @@ table.detail tr:nth-child(even) td { background:#f8fafc; }
 
           <div className="header-row">
             <div className="client-section">
-              <div><span className="client-name">{storeName}</span><span className="client-sama">　様</span></div>
+              <div className="client-name">{clientName}　様</div>
+              {clientAddress && <div className="client-address">{clientAddress}</div>}
               <div className="client-month">{periodMonth}</div>
             </div>
             <div className="issuer-section">
@@ -216,7 +234,7 @@ table.detail tr:nth-child(even) td { background:#f8fafc; }
 
           <table className="cover-table">
             <thead>
-              <tr><th>商品名/品目</th><th>数量（式）</th><th>単価</th><th>金額</th><th>備考</th></tr>
+              <tr><th style={{width:"40%"}}>商品名/品目</th><th>数量</th><th>単価</th><th>金額</th><th>備考</th></tr>
             </thead>
             <tbody>
               {workSummaries.map(w => (
@@ -234,50 +252,49 @@ table.detail tr:nth-child(even) td { background:#f8fafc; }
             </tbody>
           </table>
 
-          <div className="tax-line">
+          <div className="tax-section">
             <table>
               <thead><tr><th>税率</th><th>対象額</th><th>消費税額</th></tr></thead>
               <tbody><tr><td>10%</td><td>{fmtCur(subtotal)}</td><td>{fmtCur(tax)}</td></tr></tbody>
             </table>
           </div>
 
-          <div className="meta-info">
-            <div className="row"><span className="lbl">発行日</span><span>{invoicedAtStr}</span></div>
-            <div className="row"><span className="lbl">請求書番号</span><span>{invoiceId}</span></div>
-            <div className="row"><span className="lbl">お支払期限</span><span>{invoicedAt ? calcPaymentDue(invoicedAt) : "-"}</span></div>
+          <div className="meta-grid">
+            <div className="lbl">発行日</div><div className="val">{invoicedAtStr}</div>
+            <div className="lbl">請求書番号</div><div className="val">{invoiceId}</div>
+            <div className="lbl">お支払期限</div><div className="val">{invoicedAt ? calcPaymentDue(invoicedAt) : "-"}</div>
           </div>
 
           {issuer.bank_info && (
-            <div>
-              <div style={{ fontWeight: "bold", fontSize: "9pt" }}>■ お振込先</div>
+            <div className="bank-section">
+              <div className="bank-label">■ お振込先</div>
               <div className="bank-box">{issuer.bank_info}</div>
             </div>
           )}
 
           <div className="notes">
             <p>※ お振込手数料はご負担くださいますようお願い申し上げます。</p>
-            {invoicedAt && <p>※ 本書類の保存期限: {calcRetentionUntil(invoicedAt)}</p>}
           </div>
         </div>
 
         {/* === 明細ページ（2/N〜） === */}
         {detailPages.map((pageRows, pi) => {
-          const pageSubtotal = pageRows.reduce((s, r) => s + r.amount, 0)
           const isLastPage = pi === detailPages.length - 1
           return (
-            <div key={pi} className={pi === 0 ? "page-break page" : "page-break page"}>
+            <div key={pi} className="page-break page">
               <div className="page-num">{pi + 2}/{totalPages}</div>
               <div className="detail-title">明　　細</div>
+              <div className="detail-client">{clientName}　{periodMonth}</div>
               <table className="detail">
                 <thead>
                   <tr>
-                    <th>商品名/品目</th>
-                    <th>作業項目</th>
-                    <th>作業日</th>
-                    <th>数量（式）</th>
-                    <th>単価</th>
-                    <th>金額</th>
-                    <th>備考</th>
+                    <th style={{width:"28%"}}>商品名/品目</th>
+                    <th style={{width:"14%"}}>作業項目</th>
+                    <th style={{width:"8%"}}>作業日</th>
+                    <th style={{width:"8%"}}>数量</th>
+                    <th style={{width:"10%"}}>単価</th>
+                    <th style={{width:"10%"}}>金額</th>
+                    <th style={{width:"22%"}}>備考</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -297,7 +314,7 @@ table.detail tr:nth-child(even) td { background:#f8fafc; }
                       <tr className="detail-total-row">
                         <td>小計</td><td></td><td></td><td className="r">{expandedRows.length}</td><td></td><td className="r">{fmtCur(subtotal)}</td><td></td>
                       </tr>
-                      <tr><td>消費税（10%）</td><td></td><td></td><td></td><td></td><td className="r">{fmtCur(tax)}</td><td></td></tr>
+                      <tr className="detail-tax-row"><td>消費税（10%）</td><td></td><td></td><td></td><td></td><td className="r">{fmtCur(tax)}</td><td></td></tr>
                       <tr className="detail-total-row"><td>合計（税込）</td><td></td><td></td><td></td><td></td><td className="r">{fmtCur(total)}</td><td></td></tr>
                     </>
                   )}
@@ -572,7 +589,7 @@ export default function CleaningInvoiceClient() {
             <DialogTitle>請求書 {detailInvoice?.invoice_id}</DialogTitle>
           </DialogHeader>
           {isDetailLoading ? <TableSkeleton columns={7} rows={4} /> : (
-            <InvoicePrintView details={details} invoiceId={detailInvoice?.invoice_id ?? ""} issuer={issuer} />
+            <InvoicePrintView details={details} invoiceId={detailInvoice?.invoice_id ?? ""} issuer={issuer} customers={customers} />
           )}
         </DialogContent>
       </Dialog>
