@@ -1,0 +1,14 @@
+{
+  "universe_domain": "googleapis.com",
+  "type": "external_account",
+  "audience": "//iam.googleapis.com/projects/291443702018/locations/global/workloadIdentityPools/vercel-pool/providers/vercel-provider",
+  "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+  "token_url": "https://sts.googleapis.com/v1/token",
+  "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/drive-sync@unso-os.iam.gserviceaccount.com:generateAccessToken",
+  "credential_source": {
+    "file": "/dev/null",
+    "format": {
+      "type": "text"
+    }
+  }
+}

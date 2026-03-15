@@ -28,10 +28,17 @@ export default function SelectCompanyClient() {
       .finally(() => setIsLoading(false))
   }, [])
 
+  function getHomePath(role: string) {
+    if (role === "OWNER") return "/dashboard"
+    if (role === "ADMIN") return "/admin"
+    return "/"
+  }
+
   function handleSelect(company: Company) {
     setSwitching(company.id)
-    // Server Component ページで Cookie 設定 + リダイレクト
-    window.location.href = `/select-company/switch?id=${company.id}`
+    // Route Handler で Cookie 設定 + リダイレクト（同一レスポンス）
+    const redirect = encodeURIComponent(getHomePath(company.role))
+    window.location.href = `/api/company/switch?id=${company.id}&redirect=${redirect}`
   }
 
   const roleLabel = (role: string) => {
