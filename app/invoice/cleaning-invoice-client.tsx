@@ -232,10 +232,10 @@ table.detail tr:nth-child(even) td { background:#f7fafc; }
       // iframe のレンダリング完了を待つ
       await new Promise(r => setTimeout(r, 500))
 
-      const canvas = await html2canvas(iframeDoc.body, { scale: 2, useCORS: true })
+      const canvas = await html2canvas(iframeDoc.body, { scale: 1.5, useCORS: true })
       document.body.removeChild(iframe)
 
-      const imgData = canvas.toDataURL("image/jpeg", 0.95)
+      const imgData = canvas.toDataURL("image/jpeg", 0.8)
       const pdf = new jsPDF("p", "mm", "a4")
       const pdfW = pdf.internal.pageSize.getWidth()
       const pdfH = pdf.internal.pageSize.getHeight()
@@ -264,8 +264,12 @@ table.detail tr:nth-child(even) td { background:#f7fafc; }
       formData.append("fileName", pdfFileName)
 
       const res = await fetch("/api/invoice/save-to-drive", { method: "POST", body: formData })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "保存に失敗しました")
+      if (!res.ok) {
+        const text = await res.text()
+        let msg = "保存に失敗しました"
+        try { msg = JSON.parse(text).error || msg } catch { msg = text || msg }
+        throw new Error(msg)
+      }
       toast.success("Google Drive に保存しました")
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Drive 保存に失敗しました")

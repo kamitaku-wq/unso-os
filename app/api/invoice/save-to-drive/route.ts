@@ -1,4 +1,6 @@
 // 請求書PDFを Google Drive に保存する API
+export const maxDuration = 30
+
 import { NextResponse } from 'next/server'
 import { requireRole } from '@/lib/core/auth'
 import { saveInvoiceToDrive } from '@/lib/core/drive-backup'
