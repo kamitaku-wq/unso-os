@@ -49,7 +49,7 @@ export default async function PostLoginPage() {
   if (activeEmployees.length === 1) {
     const emp = activeEmployees[0]
     cookieStore.set("x-company-id", emp.company_id, {
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",

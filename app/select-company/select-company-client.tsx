@@ -36,9 +36,12 @@ export default function SelectCompanyClient() {
 
   function handleSelect(company: Company) {
     setSwitching(company.id)
-    // Route Handler で Cookie 設定 + リダイレクト（同一レスポンス）
-    const redirect = encodeURIComponent(getHomePath(company.role))
-    window.location.href = `/api/company/switch?id=${company.id}&redirect=${redirect}`
+    // Cookie をクライアント側で直接設定してからページ遷移
+    // x-company-id は会社選択のみに使われ、実際のアクセス制御はRLSが行う
+    const maxAge = 60 * 60 * 24 * 365
+    const secure = window.location.protocol === "https:" ? "; Secure" : ""
+    document.cookie = `x-company-id=${company.id}; path=/; max-age=${maxAge}; SameSite=Lax${secure}`
+    window.location.href = getHomePath(company.role)
   }
 
   const roleLabel = (role: string) => {
