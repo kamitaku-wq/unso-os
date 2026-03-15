@@ -141,7 +141,7 @@ export async function getAccessTokenViaWIF(oidcToken: string): Promise<string> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      scope: ['https://www.googleapis.com/auth/drive.file'],
+      scope: ['https://www.googleapis.com/auth/drive'],
       lifetime: '3600s',
     }),
   })
