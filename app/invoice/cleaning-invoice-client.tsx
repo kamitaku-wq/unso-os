@@ -132,62 +132,75 @@ function InvoicePrintView({ details, invoiceId, issuer, customers }: {
   }
   const totalPages = 1 + detailPages.length // 表紙 + 明細ページ数
 
-  const C = "#1e3a5f" // メインカラー
   const printCSS = `
-@media print { @page { margin: 10mm 12mm; size: A4; } body { padding:0; } }
-* { box-sizing:border-box; }
-body { font-family: "Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif; color:#222; margin:0; padding:16px; font-size:9pt; line-height:1.5; }
-.page { position:relative; min-height:auto; }
-.page-num { text-align:right; font-size:7.5pt; color:#888; margin-bottom:2px; }
+@media print { @page { margin: 10mm 14mm; size: A4; } body { padding:0; } }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family: "Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif; color:#2d3748; margin:0; padding:20px 24px; font-size:9pt; line-height:1.6; }
 
-/* 表紙 */
-.title-bar { background:${C}; color:#fff; padding:10px 0; text-align:center; font-size:20pt; font-weight:700; letter-spacing:8px; margin-bottom:20px; }
-.header-row { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; }
+.page-num { text-align:right; font-size:7.5pt; color:#a0aec0; margin-bottom:4px; letter-spacing:0.5px; }
+
+/* ── 表紙タイトル ── */
+.title-bar { background:#2c3e50; color:#fff; padding:12px 0; text-align:center; font-size:20pt; font-weight:700; letter-spacing:10px; margin-bottom:24px; }
+
+/* ── 宛先 × 発行者（左右2カラム） ── */
+.header-row { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; gap:32px; }
+
 .client-section { flex:1; }
-.client-name { font-size:15pt; font-weight:700; border-bottom:3px solid ${C}; padding-bottom:4px; display:inline-block; }
-.client-address { font-size:8.5pt; color:#555; margin-top:4px; }
-.client-month { font-size:11pt; font-weight:700; margin-top:8px; color:${C}; }
-.issuer-section { text-align:right; font-size:8.5pt; line-height:1.6; color:#444; min-width:200px; }
-.issuer-section .name { font-weight:700; font-size:11pt; color:#222; }
+.client-address { font-size:9pt; color:#4a5568; margin-bottom:6px; line-height:1.5; }
+.client-name { font-size:16pt; font-weight:700; color:#1a202c; border-bottom:2px solid #2c3e50; padding-bottom:6px; display:inline-block; margin-bottom:6px; }
+.client-month { font-size:11pt; font-weight:600; color:#2c3e50; margin-top:4px; }
 
-.amount-box { border:3px solid ${C}; margin:16px 0; display:flex; align-items:center; }
-.amount-box .label { background:${C}; color:#fff; padding:14px 20px; font-size:11pt; font-weight:700; white-space:nowrap; }
-.amount-box .value { padding:14px 24px; font-size:24pt; font-weight:700; letter-spacing:1px; }
+.issuer-section { text-align:right; font-size:8.5pt; line-height:1.7; color:#4a5568; min-width:220px; }
+.issuer-section .name { font-weight:700; font-size:11pt; color:#1a202c; margin-bottom:2px; }
+.issuer-section .meta { margin-top:10px; padding-top:8px; border-top:1px solid #e2e8f0; font-size:8pt; color:#718096; }
+.issuer-section .meta div { margin:1px 0; }
 
-.cover-table { width:100%; border-collapse:collapse; margin:16px 0; font-size:9pt; }
-.cover-table th { background:${C}; color:#fff; padding:7px 12px; text-align:center; font-weight:400; font-size:8.5pt; border:1px solid ${C}; }
-.cover-table td { padding:6px 12px; border:1px solid #d1d5db; vertical-align:middle; }
+/* ── 請求金額ボックス ── */
+.amount-box { border:2px solid #2c3e50; margin:0 0 24px; display:flex; align-items:center; }
+.amount-box .label { background:#2c3e50; color:#fff; padding:16px 24px; font-size:11pt; font-weight:700; white-space:nowrap; letter-spacing:2px; }
+.amount-box .value { padding:16px 28px; font-size:26pt; font-weight:700; color:#1a202c; letter-spacing:1px; font-variant-numeric:tabular-nums; }
+
+/* ── 品目テーブル ── */
+.cover-table { width:100%; border-collapse:collapse; margin-bottom:20px; font-size:9pt; }
+.cover-table th { background:#2c3e50; color:#fff; padding:8px 14px; text-align:center; font-weight:400; font-size:8.5pt; }
+.cover-table td { padding:7px 14px; border-bottom:1px solid #e2e8f0; vertical-align:middle; }
 .cover-table td.r { text-align:right; font-variant-numeric:tabular-nums; }
-.cover-table tr.total-row td { font-weight:700; background:#f0f4f8; border-top:2px solid ${C}; }
+.cover-table tr:last-child td { border-bottom:none; }
+.cover-table tr.total-row td { font-weight:700; background:#f7fafc; border-top:2px solid #2c3e50; border-bottom:none; }
 
-.tax-section { margin:12px 0; }
-.tax-section table { width:50%; border-collapse:collapse; font-size:8.5pt; }
-.tax-section th { background:#e8ecf1; padding:5px 10px; text-align:center; font-weight:400; border:1px solid #d1d5db; }
-.tax-section td { padding:5px 10px; text-align:right; border:1px solid #d1d5db; font-variant-numeric:tabular-nums; }
+/* ── 税額・お支払い情報（グループ） ── */
+.payment-group { background:#f7fafc; border:1px solid #e2e8f0; padding:16px 20px; margin-bottom:16px; }
+.payment-group-title { font-size:9pt; font-weight:700; color:#2c3e50; margin-bottom:10px; letter-spacing:1px; }
 
-.meta-grid { display:grid; grid-template-columns:100px 1fr; gap:2px 12px; margin:16px 0; font-size:9pt; }
-.meta-grid .lbl { font-weight:700; color:#555; }
-.meta-grid .val { color:#222; }
+.tax-table { border-collapse:collapse; font-size:8.5pt; margin-bottom:12px; }
+.tax-table th { background:#edf2f7; padding:5px 14px; text-align:center; font-weight:400; border:1px solid #e2e8f0; color:#4a5568; }
+.tax-table td { padding:5px 14px; text-align:right; border:1px solid #e2e8f0; font-variant-numeric:tabular-nums; }
 
-.bank-section { margin:16px 0; }
-.bank-label { font-size:9pt; font-weight:700; margin-bottom:4px; color:${C}; }
-.bank-box { background:#f8f9fb; padding:10px 14px; font-size:9pt; border:1px solid #d1d5db; border-radius:2px; line-height:1.6; }
+.payment-details { display:flex; gap:32px; font-size:8.5pt; color:#4a5568; }
+.payment-details .item { display:flex; gap:8px; }
+.payment-details .item-label { font-weight:600; color:#2d3748; white-space:nowrap; }
 
-.notes { font-size:8pt; color:#888; margin-top:16px; line-height:1.6; }
+/* ── 振込先 ── */
+.bank-section { margin-bottom:12px; }
+.bank-label { font-size:8.5pt; font-weight:600; color:#2c3e50; margin-bottom:4px; }
+.bank-box { background:#fff; padding:10px 14px; font-size:9pt; border:1px solid #e2e8f0; line-height:1.7; color:#2d3748; }
+
+/* ── 備考 ── */
+.notes { font-size:8pt; color:#a0aec0; line-height:1.6; }
 .notes p { margin:1px 0; }
 
-/* 明細 */
+/* ── 明細ページ ── */
 .page-break { page-break-before:always; }
-.detail-title { background:${C}; color:#fff; padding:10px 0; font-size:16pt; font-weight:700; text-align:center; letter-spacing:10px; margin-bottom:8px; }
-.detail-client { font-size:9pt; color:#555; margin-bottom:8px; padding:4px 0; border-bottom:1px solid #e5e7eb; }
+.detail-title { background:#2c3e50; color:#fff; padding:10px 0; font-size:16pt; font-weight:700; text-align:center; letter-spacing:10px; margin-bottom:10px; }
+.detail-client { font-size:9pt; color:#4a5568; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid #e2e8f0; }
 
 table.detail { width:100%; border-collapse:collapse; font-size:8pt; }
-table.detail th { background:${C}; color:#fff; padding:5px 8px; text-align:center; font-weight:400; font-size:7.5pt; border:1px solid ${C}; white-space:nowrap; }
-table.detail td { padding:4px 8px; border:1px solid #e5e7eb; font-size:8pt; }
+table.detail th { background:#2c3e50; color:#fff; padding:6px 8px; text-align:center; font-weight:400; font-size:7.5pt; white-space:nowrap; }
+table.detail td { padding:5px 8px; border-bottom:1px solid #edf2f7; font-size:8pt; }
 table.detail td.r { text-align:right; font-variant-numeric:tabular-nums; }
-table.detail tr:nth-child(even) td { background:#fafbfc; }
-.detail-total-row td { font-weight:700; background:#f0f4f8 !important; border-top:2px solid ${C} !important; }
-.detail-tax-row td { color:#555; border-top:none !important; }
+table.detail tr:nth-child(even) td { background:#f7fafc; }
+.detail-total-row td { font-weight:700; background:#edf2f7 !important; border-top:2px solid #2c3e50 !important; }
+.detail-tax-row td { color:#718096; border-top:none !important; }
 `
 
   const handlePrint = () => {
@@ -224,6 +237,10 @@ table.detail tr:nth-child(even) td { background:#fafbfc; }
               {issuer.issuer_address && <div>{issuer.issuer_address}</div>}
               {issuer.issuer_tel && <div>TEL: {issuer.issuer_tel}</div>}
               {issuer.tax_id && <div>登録番号: {issuer.tax_id}</div>}
+              <div className="meta">
+                <div>発行日: {invoicedAtStr}</div>
+                <div>No. {invoiceId}</div>
+              </div>
             </div>
           </div>
 
@@ -252,28 +269,28 @@ table.detail tr:nth-child(even) td { background:#fafbfc; }
             </tbody>
           </table>
 
-          <div className="tax-section">
-            <table>
+          <div className="payment-group">
+            <table className="tax-table">
               <thead><tr><th>税率</th><th>対象額</th><th>消費税額</th></tr></thead>
               <tbody><tr><td>10%</td><td>{fmtCur(subtotal)}</td><td>{fmtCur(tax)}</td></tr></tbody>
             </table>
-          </div>
 
-          <div className="meta-grid">
-            <div className="lbl">発行日</div><div className="val">{invoicedAtStr}</div>
-            <div className="lbl">請求書番号</div><div className="val">{invoiceId}</div>
-            <div className="lbl">お支払期限</div><div className="val">{invoicedAt ? calcPaymentDue(invoicedAt) : "-"}</div>
-          </div>
-
-          {issuer.bank_info && (
-            <div className="bank-section">
-              <div className="bank-label">■ お振込先</div>
-              <div className="bank-box">{issuer.bank_info}</div>
+            <div className="payment-details">
+              <div className="item"><span className="item-label">発行日:</span><span>{invoicedAtStr}</span></div>
+              <div className="item"><span className="item-label">請求書番号:</span><span>{invoiceId}</span></div>
+              <div className="item"><span className="item-label">お支払期限:</span><span>{invoicedAt ? calcPaymentDue(invoicedAt) : "-"}</span></div>
             </div>
-          )}
 
-          <div className="notes">
-            <p>※ お振込手数料はご負担くださいますようお願い申し上げます。</p>
+            {issuer.bank_info && (
+              <div className="bank-section">
+                <div className="bank-label">■ お振込先</div>
+                <div className="bank-box">{issuer.bank_info}</div>
+              </div>
+            )}
+
+            <div className="notes">
+              <p>※ お振込手数料はご負担くださいますようお願い申し上げます。</p>
+            </div>
           </div>
         </div>
 
