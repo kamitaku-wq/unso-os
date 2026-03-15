@@ -170,6 +170,43 @@ export async function deleteExpense(id: string) {
   if (error) throw new Error(error.message)
 }
 
+// 締め期間の経費一覧を取得する（submitted_at 基準。ADMIN/OWNER 用）
+export async function getExpensesByClosingPeriod(periodStart: string, periodEnd: string) {
+  const supabase = await createClient()
+  const PAGE = 1000
+  let all: Record<string, unknown>[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('id, expense_id, emp_id, expense_date, category_name, amount, vendor, description, status, submitted_at, approved_at, approved_by')
+      .gte('submitted_at', periodStart)
+      .lte('submitted_at', periodEnd)
+      .order('emp_id')
+      .order('submitted_at', { ascending: false })
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error(error.message)
+    const rows = data ?? []
+    all = all.concat(rows)
+    if (rows.length < PAGE) break
+    from += PAGE
+  }
+  return all
+}
+
+// 経費を一括承認する（ADMIN/OWNER 用）
+export async function bulkApproveExpenses(ids: string[], approvedBy: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('expenses')
+    .update({ status: 'APPROVED', approved_at: new Date().toISOString(), approved_by: approvedBy })
+    .in('id', ids)
+    .eq('status', 'SUBMITTED')
+    .select('id')
+  if (error) throw new Error(error.message)
+  return data?.length ?? 0
+}
+
 // 経費を支払済みにする
 export async function payExpense(id: string) {
   const supabase = await createClient()

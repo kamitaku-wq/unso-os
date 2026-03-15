@@ -7,6 +7,7 @@ import { CleaningJobPanel } from "@/components/admin/cleaning-job-panel"
 import { ClosingPanel } from "@/components/admin/closing-panel"
 import { EmpRequestPanel } from "@/components/admin/emp-request-panel"
 import { EmployeeManagementPanel } from "@/components/admin/employee-management-panel"
+import { ExpenseClosingPanel } from "@/components/admin/expense-closing-panel"
 import { ExpensePanel } from "@/components/admin/expense-panel"
 import { InvitePanel } from "@/components/admin/invite-panel"
 import { Button } from "@/components/ui/button"
@@ -55,6 +56,8 @@ export default function AdminPageClient() {
   const [pendingCounts, setPendingCounts] = useState<PendingCounts>({ billables: 0, expenses: 0, empRequests: 0 })
   const [features, setFeatures] = useState<EnabledFeatures | null>(null)
   const [ready, setReady] = useState(false)
+  const [expenseMode, setExpenseMode] = useState<"closing" | "list">("closing")
+  const [empNames, setEmpNames] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -74,7 +77,17 @@ export default function AdminPageClient() {
       .then((counts: PendingCounts) => { setPendingCounts(counts); return counts })
       .catch(() => ({ billables: 0, expenses: 0, empRequests: 0 }) as PendingCounts)
 
-    void Promise.all([mePromise, countsPromise]).then(([f, counts]) => {
+    // 社員名マップを取得する
+    const empPromise = fetch("/api/admin/employees", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data: { emp_id: string; name: string }[]) => {
+        const map: Record<string, string> = {}
+        if (Array.isArray(data)) data.forEach((e) => { map[e.emp_id] = e.name })
+        setEmpNames(map)
+      })
+      .catch(() => {})
+
+    void Promise.all([mePromise, countsPromise, empPromise]).then(([f, counts]) => {
       if (queryTab) {
         setActiveTab(queryTab)
       } else {
@@ -138,7 +151,19 @@ export default function AdminPageClient() {
 
         {ready && activeTab === "billables" ? <BillablePanel /> : null}
         {ready && activeTab === "cleaningJobs" ? <CleaningJobPanel /> : null}
-        {ready && activeTab === "expenses" ? <ExpensePanel /> : null}
+        {ready && activeTab === "expenses" ? (
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Button size="sm" variant={expenseMode === "closing" ? "default" : "outline"} onClick={() => setExpenseMode("closing")}>
+                締め期間ビュー
+              </Button>
+              <Button size="sm" variant={expenseMode === "list" ? "default" : "outline"} onClick={() => setExpenseMode("list")}>
+                一覧ビュー
+              </Button>
+            </div>
+            {expenseMode === "closing" ? <ExpenseClosingPanel empNames={empNames} /> : <ExpensePanel />}
+          </div>
+        ) : null}
         {ready && activeTab === "closings" ? <ClosingPanel /> : null}
         {ready && activeTab === "employees" ? <EmployeeManagementPanel /> : null}
         {ready && activeTab === "empRequests" ? <EmpRequestPanel /> : null}
