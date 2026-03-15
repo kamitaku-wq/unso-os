@@ -60,9 +60,9 @@ function getLastMonthRange() {
   return { from: first.toISOString().slice(0, 10), to: last.toISOString().slice(0, 10) }
 }
 
-// 支払期限: 翌月末
-function calcPaymentDue(invoicedAt: string): string {
-  const d = new Date(invoicedAt)
+// 支払期限: 請求月の翌月末
+function calcPaymentDue(periodTo: string): string {
+  const d = new Date(periodTo)
   const due = new Date(d.getFullYear(), d.getMonth() + 2, 0)
   return `${due.getFullYear()}年${due.getMonth() + 1}月${due.getDate()}日`
 }
@@ -269,7 +269,7 @@ table.detail tr:nth-child(even) td { background:#f7fafc; }
             <div className="payment-details">
               <div className="item"><span className="item-label">発行日:</span><span>{invoicedAtStr}</span></div>
               <div className="item"><span className="item-label">請求書番号:</span><span>{invoiceId}</span></div>
-              <div className="item"><span className="item-label">お支払期限:</span><span>{invoicedAt ? calcPaymentDue(invoicedAt) : "-"}</span></div>
+              <div className="item"><span className="item-label">お支払期限:</span><span>{periodTo ? calcPaymentDue(periodTo) : "-"}</span></div>
             </div>
 
             {issuer.bank_info && (
