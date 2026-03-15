@@ -39,7 +39,8 @@ export default function SelectCompanyClient() {
         body: JSON.stringify({ company_id: companyId }),
       })
       if (!res.ok) throw new Error("切替に失敗しました")
-      router.push("/auth/post-login")
+      // フルリロードで Cookie を確実に反映させる
+      window.location.href = "/auth/post-login"
     } catch {
       toast.error("会社の切替に失敗しました")
       setSwitching(null)
