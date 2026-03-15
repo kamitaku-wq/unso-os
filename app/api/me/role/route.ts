@@ -1,14 +1,25 @@
-// 自分自身のロールを変更するAPI（デモ用・全ユーザー利用可）
+// 自分自身のロールを変更するAPI（デモ会社専用）
 import { NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-error'
+import { getMyEmployee } from '@/lib/core/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 export async function PATCH(request: Request) {
   try {
+    const employee = await getMyEmployee()
+
+    // デモ会社かどうかを確認
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user?.email) return NextResponse.json({ error: '未認証' }, { status: 401 })
+    const { data: company } = await supabase
+      .from('companies')
+      .select('is_demo')
+      .eq('id', employee.company_id)
+      .single()
+
+    if (!company?.is_demo) {
+      return NextResponse.json({ error: 'この機能はデモ環境でのみ利用できます' }, { status: 403 })
+    }
 
     const { role } = await request.json()
     const validRoles = ['WORKER', 'ADMIN', 'OWNER']
@@ -25,7 +36,7 @@ export async function PATCH(request: Request) {
     const { error } = await admin
       .from('employees')
       .update({ role })
-      .eq('google_email', user.email)
+      .eq('id', employee.id)
 
     if (error) throw new Error(error.message)
 

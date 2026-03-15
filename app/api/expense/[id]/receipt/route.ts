@@ -27,6 +27,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const supabase = await createClient()
 
+    // 自分の経費かADMIN/OWNERかチェック
+    const { data: expense } = await supabase
+      .from('expenses')
+      .select('emp_id')
+      .eq('id', id)
+      .single()
+    if (!expense) return NextResponse.json({ error: '経費が見つかりません' }, { status: 404 })
+    if (expense.emp_id !== employee.emp_id && !['ADMIN', 'OWNER'].includes(employee.role)) {
+      return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+    }
+
     // ストレージパス: {emp_id}/{expense_uuid}/{timestamp}.{ext}
     const ext = file.name.split('.').pop() ?? 'jpg'
     const path = `${employee.emp_id}/${id}/${Date.now()}.${ext}`
@@ -57,15 +68,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 // レシートの署名付き URL を取得する（表示用）
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await getMyEmployee()
+    const employee = await getMyEmployee()
     const { id } = await params
     const supabase = await createClient()
 
     const { data: expense } = await supabase
       .from('expenses')
-      .select('receipt_url')
+      .select('receipt_url, emp_id')
       .eq('id', id)
       .single()
+
+    if (expense && expense.emp_id !== employee.emp_id && !['ADMIN', 'OWNER'].includes(employee.role)) {
+      return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+    }
 
     if (!expense?.receipt_url) {
       return NextResponse.json({ url: null })
